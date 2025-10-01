@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>静态代码托管</title>
+</head>
+<body>
+    <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创想工作台 | 一站式创意与 productivity 平台</title>
+    <!-- 外部资源 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.30.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.4/dist/gsap.min.js"></script>
+    
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5', // 主色调：深靛蓝
+                        secondary: '#f59e0b', // 辅助色：琥珀色
+                        accent: '#10b981', // 强调色：翡翠绿
+                        danger: '#ef4444', // 危险色：红色
+                        dark: '#111827',
+                        light: '#f9fafb'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Poppins', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'gradient': 'gradient 8s ease infinite',
+                        'bounce-slow': 'bounce 3s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        gradient: {
+                            '0%, 100%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .text-shadow-lg {
+                text-shadow: 0 4px 8px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+            }
+            .bg-gradient-animated {
+                background: linear-gradient(90deg, #4f46e5, #f59e0b, #10b981);
+                background-size: 200% 200%;
+                animation: gradient 8s ease infinite;
+            }
+            .clip-path-slant {
+                clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .perspective {
+                perspective: 1000px;
+            }
+            .backdrop-blur {
+                backdrop-filter: blur(8px);
+            }
+            .rotate-y-180 {
+                transform: rotateY(180deg);
+            }
+            .preserve-3d {
+                transform-style: preserve-3d;
+            }
+            .backface-hidden {
+                backface-visibility: hidden;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-dark text-gray-800 dark:text-gray-200 transition-colors duration-300 min-h-screen flex flex-col">
+    <!-- 顶部导航栏 -->
+    <header class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" id="main-header">
+        <div class="bg-white/80 dark:bg-dark/80 backdrop-blur border-b border-gray-200 dark:border-gray-700">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- 品牌标识 -->
+                    <div class="flex items-center">
+                        <a href="#" class="flex items-center">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-animated flex items-center justify-center mr-3">
+                                <i class="fa fa-lightbulb-o text-white text-xl"></i>
+                            </div>
+                            <span class="text-xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">创想工作台</span>
+                        </a>
+                    </div>
+                    
+                    <!-- 导航链接 - 桌面端 -->
+                    <nav class="hidden md:flex space-x-8">
+                        <a href="#dashboard" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">仪表盘</a>
+                        <a href="#tasks" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">任务管理</a>
+                        <a href="#notes" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">笔记</a>
+                        <a href="#calendar" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">日历</a>
+                        <a href="#inspiration" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary font-medium transition-colors">灵感板</a>
+                    </nav>
+                    
+                    <!-- 右侧功能区 -->
+                    <div class="flex items-center space-x-4">
+                        <!-- 搜索按钮 -->
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors relative" id="search-btn">
+                            <i class="fa fa-search text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                        
+                        <!-- 通知按钮 -->
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors relative" id="notifications-btn">
+                            <i class="fa fa-bell text-gray-600 dark:text-gray-300"></i>
+                            <span class="absolute top-0 right-0 w-2 h-2 bg-danger rounded-full"></span>
+                        </button>
+                        
+                        <!-- 主题切换 -->
+                        <button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" id="theme-toggle">
+                            <i class="fa fa-moon-o dark:hidden text-gray-600"></i>
+                            <i class="fa fa-sun-o hidden dark:block text-yellow-400"></i>
+                        </button>
+                        
+                        <!-- 用户头像 -->
+                        <div class="relative" id="user-menu-container">
+                            <button class="flex items-center space-x-2 focus:outline-none" id="user-menu-button">
+                                <img src="https://picsum.photos/id/64/200" alt="用户头像" class="w-8 h-8 rounded-full object-cover border-2 border-primary">
+                                <span class="hidden md:inline-block font-medium">张创意</span>
+                                <i class="fa fa-chevron-down text-xs text-gray-500"></i>
+                            </button>
+                            <!-- 用户菜单 (默认隐藏) -->
+                            <div class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-50 hidden border border-gray-200 dark:border-gray-700" id="user-menu">
+                                <a href="#profile" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">个人资料</a>
+                                <a href="#settings" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">设置</a>
+                                <div class="border-t border-gray-200 dark:border-gray-700"></div>
+                                <a href="#logout" class="block px-4 py-2 text-sm text-danger hover:bg-gray-100 dark:hover:bg-gray-700">退出登录</a>
+                            </div>
+                        </div>
+                        
+                        <!-- 移动端菜单按钮 -->
+                        <button class="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" id="mobile-menu-button">
+                            <i class="fa fa-bars text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 移动端菜单 (默认隐藏) -->
+        <div class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">仪表盘</a>
+                <a href="#tasks" class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">任务管理</a>
+                <a href="#notes" class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">笔记</a>
+                <a href="#calendar" class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">日历</a>
+                <a href="#inspiration" class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">灵感板</a>
+            </div>
+        </div>
+        
+        <!-- 搜索框 (默认隐藏) -->
+        <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 hidden" id="search-container">
+            <div class="container mx-auto px-4 py-3">
+                <div class="relative">
+                    <input type="text" placeholder="搜索任务、笔记、灵感或设置..." class="w-full py-2 pl-10 pr-4 rounded-lg bg-gray-100 dark:bg-gray-700 border-0 focus:ring-2 focus:ring-primary outline-none transition-all">
+                    <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <button class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" id="close-search">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div class="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                    <p>热门搜索: <a href="#" class="text-primary hover:underline">项目截止日期</a>, <a href="#" class="text-primary hover:underline">创意灵感</a>, <a href="#" class="text-primary hover:underline">周计划</a></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 通知面板 (默认隐藏) -->
+        <div class="absolute top-full right-0 w-80 bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hidden z-50" id="notifications-panel">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 class="font-semibold">通知</h3>
+                <a href="#" class="text-sm text-primary hover:underline">全部标为已读</a>
+            </div>
+            <div class="max-h-96 overflow-y-auto scrollbar-hide">
+                <!-- 通知项 -->
+                <div class="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div class="flex">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                            <i class="fa fa-calendar"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm"><span class="font-medium">会议提醒:</span> 今天下午3点的项目评审会</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">1小时前</p>
+                        </div>
+                        <div class="ml-2">
+                            <span class="w-2 h-2 bg-danger rounded-full"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div class="flex">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                            <i class="fa fa-tasks"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm"><span class="font-medium">任务截止:</span> 网站设计稿明天到期</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">3小时前</p>
+                        </div>
+                        <div class="ml-2">
+                            <span class="w-2 h-2 bg-danger rounded-full"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div class="flex">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                            <i class="fa fa-user"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm"><span class="font-medium">李明</span> 分享了一个灵感给你</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">昨天</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div class="flex">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                            <i class="fa fa-info"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm">系统已更新至最新版本 v2.3.0</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">2天前</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 text-center border-t border-gray-200 dark:border-gray-700">
+                <a href="#all-notifications" class="text-sm text-primary hover:underline">查看所有通知</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 pt-16">
+        <!-- 欢迎区域 -->
+        <section class="bg-gradient-to-br from-primary/90 to-primary clip-path-slant text-white py-16 md:py-24">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-4xl">
+                    <h1 class="text-[clamp(2rem,5vw,3.5rem)] font-display font-bold leading-tight text-shadow-lg mb-4">
+                        欢迎回来，<span class="text-yellow-300">张创意</span>
+                    </h1>
+                    <p class="text-[clamp(1rem,2vw,1.25rem)] text-blue-100 mb-8 max-w-2xl">
+                        今天是 <span id="current-date" class="font-medium"></span>，你有 <span class="font-medium text-yellow-300">5 个待办任务</span> 和 <span class="font-medium text-yellow-300">2 个会议</span>。
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <button class="px-6 py-3 bg-white text-primary font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center">
+                            <i class="fa fa-plus-circle mr-2"></i> 添加新任务
+                        </button>
+                        <button class="px-6 py-3 bg-secondary text-white font-medium rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex items-center">
+                            <i class="fa fa-calendar-plus-o mr-2"></i> 安排日程
+                        </button>
+                        <button class="px-6 py-3 bg-transparent border-2 border-white text-white font-medium rounded-lg hover:bg-white/10 transition-all duration-300 flex items-center">
+                            <i class="fa fa-lightbulb-o mr-2"></i> 记录灵感
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 仪表盘区域 -->
+        <section id="dashboard" class="py-12 bg-gray-50 dark:bg-dark">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8">
+                    <h2 class="text-2xl md:text-3xl font-display font-bold mb-2">工作台概览</h2>
+                    <p class="text-gray-600 dark:text-gray-400">查看你的 productivity 数据和最近活动</p>
+                </div>
+                
+                <!-- 数据卡片行 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- 完成任务卡片 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 transform hover:-translate-y-1 duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 dark:text-gray-400 font-medium">本周完成任务</h3>
+                            <div class="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
+                                <i class="fa fa-check"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <p class="text-3xl font-bold">12</p>
+                                <p class="text-sm text-accent flex items-center mt-1">
+                                    <i class="fa fa-arrow-up mr-1"></i> 比上周增长 20%
+                                </p>
+                            </div>
+                            <div class="h-12 w-24">
+                                <canvas id="completedTasksChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 待办任务卡片 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 transform hover:-translate-y-1 duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 dark:text-gray-400 font-medium">待办任务</h3>
+                            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <i class="fa fa-list"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <p class="text-3xl font-bold">5</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-1">
+                                    <i class="fa fa-clock-o mr-1"></i> 3 个即将到期
+                                </p>
+                            </div>
+                            <div class="h-12 w-24">
+                                <canvas id="pendingTasksChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 笔记数量卡片 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 transform hover:-translate-y-1 duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 dark:text-gray-400 font-medium">笔记总数</h3>
+                            <div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                                <i class="fa fa-sticky-note"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <p class="text-3xl font-bold">28</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-1">
+                                    <i class="fa fa-tag mr-1"></i> 分类为 6 个主题
+                                </p>
+                            </div>
+                            <div class="h-12 w-24">
+                                <canvas id="notesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 专注时间卡片 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 transform hover:-translate-y-1 duration-300">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-gray-500 dark:text-gray-400 font-medium">本周专注时间</h3>
+                            <div class="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center text-danger">
+                                <i class="fa fa-clock-o"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <p class="text-3xl font-bold">16h</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 flex items-center mt-1">
+                                    <i class="fa fa-arrow-down mr-1"></i> 比上周减少 5%
+                                </p>
+                            </div>
+                            <div class="h-12 w-24">
+                                <canvas id="focusTimeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 图表和活动区域 -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- 生产力趋势图表 -->
+                    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-100 dark:border-gray-700">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg">生产力趋势</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 text-sm bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors">周</button>
+                                <button class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">月</button>
+                                <button class="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">年</button>
+                            </div>
+                        </div>
+                        <div class="h-80">
+                            <canvas id="productivityTrendChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 最近活动 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-100 dark:border-gray-700">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg">最近活动</h3>
+                            <a href="#" class="text-sm text-primary hover:underline">查看全部</a>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="flex">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-accent mt-1">
+                                    <i class="fa fa-check"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm">完成了任务 <span class="font-medium">设计首页原型</span></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">今天 10:23</p>
+                                </div>
+                            </div>
+                            <div class="flex">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-1">
+                                    <i class="fa fa-sticky-note"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm">创建了新笔记 <span class="font-medium">产品创意构思</span></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">今天 09:15</p>
+                                </div>
+                            </div>
+                            <div class="flex">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary mt-1">
+                                    <i class="fa fa-calendar"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm">添加了日程 <span class="font-medium">项目评审会议</span></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">昨天 16:42</p>
+                                </div>
+                            </div>
+                            <div class="flex">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 mt-1">
+                                    <i class="fa fa-image"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm">在灵感板添加了 3 张图片</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">昨天 14:28</p>
+                                </div>
+                            </div>
+                            <div class="flex">
+                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-danger/10 flex items-center justify-center text-danger mt-1">
+                                    <i class="fa fa-edit"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm">更新了任务 <span class="font-medium">网站开发进度</span></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">前天 11:35</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 任务管理区域 -->
+        <section id="tasks" class="py-12 bg-white dark:bg-gray-800">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-display font-bold mb-2">任务管理</h2>
+                        <p class="text-gray-600 dark:text-gray-400">组织、跟踪和完成你的任务</p>
+                    </div>
+                    <button class="mt-4 sm:mt-0 px-5 py-2.5 bg-primary text-white font-medium rounded-lg shadow hover:bg-primary/90 transition-colors flex items-center" id="add-task-btn">
+                        <i class="fa fa-plus mr-2"></i> 新建任务
+                    </button>
+                </div>
+                
+                <!-- 任务过滤器 -->
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
+                    <div class="flex flex-wrap gap-2">
+                        <button class="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium">全部任务</button>
+                        <button class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md text-sm font-medium transition-colors">待完成</button>
+                        <button class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md text-sm font-medium transition-colors">已完成</button>
+                        <button class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md text-sm font-medium transition-colors">高优先级</button>
+                        <button class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md text-sm font-medium transition-colors">今天到期</button>
+                    </div>
+                    <div class="mt-4 flex flex-col sm:flex-row gap-4">
+                        <div class="flex-1 relative">
+                            <input type="text" placeholder="搜索任务..." class="w-full pl-10 pr-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                            <i class="fa fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        </div>
+                        <div class="flex gap-2">
+                            <select class="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all">
+                                <option>所有项目</option>
+                                <option>网站 redesign</option>
+                                <option>移动应用开发</option>
+                                <option>市场推广</option>
+                                <option>内容创作</option>
+                            </select>
+                            <button class="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <i class="fa fa-filter text-gray-600 dark:text-gray-400"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 任务列表 -->
+                <div class="space-y-4">
+                    <!-- 任务项 1 -->
+                    <div class="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <input type="checkbox" class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary">
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <h3 class="font-medium text-lg">完成产品首页设计</h3>
+                                    <div class="mt-2 sm:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="flex items-center mr-4">
+                                            <i class="fa fa-calendar-o mr-1"></i> 今天 18:00
+                                        </span>
+                                        <span class="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full text-xs font-medium">高优先级</span>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-gray-600 dark:text-gray-300 text-sm">完成首页的最终设计稿，包括响应式布局和交互效果，准备进行开发评审。</p>
+                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">项目:</span>
+                                        <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-xs">网站 redesign</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">标签:</span>
+                                        <span class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded text-xs">设计</span>
+                                        <span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-xs ml-1">UI</span>
+                                    </div>
+                                    <div class="ml-auto flex space-x-2">
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-trash-o"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 任务项 2 -->
+                    <div class="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <input type="checkbox" class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary">
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <h3 class="font-medium text-lg">编写API文档</h3>
+                                    <div class="mt-2 sm:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="flex items-center mr-4">
+                                            <i class="fa fa-calendar-o mr-1"></i> 明天 12:00
+                                        </span>
+                                        <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-full text-xs font-medium">中优先级</span>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-gray-600 dark:text-gray-300 text-sm">为新开发的用户认证API编写详细文档，包括请求参数、响应格式和错误处理。</p>
+                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">项目:</span>
+                                        <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded text-xs">移动应用开发</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">标签:</span>
+                                        <span class="bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-2 py-0.5 rounded text-xs">文档</span>
+                                        <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-xs ml-1">API</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">分配给:</span>
+                                        <div class="flex -space-x-2">
+                                            <img src="https://picsum.photos/id/91/200" alt="用户头像" class="w-6 h-6 rounded-full border-2 border-white dark:border-gray-700">
+                                        </div>
+                                    </div>
+                                    <div class="ml-auto flex space-x-2">
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-trash-o"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 任务项 3 (已完成) -->
+                    <div class="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <input type="checkbox" checked class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary">
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <h3 class="font-medium text-lg line-through text-gray-400 dark:text-gray-500">设计首页原型</h3>
+                                    <div class="mt-2 sm:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="flex items-center mr-4">
+                                            <i class="fa fa-calendar-check-o mr-1"></i> 今天 10:23 完成
+                                        </span>
+                                        <span class="px-2 py-1 bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-xs font-medium">已完成</span>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-gray-400 dark:text-gray-500 text-sm line-through">创建首页的低保真和高保真原型，确定整体布局和用户流程。</p>
+                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">项目:</span>
+                                        <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-xs">网站 redesign</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">标签:</span>
+                                        <span class="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded text-xs">设计</span>
+                                        <span class="bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400 px-2 py-0.5 rounded text-xs ml-1">原型</span>
+                                    </div>
+                                    <div class="ml-auto flex space-x-2">
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-trash-o"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 任务项 4 -->
+                    <div class="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <input type="checkbox" class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary">
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <h3 class="font-medium text-lg">准备市场推广方案</h3>
+                                    <div class="mt-2 sm:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="flex items-center mr-4">
+                                            <i class="fa fa-calendar-o mr-1"></i> 周五 15:00
+                                        </span>
+                                        <span class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-xs font-medium">低优先级</span>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-gray-600 dark:text-gray-300 text-sm">为新产品发布准备详细的市场推广方案，包括社交媒体、内容营销和合作推广渠道。</p>
+                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">项目:</span>
+                                        <span class="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded text-xs">市场推广</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">标签:</span>
+                                        <span class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-0.5 rounded text-xs">营销</span>
+                                        <span class="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded text-xs ml-1">方案</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">分配给:</span>
+                                        <div class="flex -space-x-2">
+                                            <img src="https://picsum.photos/id/65/200" alt="用户头像" class="w-6 h-6 rounded-full border-2 border-white dark:border-gray-700">
+                                        </div>
+                                    </div>
+                                    <div class="ml-auto flex space-x-2">
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-trash-o"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 任务项 5 -->
+                    <div class="bg-white dark:bg-gray-700/50 rounded-xl shadow-sm p-4 border border-gray-100 dark:border-gray-600 hover:shadow-md transition-shadow">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 mt-1">
+                                <input type="checkbox" class="w-5 h-5 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary">
+                            </div>
+                            <div class="ml-4 flex-1">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <h3 class="font-medium text-lg">撰写产品介绍文章</h3>
+                                    <div class="mt-2 sm:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="flex items-center mr-4">
+                                            <i class="fa fa-calendar-o mr-1"></i> 周六 20:00
+                                        </span>
+                                        <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-full text-xs font-medium">中优先级</span>
+                                    </div>
+                                </div>
+                                <p class="mt-2 text-gray-600 dark:text-gray-300 text-sm">为新功能撰写产品介绍文章，突出核心优势和使用场景，用于官网和博客发布。</p>
+                                <div class="mt-3 flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">项目:</span>
+                                        <span class="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-xs">内容创作</span>
+                                    </div>
+                                    <div class="flex items-center text-sm">
+                                        <span class="text-gray-500 dark:text-gray-400 mr-2">标签:</span>
+                                        <span class="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded text-xs">写作</span>
+                                        <span class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded text-xs ml-1">产品</span>
+                                    </div>
+                                    <div class="ml-auto flex space-x-2">
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                        <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-gray-500 dark:text-gray-400">
+                                            <i class="fa fa-trash-o"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="mt-8 flex justify-center">
+                    <nav class="flex items-center space-x-1">
+                        <button class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        <button class="px-3 py-2 rounded-md border border-primary bg-primary text-white">1</button>
+                        <button class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">2</button>
+                        <button class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">3</button>
+                        <span class="px-3 py-2 text-gray-500 dark:text-gray-400">...</span>
+                        <button class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">8</button>
+                        <button class="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 笔记区域 -->
+        <section id="notes" class="py-12 bg-gray-50 dark:bg-dark">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-display font-bold mb-2">我的笔记</h2>
+                        <p class="text-gray-600 dark:text-gray-400">记录想法、灵感和重要信息</p>
+                    </div>
+                    <button class="mt-4 sm:mt-0 px-5 py-2.5 bg-primary text-white font-medium rounded-lg shadow hover:bg-primary/90 transition-colors flex items-center">
+                        <i class="fa fa-plus mr-2"></i> 新建笔记
+                    </button>
+                </div>
+                
+                <!-- 笔记分类 -->
+                <div class="mb-8 overflow-x-auto scrollbar-hide">
+                    <div class="flex space-x-2 pb-2 min-w-max">
+                        <button class="px-4 py-2 bg-primary text-white rounded-full text-sm font-medium flex items-center">
+                            <i class="fa fa-th-large mr-2"></i> 全部笔记
+                        </button>
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium flex items-center transition-colors">
+                            <i class="fa fa-lightbulb-o mr-2 text-yellow-500"></i> 创意灵感
+                        </button>
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium flex items-center transition-colors">
+                            <i class="fa fa-briefcase mr-2 text-blue-500"></i> 工作项目
+                        </button>
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium flex items-center transition-colors">
+                            <i class="fa fa-book mr-2 text-green-500"></i> 学习笔记
+                        </button>
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium flex items-center transition-colors">
+                            <i class="fa fa-shopping-cart mr-2 text-purple-500"></i> 购物清单
+                        </button>
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium flex items-center transition-colors">
+                            <i class="fa fa-home mr-2 text-red-500"></i> 个人生活
+                        </button>
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium flex items-center transition-colors">
+                            <i class="fa fa-cutlery mr-2 text-orange-500"></i> 食谱
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 笔记网格 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 笔记卡片 1 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 group">
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="px-2.5 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full text-xs font-medium">创意灵感</span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg mb-2 group-hover:text-primary transition-colors">产品创新功能构思</h3>
+                            <p class="text-gray-600 dark:text-gray-300 text-sm line-clamp-3 mb-4">
+                                可以为我们的应用添加一个智能推荐功能，基于用户的使用习惯和偏好，自动推荐相关内容和工具。还可以考虑加入协作编辑模式，允许多用户同时编辑同一文档...
+                            </p>
+                            <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span>今天 09:15</span>
+                                <div class="flex items-center">
+                                    <i class="fa fa-tag mr-1"></i>
+                                    <span>产品, 创新</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 笔记卡片 2 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 group">
+                        <div class="h-40 bg-gradient-to-r from-blue-400 to-indigo-500 relative overflow-hidden">
+                            <img src="https://picsum.photos/id/180/600/400" alt="设计灵感图片" class="w-full h-full object-cover mix-blend-overlay opacity-60">
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-white font-bold text-lg text-shadow">UI设计灵感</span>
+                            </div>
+                        </div>
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">工作项目</span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg mb-2 group-hover:text-primary transition-colors">网站 redesign 配色方案</h3>
+                            <p class="text-gray-600 dark:text-gray-300 text-sm line-clamp-2 mb-4">
+                                主色调采用深蓝色系，传达专业和信任感。辅助色使用柔和的橙色，用于强调和交互元素。中性色使用灰度渐变，确保内容清晰可读...
+                            </p>
+                            <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span>昨天 14:30</span>
+                                <div class="flex items-center">
+                                    <i class="fa fa-tag mr-1"></i>
+                                    <span>设计, 配色</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 笔记卡片 3 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 group">
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">学习笔记</span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg mb-2 group-hover:text-primary transition-colors">JavaScript 异步编程总结</h3>
+                            <p class="text-gray-600 dark:text-gray-300 text-sm line-clamp-3 mb-4">
+                                1. 回调函数：最基础的异步处理方式，但容易导致回调地狱。
+                                2. Promise：解决回调地狱问题，提供链式调用。
+                                3. Async/Await：基于Promise的语法糖，使异步代码看起来像同步代码...
+                            </p>
+                            <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span>前天 16:45</span>
+                                <div class="flex items-center">
+                                    <i class="fa fa-tag mr-1"></i>
+                                    <span>JavaScript, 编程</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 笔记卡片 4 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 group">
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="px-2.5 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded-full text-xs font-medium">购物清单</span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg mb-2 group-hover:text-primary transition-colors">周末超市采购清单</h3>
+                            <ul class="text-gray-600 dark:text-gray-300 text-sm mb-4 space-y-1">
+                                <li class="flex items-center">
+                                    <input type="checkbox" class="mr-2 h-4 w-4 text-primary rounded">
+                                    <span>新鲜蔬菜：西红柿、黄瓜、生菜</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <input type="checkbox" class="mr-2 h-4 w-4 text-primary rounded">
+                                    <span>水果：苹果、香蕉、草莓</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2 h-4 w-4 text-primary rounded">
+                                    <span class="line-through text-gray-400 dark:text-gray-500">牛奶和酸奶</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <input type="checkbox" class="mr-2 h-4 w-4 text-primary rounded">
+                                    <span>肉类：鸡胸肉、牛肉</span>
+                                </li>
+                            </ul>
+                            <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span>3天前</span>
+                                <div class="flex items-center">
+                                    <i class="fa fa-tag mr-1"></i>
+                                    <span>生活, 食品</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 笔记卡片 5 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 group">
+                        <div class="h-40 bg-gradient-to-r from-pink-400 to-red-500 relative overflow-hidden">
+                            <img src="https://picsum.photos/id/431/600/400" alt="旅行照片" class="w-full h-full object-cover mix-blend-overlay opacity-60">
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-white font-bold text-lg text-shadow">旅行计划</span>
+                            </div>
+                        </div>
+                        <div class="p-5">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="px-2.5 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-xs font-medium">个人生活</span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg mb-2 group-hover:text-primary transition-colors">五一假期旅行计划</h3>
+                            <p class="text-gray-600 dark:text-gray-300 text-sm line-clamp-2 mb-4">
+                                目的地：云南大理
+                                时间：4月29日 - 5月3日
+                                行程安排：
+                                D1：抵达大理，入住客栈，夜游大理古城...
+                            </p>
+                            <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                                <span>1周前</span>
+                                <div class="flex items-center">
+                                    <i class="fa fa-tag mr-1"></i>
+                                    <span>旅行, 计划</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 笔记卡片 6 -->
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-100 dark:border-gray-700 group flex flex-col">
+                        <div class="p-5 flex-1">
+                            <div class="flex justify-between items-start mb-3">
+                                <span class="px-2.5 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full text-xs font-medium">食谱</span>
+                                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-pencil"></i>
+                                    </button>
+                                    <button class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa fa-trash-o"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-lg mb-2 group-hover:text-primary transition-colors">健康早餐食谱</h3>
+                            <p class="text-gray-600 dark:text-gray-300 text-sm mb-2">
+                                燕麦粥做法：
+                            </p>
+                            <ol class="text-gray-600 dark:text-gray-300 text-sm mb-4 list-decimal pl-5 space-y-1">
+                                <li>取50g燕麦片放入碗中</li>
+                                <li>加入200ml牛奶或清水</li>
+                                <li>放入微波炉加热2分钟</li>
+                                <li>取出后加入坚果和水果丁</li>
+                            </ol>
+                        </div>
+                        <div class="px-5 pb-5 pt-0 flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                            <span>2周前</span>
+                            <div class="flex items-center">
+                                <i class="fa fa-tag mr-1"></i>
+                                <span>美食, 健康</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 查看更多按钮 -->
+                <div class="mt-8 text-center">
+                    <button class="px-6 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        查看更多笔记 <i class="fa fa-chevron-down ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 日历和天气区域 -->
+        <section id="calendar" class="py-12 bg-white dark:bg-gray-800">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8">
+                    <h2 class="text-2xl md:text-3xl font-display font-bold mb-2">日历与天气</h2>
+                    <p class="text-gray-600 dark:text-gray-400">查看日程安排和天气预报</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- 日历组件 -->
+                    <div class="lg:col-span-2 bg-white dark:bg-gray-700/50 rounded-xl shadow-md p-6 border border-gray-100 dark:border-gray-600">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg">2023年6月</h3>
+                            <div class="flex space-x-2">
+                                <button class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                    <i class="fa fa-chevron-left text-gray-600 dark:text-gray-400"></i>
+                                </button>
+                                <button class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                    <i class="fa fa-chevron-right text-gray-600 dark:text-gray-400"></i>
+                                </button>
+                                <button class="ml-2 px-3 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90 transition-colors">
+                                    今天
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 星期标题 -->
+                        <div class="grid grid-cols-7 mb-2">
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">日</div>
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">一</div>
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">二</div>
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">三</div>
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">四</div>
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">五</div>
+                            <div class="text-center text-sm font-medium text-gray-500 dark:text-gray-400">六</div>
+                        </div>
+                        
+                        <!-- 日历格子 -->
+                        <div class="grid grid-cols-7 gap-1">
+                            <!-- 上月日期 -->
+                            <div class="aspect-square rounded-lg p-1 text-center text-gray-400 dark:text-gray-500 text-sm">28</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-gray-400 dark:text-gray-500 text-sm">29</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-gray-400 dark:text-gray-500 text-sm">30</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-gray-400 dark:text-gray-500 text-sm">31</div>
+                            
+                            <!-- 本月日期 -->
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">1</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">2</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">3</div>
+                            
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">4</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">5</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">6</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">7</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">8</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">9</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">10</div>
+                            
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">11</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">12</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">13</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">14</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">15</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">16</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">17</div>
+                            
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">18</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">19</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">20</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm font-medium bg-primary/10 dark:bg-primary/20 text-primary relative">
+                                21
+                                <div class="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full"></div>
+                            </div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">22</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">23</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">24</div>
+                            
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">25</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">26</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">27</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">28</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">29</div>
+                            <div class="aspect-square rounded-lg p-1 text-center text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">30</div>
+                            
+                            <!-- 下月日期 -->
+                            <div class="aspect-square rounded-lg p-1 text-center text-gray-400 dark:text-gray-500 text-sm">1</div>
+                        </div>
+                        
+                        <!-- 今日日程 -->
+                        <div class="mt-6">
+                            <h4 class="font-medium mb-3">今日日程</h4>
+                            <div class="space-y-3">
+                                <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-600/30 rounded-lg">
+                                    <div class="flex-shrink-0 w-16 text-center">
+                                        <span class="text-sm font-medium">15:00</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h5 class="font-medium">项目评审会议</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-0.5">产品部会议室，参与人员：张三、李四、王五</p>
+                                    </div>
+                                    <div class="flex-shrink-0 ml-2">
+                                        <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-xs font-medium">会议</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-600/30 rounded-lg">
+                                    <div class="flex-shrink-0 w-16 text-center">
+                                        <span class="text-sm font-medium">18:30</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <h5 class="font-medium">健身锻炼</h5>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-0.5">城市健身中心，进行力量训练</p>
+                                    </div>
+                                    <div class="flex-shrink-0 ml-2">
+                                        <span class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">个人</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 天气组件 -->
+                    <div class="bg-white dark:bg-gray-700/50 rounded-xl shadow-md p-6 border border-gray-100 dark:border-gray-600">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-lg">天气预报</h3>
+                            <div class="relative">
+                                <select class="appearance-none pl-3 pr-8 py-1.5 bg-gray-100 dark:bg-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option>北京市</option>
+                                    <option>上海市</option>
+                                    <option>广州市</option>
+                                    <option>深圳市</option>
+                                    <option>杭州市</option>
+                                </select>
+                                <i class="fa fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs pointer-events-none"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- 当前天气 -->
+                        <div class="text-center mb-8">
+                            <div class="inline-block p-4 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">
+                                <i class="fa fa-sun-o text-5xl text-yellow-500"></i>
+                            </div>
+                            <div class="flex items-end justify-center">
+                                <span class="text-5xl font-bold">26°</span>
+                                <span class="text-gray-500 dark:text-gray-400 mb-1 ml-2">晴朗</span>
+                            </div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">体感温度: 28° | 湿度: 35%</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">风速: 2级 东北风</p>
+                        </div>
+                        
+                        <!-- 每日预报 -->
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center p-2 border-b border-gray-100 dark:border-gray-600">
+                                <span class="text-sm">今天</span>
+                                <i class="fa fa-sun-o text-yellow-500"></i>
+                                <span class="text-sm">26°</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 border-b border-gray-100 dark:border-gray-600">
+                                <span class="text-sm">周四</span>
+                                <i class="fa fa-cloud text-gray-400"></i>
+                                <span class="text-sm">24°</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 border-b border-gray-100 dark:border-gray-600">
+                                <span class="text-sm">周五</span>
+                                <i class="fa fa-cloud-rain text-blue-500"></i>
+                                <span class="text-sm">22°</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 border-b border-gray-100 dark:border-gray-600">
+                                <span class="text-sm">周六</span>
+                                <i class="fa fa-cloud-rain text-blue-500"></i>
+                                <span class="text-sm">20°</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2 border-b border-gray-100 dark:border-gray-600">
+                                <span class="text-sm">周日</span>
+                                <i class="fa fa-cloud text-gray-400"></i>
+                                <span class="text-sm">23°</span>
+                            </div>
+                            <div class="flex justify-between items-center p-2">
+                                <span class="text-sm">周一</span>
+                                <i class="fa fa-sun-o text-yellow-500"></i>
+                                <span class="text-sm">25°</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 生活指数 -->
+                        <div class="mt-8">
+                            <h4 class="font-medium mb-4">生活指数</h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="bg-gray-50 dark:bg-gray-600/30 rounded-lg p-3 text-center">
+                                    <i class="fa fa-umbrella text-blue-500 mb-1"></i>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">紫外线</p>
+                                    <p class="text-sm font-medium">中等</p>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-600/30 rounded-lg p-3 text-center">
+                                    <i class="fa fa-tint text-blue-400 mb-1"></i>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">降水概率</p>
+                                    <p class="text-sm font-medium">10%</p>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-600/30 rounded-lg p-3 text-center">
+                                    <i class="fa fa-leaf text-green-500 mb-1"></i>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">空气质量</p>
+                                    <p class="text-sm font-medium">良好</p>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-gray-600/30 rounded-lg p-3 text-center">
+                                    <i class="fa fa-bolt text-yellow-500 mb-1"></i>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">运动指数</p>
+                                    <p class="text-sm font-medium">适宜</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 灵感板区域 -->
+        <section id="inspiration" class="py-12 bg-gray-50 dark:bg-dark">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="text-2xl md:text-3xl font-display font-bold mb-2">创意灵感板</h2>
+                        <p class="text-gray-600 dark:text-gray-400">收集和展示激发创意的资源</p>
+                    </div>
+                    <div class="mt-4 sm:mt-0 flex space-x-3">
+                        <button class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center">
+                            <i class="fa fa-upload mr-2"></i> 上传图片
+                        </button>
+                        <button class="px-4 py-2 bg-primary text-white font-medium rounded-lg shadow hover:bg-primary/90 transition-colors flex items-center">
+                            <i class="fa fa-plus mr-2"></i> 添加灵感
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 灵感板分类 -->
+                <div class="mb-6 flex flex-wrap gap-2">
+                    <button class="px-3 py-1.5 bg-primary text-white rounded-full text-sm font-medium">全部</button>
+                    <button class="px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium transition-colors">UI设计</button>
+                    <button class="px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium transition-colors">插画</button>
+                    <button class="px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium transition-colors">摄影</button>
+                    <button class="px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium transition-colors">色彩</button>
+                    <button class="px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium transition-colors">排版</button>
+                    <button class="px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-sm font-medium transition-colors">建筑</button>
+                </div>
+                
+                <!-- 灵感板网格 -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    <!-- 灵感项 1 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/1015/600/600" alt="山脉风景摄影" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">山脉风景摄影</h3>
+                                <p class="text-gray-200 text-xs mt-1">摄影 · 自然</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 2 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/1025/600/600" alt="极简主义UI设计" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">极简主义UI设计</h3>
+                                <p class="text-gray-200 text-xs mt-1">UI设计 · 极简</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 3 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/1039/600/600" alt="森林晨雾摄影" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">森林晨雾摄影</h3>
+                                <p class="text-gray-200 text-xs mt-1">摄影 · 自然</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 4 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/1059/600/600" alt="现代建筑设计" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">现代建筑设计</h3>
+                                <p class="text-gray-200 text-xs mt-1">建筑 · 现代</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 5 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/1073/600/600" alt="色彩搭配灵感" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">色彩搭配灵感</h3>
+                                <p class="text-gray-200 text-xs mt-1">色彩 · 设计</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 6 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/1082/600/600" alt="手绘插画作品" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">手绘插画作品</h3>
+                                <p class="text-gray-200 text-xs mt-1">插画 · 手绘</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 7 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/106/600/600" alt="排版设计灵感" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                            <div>
+                                <h3 class="text-white font-medium text-sm">排版设计灵感</h3>
+                                <p class="text-gray-200 text-xs mt-1">排版 · 设计</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 灵感项 8 -->
+                    <div class="group relative rounded-xl overflow-hidden aspect-square cursor-pointer shadow-md hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <img src="https://picsum.photos/id/26/600/600" alt="抽象艺术作品" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-10
+</body>
+</html>
