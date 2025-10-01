@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>颜色范围抠图工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .control-panel {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #eee;
+            border-radius: 5px;
+        }
+        .color-picker-container {
+            margin-bottom: 15px;
+        }
+        .slider-container {
+            margin-bottom: 15px;
+        }
+        #toleranceValue {
+            display: inline-block;
+            width: 40px;
+            text-align: center;
+            font-weight: bold;
+        }
+        canvas {
+            border: 1px dashed #ccc;
+            margin: 10px;
+            max-width: 100%;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #downloadBtn {
+            background-color: #2196F3;
+        }
+        #downloadBtn:hover {
+            background-color: #0b7dda;
+        }
+        .image-preview {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>颜色范围抠图工具</h1>
+        
+        <div class="control-panel">
+            <div class="color-picker-container">
+                <label for="colorPicker">选择要抠除的颜色: </label>
+                <input type="color" id="colorPicker" value="#00ff00">
+            </div>
+            
+            <div class="slider-container">
+                <label for="toleranceSlider">容差强度: </label>
+                <input type="range" id="toleranceSlider" min="0" max="100" value="30">
+                <span id="toleranceValue">30</span>%
+            </div>
+            
+            <button id="processBtn">处理图片</button>
+            <button id="downloadBtn" disabled>下载抠图结果</button>
+        </div>
+
+        <div class="image-preview">
+            <div>
+                <h3>原图</h3>
+                <canvas id="originalCanvas"></canvas>
+            </div>
+            <div>
+                <h3>效果预览</h3>
+                <canvas id="resultCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取页面元素
+        const colorPicker = document.getElementById('colorPicker');
+        const toleranceSlider = document.getElementById('toleranceSlider');
+        const toleranceValue = document.getElementById('toleranceValue');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const originalCtx = originalCanvas.getContext('2d');
+        const resultCtx = resultCanvas.getContext('2d');
+        
+        // 更新容差值显示
+        toleranceSlider.addEventListener('input', function() {
+            toleranceValue.textContent = this.value;
+        });
+        
+        // 图片加载和处理
+        let originalImage = new Image();
+        
+        // 为了让示例运行，我们使用一张示例图片，你可以替换为任何图片
+        // 注意：由于浏览器安全限制，你需要运行一个本地服务器或使用在线图片
+        originalImage.src = 'https://example.com/your-image.jpg'; // 请替换为你的图片路径
+        originalImage.crossOrigin = "Anonymous"; // 解决跨域问题（如果图片允许）
+        
+        originalImage.onload = function() {
+            // 设置Canvas尺寸与图片相同
+            originalCanvas.width = resultCanvas.width = originalImage.width;
+            originalCanvas.height = resultCanvas.height = originalImage.height;
+            
+            // 在原Canvas上绘制图片
+            originalCtx.drawImage(originalImage, 0, 0);
+            
+            // 在结果Canvas上绘制图片（初始状态）
+            resultCtx.drawImage(originalImage, 0, 0);
+        };
+        
+        // 处理按钮点击事件
+        processBtn.addEventListener('click', function() {
+            // 获取选择的颜色和容差
+            const selectedColor = hexToRgb(colorPicker.value);
+            const tolerance = parseInt(toleranceSlider.value) / 100; // 转换为0-1范围
+            
+            // 执行抠图操作
+            cutout(selectedColor, tolerance);
+            
+            // 启用下载按钮
+            downloadBtn.disabled = false;
+        });
+        
+        // 下载按钮点击事件
+        downloadBtn.addEventListener('click', function() {
+            // 创建一个临时链接
+            const link = document.createElement('a');
+            link.download = '抠图结果.png';
+            link.href = resultCanvas.toDataURL('image/png');
+            link.click();
+        });
+        
+        // 将十六进制颜色值转换为RGB对象
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+        
+        // 检查颜色是否在容差范围内[1,3](@ref)
+        function isColorInRange(currentColor, targetColor, tolerance) {
+            // 计算RGB各通道的差值
+            const rDiff = Math.abs(currentColor.r - targetColor.r);
+            const gDiff = Math.abs(currentColor.g - targetColor.g);
+            const bDiff = Math.abs(currentColor.b - targetColor.b);
+            
+            // 计算最大可能的差值（255）
+            const maxDiff = 255;
+            
+            // 计算总体差异百分比
+            const totalDiff = (rDiff + gDiff + bDiff) / (3 * maxDiff);
+            
+            // 如果总体差异小于等于容差值，则在范围内
+            return totalDiff <= tolerance;
+        }
+        
+        // 抠图函数[1](@ref)
+        function cutout(targetColor, tolerance) {
+            // 在结果Canvas上重新绘制原图
+            resultCtx.drawImage(originalImage, 0, 0);
+            
+            // 获取图像数据
+            const imageData = resultCtx.getImageData(0, 0, resultCanvas.width, resultCanvas.height);
+            const data = imageData.data;
+            
+            // 遍历每个像素
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                
+                // 检查当前像素颜色是否在目标颜色的容差范围内
+                if (isColorInRange({r, g, b}, targetColor, tolerance)) {
+                    // 将像素设置为完全透明
+                    data[i + 3] = 0;
+                }
+            }
+            
+            // 将处理后的图像数据放回Canvas
+            resultCtx.putImageData(imageData, 0, 0);
+        }
+    </script>
+</body>
+</html>
