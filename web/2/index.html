@@ -9,7 +9,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #f5f5f5;
+            background-color: #f0f8ff;
         }
         
         .header {
@@ -18,13 +18,13 @@
         }
         
         h1 {
-            color: #333;
+            color: #2c3e50;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
         
         .description {
-            color: #666;
+            color: #7f8c8d;
             font-size: 1.2em;
         }
         
@@ -129,9 +129,124 @@
             font-size: 1.2em;
             color: #666;
         }
+        
+        /* 跳转按钮样式 */
+        .nav-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-button:hover {
+            transform: scale(1.2);
+        }
+        
+        .nav-button img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* 箭头指示点样式 */
+        .arrow-indicator {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .arrow-icon {
+            font-size: 24px;
+            color: #2c3e50;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        /* 惊喜弹窗样式 */
+        .surprise-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .surprise-content {
+            position: relative;
+            margin: 15% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 500px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .surprise-content h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+        
+        .surprise-content p {
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+        
+        .close-surprise {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
+    <!-- 箭头指示点 -->
+    <div class="arrow-indicator" id="arrowIndicator">
+        <div class="arrow-icon">↓</div>
+    </div>
+    
+    <!-- 惊喜弹窗 -->
+    <div class="surprise-modal" id="surpriseModal">
+        <div class="surprise-content">
+            <span class="close-surprise" id="closeSurprise">&times;</span>
+            <h2>🎉 惊喜！</h2>
+            <h2>我是张华运。</h2>
+            <h2>来戳一下我的头。</h2>
+            <h2>我保证不打死你。</h2>
+        </div>
+    </div>
+    
     <div class="header">
         <h1>丑照合集</h1>
         <p class="description">丑照合集</p>
@@ -139,6 +254,11 @@
     
     <div class="image-count">
         <p>共 <span id="count">0</span> 张图片</p>
+    </div>
+    
+    <!-- 跳转按钮 -->
+    <div class="nav-button" onclick="window.location.href='index1.html'" title="跳转到抽象画廊">
+        <img src="IMG_20251003_031837MAGICCUTOUT.png" alt="跳转到抽象画廊">
     </div>
     
     <div id="loading" class="loading">图片加载中...</div>
@@ -283,8 +403,46 @@
             }
         });
 
+        // 处理箭头指示点点击事件
+        function handleArrowClick() {
+            const arrowIndicator = document.getElementById('arrowIndicator');
+            const surpriseModal = document.getElementById('surpriseModal');
+            
+            // 隐藏箭头指示点
+            arrowIndicator.style.display = 'none';
+            
+            // 显示惊喜弹窗
+            surpriseModal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        // 关闭惊喜弹窗
+        function closeSurprise() {
+            const surpriseModal = document.getElementById('surpriseModal');
+            surpriseModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
         // 页面加载完成后初始化图片
-        window.addEventListener('load', initializeImages);
+        window.addEventListener('load', function() {
+            initializeImages();
+            
+            // 添加箭头指示点点击事件
+            const arrowIndicator = document.getElementById('arrowIndicator');
+            arrowIndicator.addEventListener('click', handleArrowClick);
+            
+            // 添加惊喜弹窗关闭事件
+            const closeSurpriseBtn = document.getElementById('closeSurprise');
+            closeSurpriseBtn.addEventListener('click', closeSurprise);
+            
+            // 添加点击弹窗背景关闭事件
+            const surpriseModal = document.getElementById('surpriseModal');
+            surpriseModal.addEventListener('click', function(e) {
+                if (e.target === surpriseModal) {
+                    closeSurprise();
+                }
+            });
+        });
     </script>
 </body>
 </html>
