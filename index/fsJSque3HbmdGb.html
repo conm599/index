@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三阶魔方公式查询器（含全套还原公式）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Arial", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .cube-formula-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .formula-input-group {
+            margin-bottom: 25px;
+        }
+        .formula-input-group label {
+            display: block;
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        #formulaInput {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        #formulaInput:focus {
+            outline: none;
+            border-color: #4285f4;
+        }
+        .formula-display {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4285f4;
+        }
+        .formula-display h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .formula-code {
+            font-size: 18px;
+            color: #d32f2f;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        .formula-explain {
+            margin-top: 15px;
+        }
+        .formula-explain p {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px 0;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #3367d6;
+        }
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            margin: 35px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .full-step {
+            margin-bottom: 25px;
+        }
+        .full-step h4 {
+            font-size: 17px;
+            color: #4285f4;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        .full-step h4::before {
+            content: "";
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #4285f4;
+            margin-right: 8px;
+        }
+        .full-step .step-target {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .full-step .step-formula {
+            font-size: 16px;
+            color: #d32f2f;
+            font-weight: 500;
+            margin: 8px 0;
+            padding: 8px 12px;
+            background-color: #fafafa;
+            border-radius: 4px;
+        }
+        .full-step .step-note {
+            font-size: 14px;
+            color: #888;
+            line-height: 1.5;
+        }
+        .basic-rule {
+            margin-top: 10px;
+        }
+        .basic-rule h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .rule-list {
+            list-style: none;
+        }
+        .rule-list li {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .rule-list li::before {
+            content: "•";
+            color: #4285f4;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="cube-formula-container">
+        <h2 class="title">三阶魔方公式查询器（含全套还原公式）</h2>
+        
+        <!-- 公式输入解析区域 -->
+        <div class="formula-input-group">
+            <label for="formulaInput">输入魔方公式（如 FRUR'U'F'）：</label>
+            <input type="text" id="formulaInput" placeholder="请输入标准魔方公式，支持大小写字母与撇号">
+            <button class="btn" id="parseBtn">解析公式</button>
+        </div>
+        
+        <div class="formula-display">
+            <h3>解析结果</h3>
+            <div class="formula-code" id="formulaCode">未输入公式</div>
+            <div class="formula-explain" id="formulaExplain">
+                <p>请在上方输入魔方公式并点击“解析公式”按钮</p>
+            </div>
+        </div>
+
+        <!-- 魔方全套还原步骤（层先法，从零到完成） -->
+        <h3 class="section-title">📝 三阶魔方全套还原步骤（层先法）</h3>
+        
+        <!-- 步骤1：底层十字 -->
+        <div class="full-step">
+            <h4>1. 底层十字（无固定公式，核心思路）</h4>
+            <p class="step-target"><strong>目标</strong>：让底层4个棱块与顶面中心块颜色对应，形成“十字”，且棱块侧面与对应中心块对齐。</p>
+            <p class="step-note">
+                1. 先选一个面作为“底面”（推荐白色），找到底面中心块；<br>
+                2. 找到底面颜色的棱块（如白红棱块），转动顶层将其移到对应侧面中心块（红色）上方；<br>
+                3. 用 <strong>R U R'</strong> 或 <strong>F' U' F</strong> 等简单转动，将棱块归位到底层。
+            </p>
+        </div>
+
+        <!-- 步骤2：底层角块归位 -->
+        <div class="full-step">
+            <h4>2. 底层角块归位</h4>
+            <p class="step-target"><strong>目标</strong>：还原底层4个角块，使底面完全同色（如全白）。</p>
+            <p class="step-formula">核心公式：R U R' （右顺上顺右逆）、F' U' F （前逆上逆前顺）</p>
+            <p class="step-note">
+                1. 找到底面颜色的角块（如白红蓝角块），将其移到目标位置（白中心块、红中心块、蓝中心块交汇处）上方；<br>
+                2. 若角块顶面颜色为底面色（白），用 <strong>R U R'</strong> 归位；若侧面颜色为底面色，调整后用 <strong>F' U' F</strong> 归位。
+            </p>
+        </div>
+
+        <!-- 步骤3：中层棱块归位 -->
+        <div class="full-step">
+            <h4>3. 中层棱块归位</h4>
+            <p class="step-target"><strong>目标</strong>：还原中层4个棱块，使中层侧面形成“全色条”（如红面、蓝面等侧面中间层同色）。</p>
+            <p class="step-formula">
+                公式1（棱块从右侧上层归位到左中层）：U' L' U L U F U' F' <br>
+                公式2（棱块从左侧上层归位到右中层）：U R U' R' U' F' U F
+            </p>
+            <p class="step-note">
+                1. 找到中层棱块（无顶层中心块颜色，如红蓝棱块），转动顶层将其侧面颜色与对应中心块对齐；<br>
+                2. 若棱块需要向左归位，用公式1；向右归位，用公式2；<br>
+                3. 若中层有错位棱块，先用公式将其“挪到顶层”，再重新归位。
+            </p>
+        </div>
+
+        <!-- 步骤4：顶层十字 -->
+        <div class="full-step">
+            <h4>4. 顶层十字（仅需形状，不要求颜色对齐）</h4>
+            <p class="step-target"><strong>目标</strong>：让顶层形成“十字”形状（4个棱块顶面颜色与顶层中心块一致，如全黄）。</p>
+            <p class="step-formula">万能公式：F (R U R' U') F' （前顺 右顺上顺右逆上逆 前逆）</p>
+            <p class="step-note">
+                1. 顶层初始状态分“点”“线”“角”三种，无论哪种，重复公式1-2次即可形成十字；<br>
+                2. 转动魔方，让“线”或“角”的方向与公式演示方向一致，再执行公式。
+            </p>
+        </div>
+
+        <!-- 步骤5：顶层十字颜色对齐 -->
+        <div class="full-step">
+            <h4>5. 顶层十字颜色对齐</h4>
+            <p class="step-target"><strong>目标</strong>：让顶层十字的棱块侧面颜色与对应侧面中心块对齐（如黄红棱块侧面红与红中心块对齐）。</p>
+            <p class="step-formula">核心公式：R U R' U R U2 R' （右顺上顺右逆上顺 右顺上顺两次右逆）</p>
+            <p class="step-note">
+                1. 先找到1个已对齐的棱块，将其转到“后面”，执行公式；<br>
+                2. 若没有对齐的棱块，任意方向执行公式1次，会出现1个对齐的棱块，再按上述步骤操作。
+            </p>
+        </div>
+
+        <!-- 步骤6：顶层角块位置归位 -->
+        <div class="full-step">
+            <h4>6. 顶层角块位置归位（仅找对位置，不要求方向）</h4>
+            <p class="step-target"><strong>目标</strong>：让顶层4个角块都处于“正确位置”（角块颜色与周围中心块对应，如黄红蓝角块在黄、红、蓝中心块交汇处）。</p>
+            <p class="step-formula">核心公式：R' U2 R U R' U R （右逆上顺两次右顺 上顺右逆上顺右顺）</p>
+            <p class="step-note">
+                1. 找到1个位置正确的角块，将其转到“右前顶”位置，执行公式；<br>
+                2. 若没有位置正确的角块，任意方向执行公式1次，会出现1个正确的角块，再重复操作。
+            </p>
+        </div>
+
+        <!-- 步骤7：顶层角块方向归位（完成还原） -->
+        <div class="full-step">
+            <h4>7. 顶层角块方向归位（最后一步）</h4>
+            <p class="step-target"><strong>目标</strong>：调整顶层角块的方向，使顶层完全同色（如全黄），魔方整体还原。</p>
+            <p class="step-formula">核心公式：U R U' L' U R' U' L （上顺右顺上逆左逆 上顺右逆上逆左顺）</p>
+            <p class="step-note">
+                1. 找到1个“顶面颜色朝下”的角块，将其转到“右前顶”位置，重复公式直到该角块顶面颜色朝上；<br>
+                2. 保持底层和中层不动，转动顶层，将下一个“顶面颜色朝下”的角块转到“右前顶”，重复公式；<br>
+                3. 所有角块调整完成后，转动顶层即可让魔方完全还原。
+            </p>
+        </div>
+
+        <!-- 魔方公式基础规则 -->
+        <h3 class="section-title">📚 魔方公式基础规则</h3>
+        <div class="basic-rule">
+            <ul class="rule-list">
+                <li><strong>大写字母（F、R、U）</strong>：单一表层顺时针转90度（F=前面，R=右面，U=上面，L=左面，D=下面，B=后面）</li>
+                <li><strong>字母+撇号（F'、R'）</strong>：单一表层逆时针转90度</li>
+                <li><strong>小写字母（f、r）</strong>：对应面“表层+内层”双层顺时针转90度</li>
+                <li><strong>字母+数字2（F2、R2）</strong>：对应面转180度（顺时针/逆时针效果相同）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 魔方公式基础映射表
+        const formulaMap = {
+            'F': '前面（Front）顺时针转90度',
+            'F\'': '前面（Front）逆时针转90度',
+            'f': '前面双层（Front+内层）顺时针转90度',
+            'f\'': '前面双层（Front+内层）逆时针转90度',
+            'F2': '前面（Front）转180度',
+            'R': '右面（Right）顺时针转90度',
+            'R\'': '右面（Right）逆时针转90度',
+            'r': '右面双层（Right+内层）顺时针转90度',
+            'r\'': '右面双层（Right+内层）逆时针转90度',
+            'R2': '右面（Right）转180度',
+            'U': '上面（Up）顺时针转90度',
+            'U\'': '上面（Up）逆时针转90度',
+            'u': '上面双层（Up+内层）顺时针转90度',
+            'u\'': '上面双层（Up+内层）逆时针转90度',
+            'U2': '上面（Up）转180度',
+            'L': '左面（Left）顺时针转90度',
+            'L\'': '左面（Left）逆时针转90度',
+            'l': '左面双层（Left+内层）顺时针转90度',
+            'l\'': '左面双层（Left+内层）逆时针转90度',
+            'L2': '左面（Left）转180度',
+            'D': '下面（Down）顺时针转90度',
+            'D\'': '下面（Down）逆时针转90度',
+            'd': '下面双层（Down+内层）顺时针转90度',
+            'd\'': '下面双层（Down+内层）逆时针转90度',
+            'D2': '下面（Down）转180度',
+            'B': '后面（Back）顺时针转90度',
+            'B\'': '后面（Back）逆时针转90度',
+            'b': '后面双层（Back+内层）顺时针转90度',
+            'b\'': '后面双层（Back+内层）逆时针转90度',
+            'B2': '后面（Back）转180度'
+        };
+
+        // 获取DOM元素
+        const formulaInput = document.getElementById('formulaInput');
+        const parseBtn = document.getElementById('parseBtn');
+        const formulaCode = document.getElementById('formulaCode');
+        const formulaExplain = document.getElementById('formulaExplain');
+
+        // 解析公式的函数
+        function parseFormula(input) {
+            if (!input.trim()) return { code: '未输入公式', explain: '<p>请在上方输入魔方公式并点击“解析公式”按钮</p>' };
+            
+            // 公式字符分割（处理字母+撇号/数字的组合）
+            const formulaParts = input.match(/[A-Za-z]'?2?/g) || [];
+            if (formulaParts.length === 0) return { code: input, explain: '<p>输入的公式格式不正确，请检查后重新输入</p>' };
+            
+            // 生成解析说明
+            let explainHtml = '<p>公式分步解析：</p><p>';
+            formulaParts.forEach((part, index) => {
+                const desc = formulaMap[part] || `未识别的指令：${part}`;
+                explainHtml += `${index + 1}. ${part} → ${desc}<br>`;
+            });
+            explainHtml += '</p>';
+            
+            return { code: input, explain: explainHtml };
+        }
+
+        // 按钮点击事件
+        parseBtn.addEventListener('click', () => {
+            const inputValue = formulaInput.value.trim();
+            const result = parseFormula(inputValue);
+            formulaCode.textContent = result.code;
+            formulaExplain.innerHTML = result.explain;
+        });
+
+        // 初始化显示示例公式（中层棱块公式）
+        window.onload = () => {
+            formulaInput.value = 'U R U\' R\' U\' F\' U F';
+            const result = parseFormula('U R U\' R\' U\' F\' U F');
+            formulaCode.textContent = result.code;
+            formulaExplain.innerHTML = result.explain;
+        };
+    </script>
+</body>
+</html>
