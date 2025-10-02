@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>丑照合集</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f8ff;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+        
+        .image-count {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #555;
+        }
+        
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .image-container {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 10px;
+                padding: 5px;
+            }
+            
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+        
+        .image-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background-color: #fff;
+            aspect-ratio: 3/4;
+        }
+        
+        .image-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+        
+        .image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+        
+        .modal-content {
+            display: block;
+            margin: auto;
+            max-width: 90%;
+            max-height: 90%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        
+        .close:hover {
+            color: #bbb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2em;
+            color: #666;
+        }
+        
+        /* 跳转按钮样式 */
+        .nav-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        
+        .nav-button:hover {
+            transform: scale(1.2);
+        }
+        
+        .nav-button img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* 箭头指示点样式 */
+        .arrow-indicator {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .arrow-icon {
+            font-size: 24px;
+            color: #2c3e50;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        /* 惊喜弹窗样式 */
+        .surprise-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .surprise-content {
+            position: relative;
+            margin: 15% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 500px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .surprise-content h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+        
+        .surprise-content p {
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+        
+        .close-surprise {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 箭头指示点 -->
+    <div class="arrow-indicator" id="arrowIndicator">
+        <div class="arrow-icon">↓</div>
+    </div>
+    
+    <!-- 惊喜弹窗 -->
+    <div class="surprise-modal" id="surpriseModal">
+        <div class="surprise-content">
+            <span class="close-surprise" id="closeSurprise">&times;</span>
+            <h2> 你个同</h2>
+            <h2>我是张华运。</h2>
+            <h2>来戳一下我的头。</h2>
+            <h2>我保证不打死你。</h2>
+        </div>
+    </div>
+    
+    <div class="header">
+        <h1>丑照合集</h1>
+        <p class="description">丑照合集</p>
+    </div>
+    
+    <div class="image-count">
+        <p>共 <span id="count">0</span> 张图片</p>
+    </div>
+    
+    <!-- 跳转按钮 -->
+    <div class="nav-button" onclick="window.location.href='index1.html'" title="跳转到抽象画廊">
+        <img src="IMG_20251003_031837MAGICCUTOUT.png" alt="跳转到抽象画廊">
+    </div>
+    
+    <div id="loading" class="loading">图片加载中...</div>
+    <div id="imageContainer" class="image-container"></div>
+    
+    <div id="modal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImg">
+    </div>
+
+    <script>
+        // 图片文件列表
+        const imageFiles = [
+            "webp/12345678_001.webp", "webp/12345678_002.webp", "webp/12345678_003.webp", "webp/12345678_004.webp", "webp/12345678_005.webp",
+            "webp/12345678_006.webp", "webp/12345678_007.webp", "webp/12345678_008.webp", "webp/12345678_009.webp", "webp/12345678_010.webp",
+            "webp/12345678_011.webp", "webp/12345678_012.webp", "webp/12345678_013.webp", "webp/12345678_014.webp", "webp/12345678_015.webp",
+            "webp/12345678_016.webp", "webp/12345678_017.webp", "webp/12345678_018.webp", "webp/12345678_019.webp", "webp/12345678_020.webp",
+            "webp/12345678_021.webp", "webp/12345678_022.webp", "webp/12345678_023.webp", "webp/12345678_024.webp", "webp/12345678_025.webp",
+            "webp/12345678_026.webp", "webp/12345678_027.webp", "webp/12345678_028.webp", "webp/12345678_029.webp", "webp/12345678_030.webp",
+            "webp/12345678_031.webp", "webp/12345678_032.webp", "webp/12345678_033.webp", "webp/12345678_034.webp", "webp/12345678_035.webp",
+            "webp/12345678_036.webp", "webp/12345678_037.webp", "webp/12345678_038.webp", "webp/12345678_039.webp", "webp/12345678_040.webp",
+            "webp/12345678_041.webp", "webp/12345678_042.webp", "webp/12345678_043.webp", "webp/12345678_044.webp", "webp/12345678_045.webp",
+            "webp/12345678_046.webp", "webp/12345678_047.webp", "webp/12345678_048.webp", "webp/12345678_049.webp", "webp/12345678_050.webp",
+            "webp/12345678_051.webp", "webp/12345678_052.webp", "webp/12345678_053.webp", "webp/12345678_054.webp", "webp/12345678_055.webp",
+            "webp/12345678_056.webp", "webp/12345678_057.webp", "webp/12345678_058.webp", "webp/12345678_059.webp", "webp/12345678_060.webp",
+            "webp/12345678_061.webp", "webp/12345678_062.webp", "webp/12345678_063.webp", "webp/12345678_064.webp", "webp/12345678_065.webp",
+            "webp/12345678_066.webp", "webp/12345678_067.webp", "webp/12345678_068.webp", "webp/12345678_069.webp", "webp/12345678_070.webp",
+            "webp/12345678_071.webp", "webp/12345678_072.webp", "webp/12345678_073.webp", "webp/12345678_074.webp", "webp/12345678_075.webp",
+            "webp/12345678_076.webp", "webp/12345678_077.webp", "webp/12345678_078.webp", "webp/12345678_079.webp", "webp/12345678_080.webp",
+            "webp/12345678_081.webp", "webp/12345678_082.webp", "webp/12345678_083.webp", "webp/12345678_084.webp", "webp/12345678_085.webp",
+            "webp/12345678_086.webp", "webp/12345678_087.webp", "webp/12345678_088.webp", "webp/12345678_089.webp", "webp/12345678_090.webp",
+            "webp/12345678_091.webp", "webp/12345678_092.webp", "webp/12345678_093.webp", "webp/12345678_094.webp", "webp/12345678_095.webp",
+            "webp/12345678_096.webp", "webp/12345678_097.webp", "webp/12345678_098.webp", "webp/12345678_099.webp", "webp/12345678_100.webp",
+            "webp/12345678_101.webp", "webp/12345678_102.webp", "webp/12345678_103.webp", "webp/12345678_104.webp", "webp/12345678_105.webp",
+            "webp/12345678_106.webp", "webp/12345678_107.webp", "webp/12345678_108.webp", "webp/12345678_109.webp", "webp/12345678_110.webp",
+            "webp/12345678_111.webp", "webp/12345678_112.webp", "webp/12345678_113.webp", "webp/12345678_114.webp", "webp/12345678_115.webp",
+            "webp/12345678_116.webp", "webp/12345678_117.webp", "webp/12345678_118.webp", "webp/12345678_119.webp", "webp/12345678_120.webp",
+            "webp/12345678_121.webp", "webp/12345678_122.webp", "webp/12345678_123.webp", "webp/12345678_124.webp", "webp/12345678_125.webp",
+            "webp/12345678_126.webp", "webp/12345678_127.webp", "webp/12345678_128.webp", "webp/12345678_129.webp", "webp/12345678_130.webp",
+            "webp/12345678_131.webp", "webp/12345678_132.webp", "webp/12345678_133.webp", "webp/12345678_134.webp", "webp/12345678_135.webp",
+            "webp/12345678_136.webp", "webp/12345678_137.webp", "webp/12345678_138.webp", "webp/12345678_139.webp", "webp/12345678_140.webp",
+            "webp/12345678_141.webp", "webp/12345678_142.webp", "webp/12345678_143.webp", "webp/12345678_144.webp", "webp/12345678_145.webp",
+            "webp/12345678_146.webp", "webp/12345678_147.webp", "webp/12345678_148.webp", "webp/12345678_149.webp", "webp/12345678_150.webp",
+            "webp/12345678_151.webp", "webp/12345678_152.webp", "webp/12345678_153.webp", "webp/12345678_154.webp", "webp/12345678_155.webp",
+            "webp/12345678_156.webp", "webp/12345678_157.webp", "webp/12345678_158.webp", "webp/12345678_159.webp", "webp/12345678_160.webp",
+            "webp/12345678_161.webp", "webp/12345678_162.webp", "webp/12345678_163.webp", "webp/12345678_164.webp", "webp/12345678_165.webp",
+            "webp/12345678_166.webp", "webp/12345678_167.webp", "webp/12345678_168.webp", "webp/12345678_169.webp", "webp/12345678_170.webp",
+            "webp/12345678_171.webp", "webp/12345678_172.webp", "webp/12345678_173.webp", "webp/12345678_174.webp", "webp/12345678_175.webp",
+            "webp/12345678_176.webp", "webp/12345678_177.webp", "webp/12345678_178.webp", "webp/12345678_179.webp", "webp/12345678_180.webp",
+            "webp/12345678_181.webp", "webp/12345678_182.webp", "webp/12345678_183.webp", "webp/12345678_184.webp", "webp/12345678_185.webp",
+            "webp/12345678_186.webp", "webp/12345678_187.webp", "webp/12345678_188.webp", "webp/12345678_189.webp", "webp/12345678_190.webp",
+            "webp/12345678_191.webp", "webp/12345678_192.webp", "webp/12345678_193.webp", "webp/12345678_194.webp", "webp/12345678_195.webp",
+            "webp/12345678_196.webp", "webp/12345678_197.webp"
+        ];
+
+        // 更新图片计数
+        document.getElementById('count').textContent = imageFiles.length;
+
+        // 获取图片容器
+        const imageContainer = document.getElementById('imageContainer');
+        const loadingElement = document.getElementById('loading');
+
+        // 创建图片元素的函数
+        function createImageElement(src, index) {
+            const imageItem = document.createElement('div');
+            imageItem.className = 'image-item';
+            
+            const img = document.createElement('img');
+            img.setAttribute('data-src', src);
+            img.alt = `图片 ${index + 1}`;
+            img.loading = 'lazy'; // 启用原生懒加载
+            
+            // 点击图片放大功能
+            img.addEventListener('click', function() {
+                document.getElementById('modalImg').src = this.src || this.getAttribute('data-src');
+                document.getElementById('modal').style.display = 'block';
+            });
+            
+            imageItem.appendChild(img);
+            return imageItem;
+        }
+
+        // 使用 Intersection Observer 实现更高效的懒加载
+        let observer;
+        const imageItems = [];
+
+        // 初始化图片加载
+        function initializeImages() {
+            // 清空容器
+            imageContainer.innerHTML = '';
+            
+            // 创建所有图片元素
+            imageFiles.forEach((file, index) => {
+                const imageItem = createImageElement(file, index);
+                imageItems.push({
+                    element: imageItem,
+                    loaded: false
+                });
+                imageContainer.appendChild(imageItem);
+            });
+            
+            // 隐藏加载提示
+            loadingElement.style.display = 'none';
+            
+            // 创建 Intersection Observer
+            observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target.querySelector('img');
+                        if (img && !img.src) {
+                            // 设置图片源
+                            img.src = img.getAttribute('data-src');
+                        }
+                    }
+                });
+            }, {
+                rootMargin: '50px' // 提前50px开始加载
+            });
+            
+            // 观察所有图片项
+            imageItems.forEach(item => {
+                observer.observe(item.element);
+            });
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeModal();
+            }
+        });
+
+        // ESC键关闭模态框
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // 处理箭头指示点点击事件
+        function handleArrowClick() {
+            const arrowIndicator = document.getElementById('arrowIndicator');
+            const surpriseModal = document.getElementById('surpriseModal');
+            
+            // 隐藏箭头指示点
+            arrowIndicator.style.display = 'none';
+            
+            // 显示惊喜弹窗
+            surpriseModal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        // 关闭惊喜弹窗
+        function closeSurprise() {
+            const surpriseModal = document.getElementById('surpriseModal');
+            surpriseModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // 页面加载完成后初始化图片
+        window.addEventListener('load', function() {
+            initializeImages();
+            
+            // 添加箭头指示点点击事件
+            const arrowIndicator = document.getElementById('arrowIndicator');
+            arrowIndicator.addEventListener('click', handleArrowClick);
+            
+            // 添加惊喜弹窗关闭事件
+            const closeSurpriseBtn = document.getElementById('closeSurprise');
+            closeSurpriseBtn.addEventListener('click', closeSurprise);
+            
+            // 添加点击弹窗背景关闭事件
+            const surpriseModal = document.getElementById('surpriseModal');
+            surpriseModal.addEventListener('click', function(e) {
+                if (e.target === surpriseModal) {
+                    closeSurprise();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
