@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三阶魔方公式查询器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Arial", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .cube-formula-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .formula-input-group {
+            margin-bottom: 25px;
+        }
+        .formula-input-group label {
+            display: block;
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        #formulaInput {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        #formulaInput:focus {
+            outline: none;
+            border-color: #4285f4;
+        }
+        .formula-display {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4285f4;
+        }
+        .formula-display h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .formula-code {
+            font-size: 18px;
+            color: #d32f2f;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        .formula-explain {
+            margin-top: 15px;
+        }
+        .formula-explain p {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px 0;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #3367d6;
+        }
+        .basic-rule {
+            margin-top: 30px;
+        }
+        .basic-rule h3 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .rule-list {
+            list-style: none;
+        }
+        .rule-list li {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .rule-list li::before {
+            content: "•";
+            color: #4285f4;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="cube-formula-container">
+        <h2 class="title">三阶魔方公式解析工具</h2>
+        
+        <!-- 公式输入区域 -->
+        <div class="formula-input-group">
+            <label for="formulaInput">输入魔方公式（如 FRUR'U'F'）：</label>
+            <input type="text" id="formulaInput" placeholder="请输入标准魔方公式，支持大小写字母与撇号">
+            <button class="btn" id="parseBtn">解析公式</button>
+        </div>
+        
+        <!-- 公式解析结果显示区域 -->
+        <div class="formula-display">
+            <h3>解析结果</h3>
+            <div class="formula-code" id="formulaCode">未输入公式</div>
+            <div class="formula-explain" id="formulaExplain">
+                <p>请在上方输入魔方公式并点击“解析公式”按钮</p>
+            </div>
+        </div>
+        
+        <!-- 魔方公式基础规则 -->
+        <div class="basic-rule">
+            <h3>魔方公式基础规则</h3>
+            <ul class="rule-list">
+                <li><strong>大写字母（如 F、R、U）</strong>：代表单一表层顺时针转动90度（F=前面，R=右面，U=上面，L=左面，D=下面，B=后面）</li>
+                <li><strong>字母+撇号（如 F'、R'）</strong>：代表单一表层逆时针转动90度</li>
+                <li><strong>小写字母（如 f、r）</strong>：代表对应面的“表层+内层”双层顺时针转动90度</li>
+                <li><strong>字母+数字2（如 F2、R2）</strong>：代表对应面转动180度（顺时针/逆时针效果相同）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 魔方公式基础映射表
+        const formulaMap = {
+            'F': '前面（Front）顺时针转90度',
+            'F\'': '前面（Front）逆时针转90度',
+            'f': '前面双层（Front+内层）顺时针转90度',
+            'f\'': '前面双层（Front+内层）逆时针转90度',
+            'F2': '前面（Front）转180度',
+            'R': '右面（Right）顺时针转90度',
+            'R\'': '右面（Right）逆时针转90度',
+            'r': '右面双层（Right+内层）顺时针转90度',
+            'r\'': '右面双层（Right+内层）逆时针转90度',
+            'R2': '右面（Right）转180度',
+            'U': '上面（Up）顺时针转90度',
+            'U\'': '上面（Up）逆时针转90度',
+            'u': '上面双层（Up+内层）顺时针转90度',
+            'u\'': '上面双层（Up+内层）逆时针转90度',
+            'U2': '上面（Up）转180度',
+            'L': '左面（Left）顺时针转90度',
+            'L\'': '左面（Left）逆时针转90度',
+            'l': '左面双层（Left+内层）顺时针转90度',
+            'l\'': '左面双层（Left+内层）逆时针转90度',
+            'L2': '左面（Left）转180度',
+            'D': '下面（Down）顺时针转90度',
+            'D\'': '下面（Down）逆时针转90度',
+            'd': '下面双层（Down+内层）顺时针转90度',
+            'd\'': '下面双层（Down+内层）逆时针转90度',
+            'D2': '下面（Down）转180度',
+            'B': '后面（Back）顺时针转90度',
+            'B\'': '后面（Back）逆时针转90度',
+            'b': '后面双层（Back+内层）顺时针转90度',
+            'b\'': '后面双层（Back+内层）逆时针转90度',
+            'B2': '后面（Back）转180度'
+        };
+
+        // 获取DOM元素
+        const formulaInput = document.getElementById('formulaInput');
+        const parseBtn = document.getElementById('parseBtn');
+        const formulaCode = document.getElementById('formulaCode');
+        const formulaExplain = document.getElementById('formulaExplain');
+
+        // 解析公式的函数
+        function parseFormula(input) {
+            if (!input.trim()) return { code: '未输入公式', explain: '<p>请在上方输入魔方公式并点击“解析公式”按钮</p>' };
+            
+            // 公式字符分割（处理字母+撇号/数字的组合）
+            const formulaParts = input.match(/[A-Za-z]'?2?/g) || [];
+            if (formulaParts.length === 0) return { code: input, explain: '<p>输入的公式格式不正确，请检查后重新输入</p>' };
+            
+            // 生成解析说明
+            let explainHtml = '<p>公式分步解析：</p><p>';
+            formulaParts.forEach((part, index) => {
+                const desc = formulaMap[part] || `未识别的指令：${part}`;
+                explainHtml += `${index + 1}. ${part} → ${desc}<br>`;
+            });
+            explainHtml += '</p>';
+            
+            return { code: input, explain: explainHtml };
+        }
+
+        // 按钮点击事件
+        parseBtn.addEventListener('click', () => {
+            const inputValue = formulaInput.value.trim();
+            const result = parseFormula(inputValue);
+            formulaCode.textContent = result.code;
+            formulaExplain.innerHTML = result.explain;
+        });
+
+        // 初始化显示示例公式（如FRUR'U'F'）
+        window.onload = () => {
+            formulaInput.value = 'FRUR\'U\'F\'';
+            const result = parseFormula('FRUR\'U\'F\'');
+            formulaCode.textContent = result.code;
+            formulaExplain.innerHTML = result.explain;
+        };
+    </script>
+</body>
+</html>
