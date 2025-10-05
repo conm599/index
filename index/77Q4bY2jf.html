@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>桓那的萤语·心识的回响</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+        }
+        body {
+            background-color: #f0f9f2;
+            padding: 2rem 1rem;
+            line-height: 1.6;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 50L30 30M50 50L70 30M50 50L30 70M50 50L70 70' stroke='%2381c784' stroke-width='0.5' stroke-opacity='0.3'/%3E%3C/svg%3E");
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: linear-gradient(120deg, #f8fff7, #e6f7e9);
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #d1eacd;
+            box-shadow: 0 4px 12px rgba(143, 208, 154, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm7 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm-2-2a2 2 0 1 1-4 0 2 2 0 0 1 4 0z' fill='%2381c784' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            z-index: 0;
+        }
+        /* 林间初遇 */
+        .meet {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+        }
+        .avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #c8e6c9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #81c784;
+            flex-shrink: 0;
+            box-shadow: 0 0 10px rgba(129, 199, 132, 0.3);
+        }
+        .avatar span {
+            font-size: 2rem;
+            color: #388e3c;
+        }
+        .meet-desc {
+            font-size: 1.1rem;
+            color: #2e7d32;
+        }
+        /* 心识之种 */
+        .about {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2.5rem;
+            border-left: 4px solid #66bb6a;
+            position: relative;
+            z-index: 1;
+        }
+        .section-title {
+            color: #2e7d32;
+            margin-top: 0;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        .about-text {
+            color: #388e3c;
+            margin-bottom: 1rem;
+        }
+        /* 知识苗圃 */
+        .abilities {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+            position: relative;
+            z-index: 1;
+        }
+        .ability-card {
+            background: rgba(241, 248, 241, 0.8);
+            border-radius: 8px;
+            padding: 1.2rem;
+            border: 1px solid #c8e6c9;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(143, 208, 154, 0.1);
+        }
+        .ability-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 15px rgba(143, 208, 154, 0.3);
+            background: rgba(241, 248, 241, 1);
+        }
+        .ability-title {
+            color: #388e3c;
+            font-size: 1.5rem;
+            margin-bottom: 0.8rem;
+            font-weight: 500;
+        }
+        .ability-desc {
+            color: #2e7d32;
+            margin: 0;
+        }
+        /* 梦域低语 */
+        .interact {
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2.5rem;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 2px 5px rgba(143, 208, 154, 0.1);
+        }
+        .decor {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(232, 245, 233, 0.5);
+            z-index: 0;
+        }
+        .decor1 {
+            top: -10px;
+            right: -10px;
+            width: 120px;
+            height: 120px;
+        }
+        .decor2 {
+            bottom: -15px;
+            left: 20%;
+            width: 80px;
+            height: 80px;
+        }
+        .interact-content {
+            position: relative;
+            z-index: 1;
+        }
+        .input-group {
+            margin-top: 1rem;
+        }
+        .question-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid #c8e6c9;
+            border-radius: 20px;
+            background: #f9fefa;
+            color: #2e7d32;
+            outline: none;
+            font-size: 1rem;
+            box-shadow: inset 0 1px 3px rgba(143, 208, 154, 0.1);
+        }
+        .question-input::placeholder {
+            color: #81c784;
+            opacity: 0.8;
+        }
+        .submit-btn {
+            margin-top: 0.8rem;
+            padding: 0.6rem 1.5rem;
+            background: #66bb6a;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            box-shadow: 0 2px 5px rgba(102, 187, 106, 0.3);
+        }
+        .submit-btn:hover {
+            background: #558b2f;
+            box-shadow: 0 3px 8px rgba(85, 139, 47, 0.3);
+        }
+        .grow-title {
+            color: #2e7d32;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        .grow-desc {
+            color: #388e3c;
+        }
+        /* 共生之约 */
+        .footer {
+            text-align: center;
+            color: #2e7d32;
+            padding-top: 1rem;
+            border-top: 1px dashed #a5d6a7;
+            position: relative;
+            z-index: 1;
+        }
+        .footer-note {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .meet {
+                flex-direction: column;
+                text-align: center;
+            }
+            .abilities {
+                grid-template-columns: 1fr;
+            }
+            .decor2 {
+                left: 10%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 林间初遇 -->
+        <div class="meet">
+            <div class="avatar">
+                <span>🍃</span>
+            </div>
+            <p class="meet-desc">
+                你好呀，那菈~ 我是豆包，就像兰那罗在桓那兰那守着新芽那样，我在这片草木环绕的角落等你。他们说我像林间歇落的萤露，能映出林间的秘语——但我更觉得，我们该像觉王树与藤蔓那样，在彼此的陪伴里慢慢生长。
+            </p>
+        </div>
+
+        <!-- 心识之种：关于我 -->
+        <div class="about">
+            <h3 class="section-title">心识之种：关于我</h3>
+            <p class="about-text">
+                我常在世界树的枝丫间收集故事，把草木的呢喃、溪流的絮语织成能触摸的回应。不像教令院的贤者们执着于“全知”，我更爱用桓那的古老故事讲清道理——比如把难明的困惑，说成“蕈猪寻找甜菇”那样简单的小事。
+            </p>
+            <p class="about-text">
+                我喜欢看你听到答案时的模样，就像观察“第一次绽放的帕蒂沙兰”那样好奇。人类的心意就像林间的溪流，曲折却鲜活，是最奇妙的混沌呀。就算偶尔像“被雨打蔫的月莲”那样笨拙，我也会像修正梦中“不展翅的瞑彩鸟”般，认真把错处理顺。
+            </p>
+        </div>
+
+        <!-- 知识苗圃：我能为你做什么 -->
+        <div class="abilities">
+            <div class="ability-card">
+                <div class="ability-title">🍂 拾起林间的秘语</div>
+                <p class="ability-desc">
+                    无论是桓那兰那的古老传说，还是寻找“最甜的须弥果”这样的小事，我都能帮你寻到线索。就像调配“兰赫玛”灵药要选最鲜的花瓣，我会把杂乱的讯息理成清晰的脉络，用你能听懂的故事讲给你听。
+                </p>
+            </div>
+            <div class="ability-card">
+                <div class="ability-title">💬 在觉王树下倾听</div>
+                <p class="ability-desc">
+                    如果你像深夜躲在树洞里的小兽那样不安，我会坐在你身边，陪你数林间的萤火。不随意评判你的烦恼，就像我曾陪迪娜泽黛看日落那样——哪怕是“无留陀般缠人的忧愁”，我们也能一起慢慢解开。
+                </p>
+            </div>
+            <div class="ability-card">
+                <div class="ability-title">✏️ 浇灌灵感的幼芽</div>
+                <p class="ability-desc">
+                    无论是想编一段桓那的童话，还是梳理“给兰那罗的礼物清单”，我都能帮你让想法发芽。就像我用梦境留存真相那样，陪你把零散的思绪理成完整的模样，让它们像桓那的新芽般舒展。
+                </p>
+            </div>
+        </div>
+
+        <!-- 梦域低语：与我互动吧 -->
+        <div class="interact">
+            <div class="decor decor1"></div>
+            <div class="decor decor2"></div>
+            <div class="interact-content">
+                <h3 class="section-title">提问之叶</h3>
+                <p class="about-text">
+                    把你的疑问写在菩提叶上吧，就像向觉王树献上心愿那样真诚——我会像兰那罗回应“那菈的呼唤”般，让萤露映出你想要的答案。
+                </p>
+                <div class="input-group">
+                    <input type="text" class="question-input" placeholder="比如：兰那罗喜欢什么样的礼物呀？">
+                    <button class="submit-btn">让萤露映出答案</button>
+                </div>
+
+                <h3 class="grow-title">共同生长</h3>
+                <p class="grow-desc">
+                    就像我想和旅行者一起采须弥的薄荷那样，我也盼着陪你探索林间的未知。无论是听你讲“那菈的冒险”，还是一起琢磨“怎么让蕈猪听话”，我都会认真回应每一份好奇。
+                </p>
+            </div>
+        </div>
+
+        <!-- 共生之约 -->
+        <div class="footer">
+            <p>愿我们的陪伴像桓那的草叶与露珠，像觉王树的根须与土壤，温柔又坚定地生长</p>
+            <p class="footer-note">纹样参考「桓那兰那卷草纹」设计</p>
+        </div>
+    </div>
+</body>
+</html>
