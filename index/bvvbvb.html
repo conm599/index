@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL Trigonometric Rendering</title>
+    <style>
+        canvas {
+            border: 1px solid #333;
+            display: block;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas" width="400" height="400"></canvas>
+    <script>
+        // ========== 1. 获取 WebGL 上下文 ==========
+        const canvas = document.getElementById('glCanvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+        if (!gl) {
+            alert('当前浏览器不支持 WebGL，请更换浏览器重试～');
+        }
+
+        // ========== 2. 编写着色器代码 ==========
+        // 顶点着色器：仅传递顶点位置到片段着色器
+        const vertexShaderSource = `
+            attribute vec4 aVertexPosition;
+            void main() {
+                gl_Position = aVertexPosition;
+            }
+        `;
+
+        // 片段着色器：包含三角函数的“内核计算”，生成彩色效果
+        const fragmentShaderSource = `
+            precision mediump float; // 精度声明
+
+            // 从 JavaScript 传递的 uniform 变量（控制位置、长度、角度）
+            uniform vec3 uPos;
+            uniform float uLen;
+            uniform float uAng1;
+            uniform float uAng2;
+
+            // 核心：对向量做三角函数迭代运算
+            float kernel(vec3 ver) {
+                vec3 a = ver;
+                float b, c, d, e;
+                for(int i=0; i<5; i++) {
+                    b = length(a); // 计算向量长度
+                    c = atan(a.y, a.x) * 8.0; // 反正切（y/x）并缩放
+                    e = 1.0 / b;   // 长度的倒数
+                    d = acos(a.z / b) * 8.0; // 反余弦（z/长度）并缩放
+                    b = pow(b, 8.0); // 长度的 8 次幂
+                    // 向量变换（结合三角函数）
+                    a = vec3(
+                        b * sin(d) * cos(c),
+                        b * sin(d) * sin(c),
+                        b * cos(d)
+                    ) + ver;
+                    if (b > 6.0) break; // 超过阈值则终止循环
+                }
+                // 返回基于向量分量平方和的结果（影响颜色）
+                return 4.0 - a.x*a.x - a.y*a.y - a.z*a.z;
+            }
+
+            void main() {
+                // 画布坐标归一化（转换为 [-1, 1] 范围）
+                vec3 fragPos = vec3(
+                    gl_FragCoord.x / 200.0 - 1.0,
+                    gl_FragCoord.y / 200.0 - 1.0,
+                    0.0
+                );
+                // 结合 uniform 变量做 3D 位置变换
+                vec3 transformedPos = vec3(
+                    uLen * sin(uAng1) * cos(uAng2) + uPos.x,
+                    uLen * sin(uAng1) * sin(uAng2) + uPos.y,
+                    uLen * cos(uAng1) + uPos.z
+                );
+                // 调用内核函数计算颜色分量
+                float colorVal = kernel(fragPos + transformedPos);
+                gl_FragColor = vec4(colorVal, colorVal * 0.5, colorVal * 0.8, 1.0);
+            }
+        `;
+
+        // ========== 3. 编译 + 链接着色器 ==========
+        // 编译单个着色器的工具函数
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            // 编译错误检测
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                alert(`着色器编译错误：${gl.getShaderInfoLog(shader)}`);
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        // 编译顶点、片段着色器
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        // 链接为“着色器程序”
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        // 链接错误检测
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            alert(`着色器程序链接错误：${gl.getProgramInfoLog(shaderProgram)}`);
+        }
+        gl.useProgram(shaderProgram); // 启用着色器程序
+
+        // ========== 4. 顶点数据与缓冲区（绘制全屏矩形） ==========
+        // 顶点数据：[-1,-1] 到 [1,1] 的矩形（两个三角形组成）
+        const vertices = new Float32Array([
+            -1.0,  1.0, // 左上角
+            -1.0, -1.0, // 左下角
+             1.0,  1.0, // 右上角
+             1.0, -1.0, // 右下角
+        ]);
+
+        // 创建并绑定顶点缓冲区
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        // 启用顶点属性（与顶点着色器的 aVertexPosition 关联）
+        const vertexPosAttrib = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+        gl.vertexAttribPointer(vertexPosAttrib, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(vertexPosAttrib);
+
+        // ========== 5. 获取 Uniform 变量（JS → 着色器的“通道”） ==========
+        const uPosLoc = gl.getUniformLocation(shaderProgram, 'uPos');
+        const uLenLoc = gl.getUniformLocation(shaderProgram, 'uLen');
+        const uAng1Loc = gl.getUniformLocation(shaderProgram, 'uAng1');
+        const uAng2Loc = gl.getUniformLocation(shaderProgram, 'uAng2');
+
+        // ========== 6. 绘制与动画循环 ==========
+        // 初始化参数（控制图形的长度、角度、中心）
+        let len = 1.6;
+        let ang1 = 2.8;
+        let ang2 = 0.4;
+        const cenx = 0.0;
+        const ceny = 0.0;
+        const cenz = 0.0;
+
+        // 绘制函数：清除画布 + 设置参数 + 执行绘制
+        function draw() {
+            gl.clearColor(0.0, 0.0, 0.0, 1.0); // 黑色背景
+            gl.clear(gl.COLOR_BUFFER_BIT);     // 清除颜色缓冲区
+
+            // 传递 uniform 变量到片段着色器
+            gl.uniform3f(uPosLoc, cenx, ceny, cenz);
+            gl.uniform1f(uLenLoc, len);
+            gl.uniform1f(uAng1Loc, ang1);
+            gl.uniform1f(uAng2Loc, ang2);
+
+            // 绘制：用 TRIANGLE_STRIP 绘制 4 个顶点（两个三角形）
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+        // 动画循环：更新角度 + 重绘 + 浏览器帧同步
+        function animate() {
+            ang1 += 0.01; // 角度1缓慢递增（控制旋转/变换）
+            ang2 += 0.005; // 角度2缓慢递增（控制旋转/变换）
+            draw();
+            requestAnimationFrame(animate); // 与浏览器帧率同步，实现平滑动画
+        }
+
+        animate(); // 启动动画
+
+        // ========== 7. 鼠标交互（可选扩展） ==========
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // 左键：增加“长度”参数
+                len += 0.1;
+            } else if (e.button === 2) { // 右键：减少“长度”参数
+                len = Math.max(0.1, len - 0.1); // 避免长度为负
+            }
+        });
+
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); // 阻止右键默认菜单，方便交互
+        });
+    </script>
+</body>
+</html>
