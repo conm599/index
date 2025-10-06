@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU极限压力测试</title>
+    <style>body{margin:0;padding:0;overflow:hidden;}</style>
+</head>
+<body>
+    <canvas id="gpuCanvas" style="width:100vw;height:100vh;display:block;"></canvas>
+    <script>
+        const canvas = document.getElementById('gpuCanvas');
+        let gl, program, buffer;
+        let particles = 300000; // 初始30万粒子（第一帧就有基础负载）
+        const complexity = 100;  // 拉满计算复杂度（原50→100）
+        const particleSize = 2.5; // 增大粒子尺寸，增加像素填充量
+        const speed = 1.5;       // 提升运动速度，迫使GPU更频繁重算
+        let isRunning = true;
+
+        // 初始化WebGL（禁用所有优化，强制满负载）
+        try {
+            gl = canvas.getContext('webgl', {
+                antialias: false,    // 禁用抗锯齿（GPU少做优化）
+                depth: true,         // 启用深度测试（增加GPU计算）
+                stencil: true,       // 启用模板缓冲（额外负载）
+                premultipliedAlpha: false
+            }) || canvas.getContext('experimental-webgl');
+        } catch (e) {
+            document.body.innerHTML = "<div style='width:100vw;height:100vh;display:flex;justify-content:center;align-items:center;background:#000;color:#ff4444;font-size:1.2rem;'>不支持WebGL，无法测试</div>";
+        }
+
+        if (gl) {
+            initWebGL();
+            requestAnimationFrame(render); // 立即启动渲染
+        }
+
+        function initWebGL() {
+            // 顶点着色器：超复杂计算（循环100次+矩阵运算+嵌套三角函数）
+            const vertexShaderSource = `
+                attribute vec2 aPosition;
+                uniform float uTime;
+                uniform float uSpeed;
+
+                // 新增2x2矩阵乘法（增加计算量）
+                mat2 rotateMat(float angle) {
+                    float s = sin(angle);
+                    float c = cos(angle);
+                    return mat2(c, -s, s, c);
+                }
+
+                void main() {
+                    vec2 pos = aPosition;
+                    float t = uTime * uSpeed;
+
+                    // 核心计算循环：从50次→100次，每轮都有多重运算
+                    for (int i = 0; i < 100; i++) {
+                        float freq = float(i+1) * 0.4;
+                        float amp = 0.6 / float(i+1);
+                        
+                        // 1. 矩阵旋转 + 三角函数扰动
+                        pos = rotateMat(t * 0.1 + float(i)*0.05) * pos;
+                        // 2. 嵌套三角函数（sin里套cos，cos里套sin）
+                        pos.x += sin(pos.y * freq + cos(t * 0.8 + float(i)*0.1)) * amp;
+                        pos.y += cos(pos.x * freq + sin(t * 0.9 + float(i)*0.15)) * amp;
+                        // 3. 幂运算 + 绝对值（增加GPU算术单元负载）
+                        pos.x = pow(abs(pos.x + sin(t * 0.3)), 1.2 + sin(t * 0.2) * 0.6);
+                        pos.y = pow(abs(pos.y + cos(t * 0.4)), 1.2 + cos(t * 0.3) * 0.6);
+                        // 4. 额外噪声模拟（随机扰动，无法缓存）
+                        pos.x += fract(sin(dot(pos, vec2(12.9898, 78.233 + float(i)))) * 43758.5453) * 0.02;
+                        pos.y += fract(sin(dot(pos, vec2(31.4159, 26.5358 + float(i)))) * 27182.8182) * 0.02;
+                    }
+
+                    gl_Position = vec4(pos, 0.0, 1.0);
+                    gl_PointSize = ${particleSize}.0;
+                }
+            `;
+
+            // 片段着色器：多轮颜色计算+噪声+软边缘（增加像素处理负载）
+            const fragmentShaderSource = `
+                precision highp float; // 高精度浮点（禁用低精度优化）
+                uniform float uTime;
+
+                // 2D噪声函数（增加片段计算量）
+                float noise(vec2 p) {
+                    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+                }
+
+                void main() {
+                    // 1. 粒子圆形裁剪（软边缘，比硬裁剪更耗时）
+                    vec2 coord = gl_PointCoord - vec2(0.5);
+                    float dist = length(coord);
+                    float edge = smoothstep(0.5, 0.45, dist); // 软边缘计算
+                    if (edge < 0.01) discard;
+
+                    // 2. 多轮噪声颜色混合（3层噪声，每层都有三角函数）
+                    vec3 color = vec3(0.0);
+                    // 第一层：基础颜色（随位置+时间变化）
+                    color.r = 0.6 + 0.4 * sin(gl_FragCoord.x * 0.01 + uTime * 0.5);
+                    color.g = 0.4 + 0.3 * cos(gl_FragCoord.y * 0.01 + uTime * 0.6);
+                    color.b = 0.7 + 0.3 * sin(gl_FragCoord.x * 0.02 + gl_FragCoord.y * 0.01 + uTime * 0.4);
+                    // 第二层：噪声叠加（增加细节，消耗GPU）
+                    float n1 = noise(gl_FragCoord.xy * 0.02 + uTime * 0.3);
+                    color = mix(color, vec3(n1), 0.2);
+                    // 第三层：二次噪声扰动（双重计算）
+                    float n2 = noise(gl_FragCoord.xy * 0.04 + uTime * 0.5);
+                    color = mix(color, vec3(n2 * 0.8), 0.15);
+
+                    // 3. 最终颜色调整（额外幂运算）
+                    color = pow(color, vec3(1.2)); // 伽马校正，增加计算
+                    gl_FragColor = vec4(color, edge * 0.9); // 软边缘透明度
+                }
+            `;
+
+            // 编译着色器（保留错误检测，确保逻辑不被优化）
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            
+            program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('着色器程序错误:', gl.getProgramInfoLog(program));
+                isRunning = false;
+                return;
+            }
+            
+            gl.useProgram(program);
+            updateParticleBuffer(); // 初始化粒子缓冲区
+        }
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('着色器编译错误:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        // 更新粒子缓冲区（每帧新增30万后调用，重新生成所有粒子数据）
+        function updateParticleBuffer() {
+            // 生成粒子位置：增加动态扰动（非纯随机，增加计算）
+            const positions = new Float32Array(particles * 2);
+            for (let i = 0; i < particles * 2; i += 2) {
+                // 位置 = 随机基础值 + 三角函数扰动（每粒子不同，无法复用）
+                const baseX = Math.random() * 2 - 1;
+                const baseY = Math.random() * 2 - 1;
+                positions[i] = baseX + sin(baseY * 5) * 0.1;   // 额外sin扰动
+                positions[i + 1] = baseY + cos(baseX * 5) * 0.1; // 额外cos扰动
+            }
+
+            // 绑定并更新缓冲区（用DYNAMIC_DRAW，强制GPU重新读取数据）
+            buffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+            
+            // 启用顶点属性（每次更新后重新绑定，避免GPU缓存）
+            const posLoc = gl.getAttribLocation(program, 'aPosition');
+            gl.enableVertexAttribArray(posLoc);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+        }
+
+        // 主渲染循环：每帧新增30万粒子，无上限
+        function render(time) {
+            if (!isRunning) return;
+
+            // 1. 每帧新增30万粒子（核心：快速堆高负载，无上限）
+            particles += 300000;
+            // 基础内存防护（避免瞬间崩溃，可删除）
+            if (particles > 100000000) particles = 100000000; 
+            updateParticleBuffer();
+
+            // 2. 适配画布尺寸（每次渲染都检查，增加GPU状态切换负载）
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+
+            // 3. 清除缓冲区（深度+颜色+模板，三重清除，增加负载）
+            gl.clearColor(0.03, 0.03, 0.05, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+            // 4. 传递uniform变量（每次都更新，避免GPU缓存）
+            const timeLoc = gl.getUniformLocation(program, 'uTime');
+            gl.uniform1f(timeLoc, time * 0.001);
+            const speedLoc = gl.getUniformLocation(program, 'uSpeed');
+            gl.uniform1f(speedLoc, speed);
+
+            // 5. 渲染粒子（用POINTS模式，每个粒子都触发片段着色器）
+            gl.drawArrays(gl.POINTS, 0, particles);
+
+            // 6. 无间断循环（强制GPU持续工作，不释放资源）
+            requestAnimationFrame(render);
+        }
+
+        // 页面关闭前停止渲染（避免内存泄漏）
+        window.addEventListener('beforeunload', () => {
+            isRunning = false;
+            gl.deleteBuffer(buffer);
+            gl.deleteProgram(program);
+        });
+
+        // 简化sin/cos调用（避免全局函数查找开销）
+        const sin = Math.sin;
+        const cos = Math.cos;
+    </script>
+</body>
+</html>
