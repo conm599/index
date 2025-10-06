@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GPU Burner - WebGL</title>
+    <style>
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: block;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+    <script>
+        // 全屏Canvas
+        const canvas = document.getElementById('glCanvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+        if (!gl) {
+            alert('WebGL not supported');
+            throw new Error('WebGL not available');
+        }
+
+        // 顶点着色器：传递顶点和额外的变化量
+        const vertexShaderSource = `
+            attribute vec4 aVertexPosition;
+            attribute float aOffset; // 每个顶点的偏移量，用于增加计算随机性
+            uniform float uTime;
+            void main() {
+                // 顶点也做一些随时间的波动，增加顶点处理开销
+                float t = uTime * 0.01 + aOffset;
+                vec4 pos = aVertexPosition;
+                pos.x += sin(t) * 0.1;
+                pos.y += cos(t * 1.1) * 0.1;
+                gl_Position = pos;
+            }
+        `;
+
+        // 片段着色器：超级 heavy 的内核，循环200次，大量三角函数
+        const fragmentShaderSource = `
+            precision highp float; // 高精度，增加计算量
+
+            uniform vec3 uPos;
+            uniform float uLen;
+            uniform float uAng1;
+            uniform float uAng2;
+            uniform float uTime;
+
+            float kernel(vec3 ver) {
+                vec3 a = ver;
+                float b, c, d, e;
+                // 循环次数从5次拉到200次，暴增计算量
+                for(int i=0; i<200; i++) {
+                    b = length(a);
+                    c = atan(a.y, a.x) * 8.0 + uTime * 0.1; // 加时间波动，让每帧都要重新算
+                    e = 1.0 / (b + 0.001); // 避免除零，加小量
+                    d = acos(clamp(a.z / (b + 0.001), -1.0, 1.0)) * 8.0;
+                    b = pow(b, 8.0);
+                    a = vec3(
+                        b * sin(d) * cos(c),
+                        b * sin(d) * sin(c),
+                        b * cos(d)
+                    ) + ver + vec3(sin(uTime * 0.05), cos(uTime * 0.03), sin(uTime * 0.07)); // 再加时间扰动
+                    if (b > 10.0) break;
+                }
+                return 4.0 - dot(a, a); // dot代替逐个乘，不过计算量差不多
+            }
+
+            void main() {
+                vec3 fragPos = vec3(
+                    gl_FragCoord.x / float(${canvas.width}) * 2.0 - 1.0,
+                    gl_FragCoord.y / float(${canvas.height}) * 2.0 - 1.0,
+                    0.0
+                );
+                vec3 transformedPos = vec3(
+                    uLen * sin(uAng1) * cos(uAng2) + uPos.x + sin(uTime * 0.02),
+                    uLen * sin(uAng1) * sin(uAng2) + uPos.y + cos(uTime * 0.04),
+                    uLen * cos(uAng1) + uPos.z + sin(uTime * 0.06)
+                );
+                float colorVal = kernel(fragPos + transformedPos);
+                // 多轮颜色计算，再增加开销
+                colorVal = sin(colorVal * 3.14159) * cos(colorVal * 2.71828);
+                gl_FragColor = vec4(
+                    colorVal,
+                    colorVal * 0.5 + sin(uTime * 0.01),
+                    colorVal * 0.8 + cos(uTime * 0.01),
+                    1.0
+                );
+            }
+        `;
+
+        // 编译着色器函数
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            console.error('Program link error:', gl.getProgramInfoLog(shaderProgram));
+        }
+        gl.useProgram(shaderProgram);
+
+        // 生成大量顶点：100x100的网格，共10000个顶点
+        const gridSize = 100;
+        const vertexCount = gridSize * gridSize;
+        const vertices = [];
+        const offsets = [];
+        for (let y = 0; y < gridSize; y++) {
+            for (let x = 0; x < gridSize; x++) {
+                // 归一化到[-1, 1]
+                const nx = (x / (gridSize - 1)) * 2 - 1;
+                const ny = (y / (gridSize - 1)) * 2 - 1;
+                vertices.push(nx, ny);
+                // 每个顶点的随机偏移，增加计算多样性
+                offsets.push(Math.random() * 10);
+            }
+        }
+
+        const vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array([...vertices, ...offsets]), // 合并顶点和偏移
+            gl.STATIC_DRAW
+        );
+
+        const posAttribLoc = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+        gl.vertexAttribPointer(posAttribLoc, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(posAttribLoc);
+
+        const offsetAttribLoc = gl.getAttribLocation(shaderProgram, 'aOffset');
+        gl.vertexAttribPointer(offsetAttribLoc, 1, gl.FLOAT, false, 0, vertices.length * 4); // 偏移在顶点数据之后
+        gl.enableVertexAttribArray(offsetAttribLoc);
+
+        // 获取Uniform位置
+        const uPosLoc = gl.getUniformLocation(shaderProgram, 'uPos');
+        const uLenLoc = gl.getUniformLocation(shaderProgram, 'uLen');
+        const uAng1Loc = gl.getUniformLocation(shaderProgram, 'uAng1');
+        const uAng2Loc = gl.getUniformLocation(shaderProgram, 'uAng2');
+        const uTimeLoc = gl.getUniformLocation(shaderProgram, 'uTime');
+
+        // 初始化参数
+        let len = 1.6;
+        let ang1 = 2.8;
+        let ang2 = 0.4;
+        const cenx = 0.0;
+        const ceny = 0.0;
+        const cenz = 0.0;
+        let time = 0;
+
+        // 绘制函数：每帧绘制多次，或者单次绘制但计算极重
+        function draw() {
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // 传递Uniform
+            gl.uniform3f(uPosLoc, cenx, ceny, cenz);
+            gl.uniform1f(uLenLoc, len);
+            gl.uniform1f(uAng1Loc, ang1);
+            gl.uniform1f(uAng2Loc, ang2);
+            gl.uniform1f(uTimeLoc, time);
+
+            // 绘制多次，比如5次，直接拉满GPU
+            for (let i = 0; i < 5; i++) {
+                gl.drawArrays(gl.POINTS, 0, vertexCount); // 用POINTS，每个顶点都是一个点，片段数=顶点数
+            }
+
+            // 更新参数，快速变化让GPU持续工作
+            ang1 += 0.1;
+            ang2 += 0.05;
+            time += 1;
+            len = 1.6 + Math.sin(time * 0.01) * 0.5;
+
+            // 不使用requestAnimationFrame，直接循环调用，强制CPU不断触发绘制
+            // 或者用requestAnimationFrame但让回调极快，不过直接循环更狠
+            requestAnimationFrame(draw);
+            // 或者用setTimeout(draw, 0); 但requestAnimationFrame更贴近GPU调度，不过这里为了极限，可能循环更凶
+            // 这里用requestAnimationFrame，因为直接循环会阻塞JS线程，反而可能GPU没占满，requestAnimationFrame更合理但依然狠
+        }
+
+        draw();
+
+        // 窗口resize时更新Canvas尺寸
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        });
+    </script>
+</body>
+</html>
