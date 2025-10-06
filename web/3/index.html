@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备检测工具</title>
+    <style>
+        :root {
+            --android-color: #34A853;
+            --ios-color: #007AFF;
+            --neutral-color: #6c757d;
+            --card-bg: #ffffff;
+            --bg-color: #f8f9fa;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        body {
+            background: var(--bg-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: background-color 0.5s ease;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .start-section {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 24px;
+            border-radius: 12px;
+            background: var(--card-bg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .start-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+        
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .loading-section {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 24px;
+            border-radius: 12px;
+            background: var(--card-bg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            display: none;
+        }
+        
+        .loading-bar-container {
+            height: 12px;
+            background: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4b6cb7, #182848);
+            border-radius: 6px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        
+        .loading-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+        
+        .result-section {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 24px;
+            border-radius: 12px;
+            background: var(--card-bg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            display: none;
+        }
+        
+        .result-text {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            transition: color 0.3s ease;
+        }
+        
+        .result-detail {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        
+        .progress-container {
+            margin: 24px 0;
+            height: 12px;
+            background: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+            position: absolute;
+            top: 0;
+        }
+        
+        .android-progress {
+            background: linear-gradient(90deg, var(--android-color), #0F9D58);
+            left: 0;
+        }
+        
+        .ios-progress {
+            background: linear-gradient(90deg, var(--ios-color), #5856D6);
+            right: 0;
+        }
+        
+        .confidence {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 16px;
+        }
+        
+        .high-confidence {
+            color: var(--android-color);
+        }
+        
+        .ios-high-confidence {
+            color: var(--ios-color);
+        }
+        
+        .medium-confidence {
+            color: #F4B400;
+        }
+        
+        .low-confidence {
+            color: #DB4437;
+        }
+        
+        .evidence-section {
+            margin-top: 32px;
+            display: none;
+        }
+        
+        h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        
+        .evidence-list {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .evidence-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 18px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .evidence-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        
+        .evidence-info {
+            flex: 1;
+        }
+        
+        .evidence-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+        
+        .evidence-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .evidence-weight {
+            font-weight: 700;
+            font-size: 16px;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .android-weight {
+            color: var(--android-color);
+        }
+        
+        .ios-weight {
+            color: var(--ios-color);
+        }
+        
+        /* Android主题样式 */
+        body.android-theme {
+            --android-color: #34A853;
+            --ios-color: #6c757d;
+            --bg-color: #f0f9f0;
+        }
+        
+        /* iOS主题样式 */
+        body.ios-theme {
+            --ios-color: #007AFF;
+            --android-color: #6c757d;
+            --bg-color: #f0f7ff;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 600px) {
+            .content {
+                padding: 20px;
+            }
+            
+            .result-section {
+                padding: 20px;
+            }
+            
+            .evidence-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .evidence-weight {
+                margin-top: 10px;
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>设备检测工具</h1>
+        </header>
+        
+        <div class="content">
+            <div class="start-section" id="startSection">
+                <h2>web</h2>
+                <p>we</p>
+                <button class="start-btn" id="startBtn">开始检测</button>
+            </div>
+            
+            <div class="loading-section" id="loadingSection">
+                <div class="loading-text">正在加载音频资源...</div>
+                <div class="loading-bar-container">
+                    <div class="loading-bar" id="loadingBar"></div>
+                </div>
+                <div class="loading-text" id="loadingStatus">0%</div>
+            </div>
+            
+            <div class="result-section" id="resultSection">
+                <div class="result-text" id="resultText">正在检测您的设备...</div>
+                <div class="result-detail" id="resultDetail">请稍候，我们正在分析您的设备特征</div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar android-progress" id="androidProgress" style="width: 50%"></div>
+                    <div class="progress-bar ios-progress" id="iosProgress" style="width: 50%"></div>
+                </div>
+                
+                <div class="confidence" id="confidenceLevel">检测中...</div>
+            </div>
+            
+            <div class="evidence-section" id="evidenceSection">
+                <h2>检测依据</h2>
+                <div class="evidence-list" id="evidenceList">
+                    <!-- 检测依据将在这里动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 音频对象
+        let androidAudio = null;
+        let iosAudio = null;
+        let currentAudio = null;
+        
+        // 加载状态
+        let audioLoaded = false;
+        let loadingProgress = 0;
+        let detectionStarted = false;
+        let loadingTimeout = null;
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化音频对象
+            androidAudio = new Audio();
+            iosAudio = new Audio();
+            
+            // 设置音频循环播放
+            androidAudio.loop = true;
+            iosAudio.loop = true;
+            
+            // 设置音频源
+            androidAudio.src = 'mp/1.mp3';
+            iosAudio.src = 'mp/2.mp3';
+            
+            // 预加载音频
+            androidAudio.load();
+            iosAudio.load();
+            
+            // 添加开始按钮事件监听
+            document.getElementById('startBtn').addEventListener('click', function() {
+                document.getElementById('startSection').style.display = 'none';
+                document.getElementById('loadingSection').style.display = 'block';
+                startAudioLoading();
+            });
+        });
+        
+        // 开始音频加载
+        function startAudioLoading() {
+            // 模拟音频加载进度
+            simulateLoadingProgress();
+            
+            // 设置加载超时 - 5秒后强制完成加载
+            loadingTimeout = setTimeout(function() {
+                console.log("音频加载超时，强制完成");
+                forceCompleteLoading();
+            }, 5000);
+            
+            // 同时检查真实音频加载状态
+            checkRealAudioLoading();
+        }
+        
+        // 模拟加载进度
+        function simulateLoadingProgress() {
+            let progress = 0;
+            const interval = setInterval(function() {
+                progress += Math.random() * 15;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                }
+                updateLoadingProgress(progress);
+            }, 300);
+        }
+        
+        // 检查真实音频加载状态
+        function checkRealAudioLoading() {
+            if (androidAudio.readyState >= 3 && iosAudio.readyState >= 3) {
+                clearTimeout(loadingTimeout);
+                forceCompleteLoading();
+            } else {
+                setTimeout(checkRealAudioLoading, 500);
+            }
+        }
+        
+        // 强制完成加载
+        function forceCompleteLoading() {
+            clearTimeout(loadingTimeout);
+            loadingProgress = 100;
+            audioLoaded = true;
+            
+            document.getElementById('loadingBar').style.width = '100%';
+            document.getElementById('loadingStatus').textContent = '100%';
+            
+            setTimeout(function() {
+                document.getElementById('loadingSection').style.display = 'none';
+                document.getElementById('resultSection').style.display = 'block';
+                startDetection();
+            }, 500);
+        }
+        
+        // 更新加载进度
+        function updateLoadingProgress(progress) {
+            if (progress > loadingProgress) {
+                loadingProgress = progress;
+                document.getElementById('loadingBar').style.width = `${loadingProgress}%`;
+                document.getElementById('loadingStatus').textContent = `${Math.round(loadingProgress)}%`;
+            }
+        }
+        
+        // 开始设备检测
+        function startDetection() {
+            if (detectionStarted) return;
+            detectionStarted = true;
+            
+            // 初始化检测结果
+            let androidScore = 0;
+            let iosScore = 0;
+            const evidences = [];
+            
+            // 执行所有检测方法
+            const result1 = checkUserAgent();
+            androidScore += result1.androidScore;
+            iosScore += result1.iosScore;
+            evidences.push(result1.evidence);
+            
+            const result2 = checkScreenProperties();
+            androidScore += result2.androidScore;
+            iosScore += result2.iosScore;
+            evidences.push(result2.evidence);
+            
+            const result3 = checkTouchSupport();
+            androidScore += result3.androidScore;
+            iosScore += result3.iosScore;
+            evidences.push(result3.evidence);
+            
+            const result4 = checkWebGLRenderer();
+            androidScore += result4.androidScore;
+            iosScore += result4.iosScore;
+            evidences.push(result4.evidence);
+            
+            const result5 = checkPlatform();
+            androidScore += result5.androidScore;
+            iosScore += result5.iosScore;
+            evidences.push(result5.evidence);
+            
+            const result6 = checkBrowserAPIs();
+            androidScore += result6.androidScore;
+            iosScore += result6.iosScore;
+            evidences.push(result6.evidence);
+            
+            // 计算最终结果
+            const totalScore = androidScore + iosScore;
+            const androidPercentage = totalScore > 0 ? Math.round((androidScore / totalScore) * 100) : 50;
+            const iosPercentage = 100 - androidPercentage;
+            
+            // 确定设备类型
+            let deviceType = "未知设备";
+            let confidence = "低";
+            let confidenceClass = "low-confidence";
+            let themeClass = "";
+            
+            // 根据分数差值决定设备类型
+            const scoreDiff = androidScore - iosScore;
+            
+            if (scoreDiff > 20) {
+                deviceType = "Android设备";
+                confidence = "高";
+                confidenceClass = "high-confidence";
+                themeClass = "android-theme";
+                currentAudio = androidAudio;
+            } else if (scoreDiff < -20) {
+                deviceType = "iOS设备";
+                confidence = "高";
+                confidenceClass = "ios-high-confidence";
+                themeClass = "ios-theme";
+                currentAudio = iosAudio;
+            } else if (scoreDiff > 10) {
+                deviceType = "可能为Android设备";
+                confidence = "中";
+                confidenceClass = "medium-confidence";
+                themeClass = "android-theme";
+                currentAudio = androidAudio;
+            } else if (scoreDiff < -10) {
+                deviceType = "可能为iOS设备";
+                confidence = "中";
+                confidenceClass = "medium-confidence";
+                themeClass = "ios-theme";
+                currentAudio = iosAudio;
+            } else {
+                // 分数接近，使用用户代理作为主要判断依据
+                const ua = navigator.userAgent.toLowerCase();
+                if (ua.includes('android')) {
+                    deviceType = "Android设备 (基于用户代理)";
+                    confidence = "低";
+                    confidenceClass = "low-confidence";
+                    themeClass = "android-theme";
+                    currentAudio = androidAudio;
+                } else if (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) {
+                    deviceType = "iOS设备 (基于用户代理)";
+                    confidence = "低";
+                    confidenceClass = "low-confidence";
+                    themeClass = "ios-theme";
+                    currentAudio = iosAudio;
+                } else {
+                    deviceType = "无法确定设备类型";
+                    confidence = "低";
+                    confidenceClass = "low-confidence";
+                }
+            }
+            
+            // 应用主题
+            document.body.className = themeClass;
+            
+            // 更新UI
+            document.getElementById('resultText').textContent = deviceType;
+            document.getElementById('resultText').style.color = 
+                deviceType.includes("Android") ? "var(--android-color)" : 
+                deviceType.includes("iOS") ? "var(--ios-color)" : "var(--neutral-color)";
+                
+            document.getElementById('resultDetail').textContent = 
+                `Android得分: ${androidScore} | iOS得分: ${iosScore} | 差值: ${scoreDiff}`;
+            document.getElementById('androidProgress').style.width = `${androidPercentage}%`;
+            document.getElementById('iosProgress').style.width = `${iosPercentage}%`;
+            document.getElementById('confidenceLevel').textContent = `置信度: ${confidence}`;
+            document.getElementById('confidenceLevel').className = `confidence ${confidenceClass}`;
+            
+            // 显示检测依据
+            const evidenceList = document.getElementById('evidenceList');
+            evidences.forEach(evidence => {
+                const evidenceItem = document.createElement('div');
+                evidenceItem.className = 'evidence-item';
+                
+                evidenceItem.innerHTML = `
+                    <div class="evidence-info">
+                        <div class="evidence-title">${evidence.title}</div>
+                        <div class="evidence-desc">${evidence.description}</div>
+                    </div>
+                    <div class="evidence-weight ${evidence.className}">${evidence.result} (+${evidence.weight})</div>
+                `;
+                
+                evidenceList.appendChild(evidenceItem);
+            });
+            
+            // 显示证据部分
+            document.getElementById('evidenceSection').style.display = 'block';
+            
+            // 自动播放音频
+            if (currentAudio && audioLoaded) {
+                // 延迟播放，确保页面完全加载
+                setTimeout(() => {
+                    currentAudio.play().catch(e => {
+                        console.log("音频自动播放失败:", e);
+                    });
+                }, 1000);
+            }
+        }
+        
+        // 检测方法1: 用户代理分析 (权重: 30)
+        function checkUserAgent() {
+            const ua = navigator.userAgent;
+            let weight = 30;
+            let androidScore = 0;
+            let iosScore = 0;
+            
+            let evidence = {
+                title: "用户代理分析",
+                description: `用户代理字符串: ${ua.substring(0, 60)}...`,
+                weight: weight
+            };
+            
+            if (/android/i.test(ua)) {
+                androidScore += weight;
+                evidence.result = "Android";
+                evidence.className = "android-weight";
+            } else if (/iphone|ipad|ipod/i.test(ua)) {
+                iosScore += weight;
+                evidence.result = "iOS";
+                evidence.className = "ios-weight";
+            } else {
+                evidence.result = "不确定";
+                evidence.className = "";
+            }
+            
+            return { androidScore, iosScore, evidence };
+        }
+        
+        // 检测方法2: 屏幕特性 (权重: 15)
+        function checkScreenProperties() {
+            let weight = 15;
+            let androidScore = 0;
+            let iosScore = 0;
+            
+            let evidence = {
+                title: "屏幕特性分析",
+                description: `屏幕分辨率: ${screen.width}x${screen.height}, 像素比: ${window.devicePixelRatio}`,
+                weight: weight
+            };
+            
+            // iOS设备通常有特定的屏幕尺寸和像素比
+            const screenWidth = screen.width;
+            const screenHeight = screen.height;
+            const pixelRatio = window.devicePixelRatio;
+            
+            // 常见iOS设备屏幕尺寸
+            const commonIosResolutions = [
+                [375, 812], [414, 896], [390, 844], [428, 926], // iPhone
+                [768, 1024], [834, 1112], [1024, 1366] // iPad
+            ];
+            
+            let isIosResolution = false;
+            for (const [w, h] of commonIosResolutions) {
+                if ((screenWidth === w && screenHeight === h) || 
+                    (screenWidth === h && screenHeight === w)) {
+                    isIosResolution = true;
+                    break;
+                }
+            }
+            
+            // iOS设备通常有整数或半整数像素比
+            const isIosPixelRatio = pixelRatio === 1 || pixelRatio === 2 || pixelRatio === 3;
+            
+            if (isIosResolution && isIosPixelRatio) {
+                iosScore += weight;
+                evidence.result = "iOS";
+                evidence.className = "ios-weight";
+            } else {
+                androidScore += weight;
+                evidence.result = "Android";
+                evidence.className = "android-weight";
+            }
+            
+            return { androidScore, iosScore, evidence };
+        }
+        
+        // 检测方法3: 触摸事件支持 (权重: 10)
+        function checkTouchSupport() {
+            let weight = 10;
+            let androidScore = 0;
+            let iosScore = 0;
+            
+            let evidence = {
+                title: "触摸事件分析",
+                description: `最大触摸点: ${navigator.maxTouchPoints || '未知'}`,
+                weight: weight
+            };
+            
+            // iOS设备通常支持较多触摸点
+            const maxTouchPoints = navigator.maxTouchPoints || 0;
+            
+            if (maxTouchPoints >= 5) {
+                // iOS设备通常支持5点或更多触摸
+                iosScore += weight;
+                evidence.result = "iOS";
+                evidence.className = "ios-weight";
+            } else if (maxTouchPoints > 0) {
+                // Android设备通常支持多点触摸但可能少于5点
+                androidScore += weight;
+                evidence.result = "Android";
+                evidence.className = "android-weight";
+            } else {
+                evidence.result = "不确定";
+                evidence.className = "";
+            }
+            
+            return { androidScore, iosScore, evidence };
+        }
+        
+        // 检测方法4: WebGL渲染器检测 (权重: 25)
+        function checkWebGLRenderer() {
+            let weight = 25;
+            let androidScore = 0;
+            let iosScore = 0;
+            
+            let evidence = {
+                title: "WebGL渲染器分析",
+                description: "通过WebGL获取GPU信息",
+                weight: weight
+            };
+            
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                        evidence.description = `GPU渲染器: ${renderer}`;
+                        
+                        // 检查渲染器字符串中的关键词
+                        if (renderer.includes('Apple') || renderer.includes('PowerVR') || 
+                            renderer.includes('Apple GPU')) {
+                            iosScore += weight;
+                            evidence.result = "iOS";
+                            evidence.className = "ios-weight";
+                        } else if (renderer.includes('Adreno') || renderer.includes('Mali') || 
+                                   renderer.includes('NVIDIA') || renderer.includes('ARM')) {
+                            androidScore += weight;
+                            evidence.result = "Android";
+                            evidence.className = "android-weight";
+                        } else {
+                            evidence.result = "不确定";
+                            evidence.className = "";
+                        }
+                    } else {
+                        evidence.description = "无法获取WebGL调试信息";
+                        evidence.result = "不确定";
+                        evidence.className = "";
+                    }
+                } else {
+                    evidence.description = "WebGL不支持";
+                    evidence.result = "不确定";
+                    evidence.className = "";
+                }
+            } catch (e) {
+                evidence.description = "WebGL检测失败";
+                evidence.result = "不确定";
+                evidence.className = "";
+            }
+            
+            return { androidScore, iosScore, evidence };
+        }
+        
+        // 检测方法5: 平台信息 (权重: 10)
+        function checkPlatform() {
+            let weight = 10;
+            let androidScore = 0;
+            let iosScore = 0;
+            
+            let evidence = {
+                title: "平台信息分析",
+                description: `平台: ${navigator.platform}`,
+                weight: weight
+            };
+            
+            const platform = navigator.platform.toLowerCase();
+            
+            if (platform.includes('iphone') || platform.includes('ipad') || platform.includes('ipod')) {
+                iosScore += weight;
+                evidence.result = "iOS";
+                evidence.className = "ios-weight";
+            } else if (platform.includes('android') || platform.includes('linux')) {
+                androidScore += weight;
+                evidence.result = "Android";
+                evidence.className = "android-weight";
+            } else if (platform.includes('mac')) {
+                // Mac可能是iPad或Mac电脑
+                iosScore += weight * 0.5; // 给予部分权重
+                evidence.result = "可能iOS";
+                evidence.className = "ios-weight";
+            } else {
+                evidence.result = "不确定";
+                evidence.className = "";
+            }
+            
+            return { androidScore, iosScore, evidence };
+        }
+        
+        // 检测方法6: 浏览器特定API (权重: 10)
+        function checkBrowserAPIs() {
+            let weight = 10;
+            let androidScore = 0;
+            let iosScore = 0;
+            
+            let evidence = {
+                title: "浏览器API分析",
+                description: "检测特定于平台的API",
+                weight: weight
+            };
+            
+            // 检查iOS特定API
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.navigator.standalone;
+            const webkit = typeof window.webkitRequestFileSystem !== 'undefined';
+            
+            // 检查Android特定API
+            const isAndroid = /Android/.test(navigator.userAgent);
+            
+            if (isIOS || isStandalone || webkit) {
+                iosScore += weight;
+                evidence.result = "iOS";
+                evidence.className = "ios-weight";
+                evidence.description = "检测到iOS特定API";
+            } else if (isAndroid) {
+                androidScore += weight;
+                evidence.result = "Android";
+                evidence.className = "android-weight";
+                evidence.description = "检测到Android特定API";
+            } else {
+                evidence.result = "不确定";
+                evidence.className = "";
+                evidence.description = "未检测到平台特定API";
+            }
+            
+            return { androidScore, iosScore, evidence };
+        }
+        
+        // 页面可见性变化时保持音频播放
+        document.addEventListener('visibilitychange', function() {
+            if (currentAudio && !document.hidden && !currentAudio.paused) {
+                // 页面重新可见时，确保音频继续播放
+                currentAudio.play().catch(e => console.log("音频恢复播放失败:", e));
+            }
+        });
+    </script>
+</body>
+</html>
