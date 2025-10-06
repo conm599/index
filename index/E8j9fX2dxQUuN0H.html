@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU压力测试（修复版）</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; }
+        canvas { width: 100vw; height: 100vh; display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="gpuCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gpuCanvas');
+        let gl, program, posBuffer;
+        // 1. 降低初始粒子数+放缓增长（避免瞬间过载导致白屏）
+        let particles = 50000; // 初始5万（保证启动能渲染）
+        const addPerFrame = 50000; // 每帧加5万（而非30万，避免崩溃）
+        const complexity = 30; // 降低计算复杂度（先保证运行，再提负载）
+        const particleSize = 2.0;
+        const speed = 1.0;
+        let isRunning = true;
+        let time = 0;
+
+        // 初始化WebGL（只保留必要功能，避免状态冲突）
+        try {
+            gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (!gl) throw new Error("WebGL不可用");
+        } catch (e) {
+            document.body.innerHTML = `<div style="width:100vw;height:100vh;display:flex;justify-content:center;align-items:center;color:#ff4444;font-size:1.2rem;">${e.message}</div>`;
+        }
+
+        if (gl) {
+            // 2. 先适配Canvas尺寸（避免视口错误导致白屏）
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 初始化着色器和缓冲区（带详细错误检测）
+            if (initShaders() && initBuffer()) {
+                requestAnimationFrame(render); // 启动渲染
+            }
+        }
+
+        // 画布尺寸适配（核心：避免视口和画布尺寸不匹配）
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+
+        // 初始化着色器（简化逻辑，确保编译通过）
+        function initShaders() {
+            // 顶点着色器：减少循环次数，简化计算（先保证能渲染）
+            const vertexSource = `
+                attribute vec2 aPos;
+                uniform float uTime;
+                uniform float uSpeed;
+
+                void main() {
+                    vec2 pos = aPos;
+                    float t = uTime * uSpeed;
+
+                    // 简化计算循环（复杂度30，每轮运算减少）
+                    for (int i=0; i<${complexity}; i++) {
+                        float freq = float(i+1)*0.3;
+                        pos.x += sin(pos.y * freq + t*0.5) * 0.2;
+                        pos.y += cos(pos.x * freq + t*0.6) * 0.2;
+                        pos = pow(abs(pos), vec2(1.1));
+                    }
+
+                    gl_Position = vec4(pos, 0.0, 1.0);
+                    gl_PointSize = ${particleSize}.0;
+                }
+            `;
+
+            // 片段着色器：用鲜艳纯色+硬边缘（避免复杂计算导致白屏）
+            const fragmentSource = `
+                precision mediump float;
+
+                void main() {
+                    // 简单圆形裁剪（硬边缘，易渲染）
+                    vec2 coord = gl_PointCoord - vec2(0.5);
+                    if (length(coord) > 0.5) discard;
+
+                    // 鲜艳颜色（确保粒子可见，排除颜色计算错误）
+                    gl_FragColor = vec4(0.0, 0.8, 1.0, 0.9);
+                }
+            `;
+
+            // 编译着色器（带错误提示，方便排查）
+            const vertexShader = compileShader(vertexSource, gl.VERTEX_SHADER);
+            const fragmentShader = compileShader(fragmentSource, gl.FRAGMENT_SHADER);
+            if (!vertexShader || !fragmentShader) return false;
+
+            // 链接着色器程序
+            program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("程序链接错误:", gl.getProgramInfoLog(program));
+                return false;
+            }
+
+            gl.useProgram(program);
+            return true;
+        }
+
+        // 编译着色器（带错误检测）
+        function compileShader(source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(`着色器编译错误（${type===gl.VERTEX_SHADER?'顶点':'片段'}）:`, gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        // 初始化粒子缓冲区（确保数据正确）
+        function initBuffer() {
+            posBuffer = gl.createBuffer();
+            if (!posBuffer) {
+                console.error("缓冲区创建失败");
+                return false;
+            }
+            // 生成初始粒子位置（简单随机，确保数据格式正确）
+            updateBuffer();
+            // 绑定顶点属性（确保指针指向正确）
+            const aPosLoc = gl.getAttribLocation(program, 'aPos');
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(aPosLoc);
+            return true;
+        }
+
+        // 更新粒子缓冲区（每帧新增粒子后调用）
+        function updateBuffer() {
+            const positions = new Float32Array(particles * 2);
+            // 生成粒子位置（-1~1范围，确保在视口内）
+            for (let i=0; i<particles*2; i+=2) {
+                positions[i] = Math.random()*2 - 1;   // x: -1~1
+                positions[i+1] = Math.random()*2 - 1; // y: -1~1
+            }
+            // 上传数据（用DYNAMIC_DRAW，适合频繁更新）
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, positions, gl.DYNAMIC_DRAW);
+        }
+
+        // 主渲染循环（简化逻辑，确保每步可查）
+        function render(timestamp) {
+            if (!isRunning) return;
+
+            // 更新时间（避免时间计算错误）
+            time = timestamp * 0.001;
+
+            // 1. 每帧新增粒子（控制增长速度，避免瞬间过载）
+            particles += addPerFrame;
+            // 内存防护（可选：避免无限增长导致崩溃，可删除）
+            if (particles > 5000000) particles = 5000000;
+            updateBuffer();
+
+            // 2. 清除画布（黑色背景，确保白屏不是清除问题）
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            // 3. 传递uniform变量（确保变量正确传递）
+            const uTimeLoc = gl.getUniformLocation(program, 'uTime');
+            const uSpeedLoc = gl.getUniformLocation(program, 'uSpeed');
+            gl.uniform1f(uTimeLoc, time);
+            gl.uniform1f(uSpeedLoc, speed);
+
+            // 4. 渲染粒子（用POINTS模式，确保绘制调用正确）
+            const aPosLoc = gl.getAttribLocation(program, 'aPos');
+            gl.enableVertexAttribArray(aPosLoc);
+            gl.drawArrays(gl.POINTS, 0, particles);
+
+            // 继续循环
+            requestAnimationFrame(render);
+        }
+
+        // 页面关闭时清理（避免内存泄漏）
+        window.addEventListener('beforeunload', () => {
+            isRunning = false;
+            gl.deleteBuffer(posBuffer);
+            gl.deleteProgram(program);
+        });
+    </script>
+</body>
+</html>
