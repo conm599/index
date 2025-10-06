@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GPU Extreme Burner</title>
+    <style>
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: block;
+            opacity: 1;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+    <script>
+        // 1. 全屏Canvas + 禁用GPU优化（强制全像素计算）
+        const canvas = document.getElementById('glCanvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const gl = canvas.getContext('webgl', {
+            antialias: false,    // 禁用抗锯齿（减少GPU优化空间）
+            depth: true,         // 启用深度缓冲（增加深度测试开销）
+            stencil: true        // 启用模板缓冲（多通道渲染叠加负载）
+        }) || canvas.getContext('experimental-webgl');
+
+        if (!gl) {
+            alert('WebGL not supported, cannot burn GPU.');
+            throw new Error('WebGL unavailable');
+        }
+
+        // 2. 顶点着色器：动态生成复杂顶点（含噪声扰动+法线计算）
+        const vertexShaderSource = `
+            attribute vec4 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute float aNoiseSeed;
+            uniform float uTime;
+            uniform int uComplexity; // 每帧递增的复杂度参数
+
+            // 简化Perlin噪声（增加顶点计算量）
+            float noise(vec2 p) {
+                return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            // 多阶噪声扰动（复杂度随uComplexity递增）
+            vec3 noiseDisturb(vec3 pos, float seed) {
+                vec3 res = pos;
+                for(int i=0; i<uComplexity/10; i++) {
+                    float freq = pow(2.0, float(i));
+                    float amp = pow(0.5, float(i));
+                    res.x += noise(vec2(pos.x * freq, seed)) * amp;
+                    res.y += noise(vec2(pos.y * freq, seed + 100.0)) * amp;
+                    res.z += noise(vec2(pos.z * freq, seed + 200.0)) * amp;
+                }
+                return res;
+            }
+
+            void main() {
+                // 顶点位置+法线动态扰动（每帧重算）
+                vec3 disturbedPos = noiseDisturb(aVertexPosition.xyz, aNoiseSeed);
+                vec3 disturbedNormal = normalize(
+                    noiseDisturb(aVertexNormal, aNoiseSeed + 300.0) - 
+                    noiseDisturb(aVertexNormal - 0.01, aNoiseSeed + 300.0)
+                );
+
+                // 顶点位置随时间波动（嵌套三角函数）
+                float t = uTime * 0.1 + aNoiseSeed;
+                disturbedPos.x += sin(cos(t) * 3.0) * 0.2;
+                disturbedPos.y += cos(sin(t * 1.2) * 2.5) * 0.2;
+                disturbedPos.z += sin(t * 0.8) * cos(t * 1.1) * 0.1;
+
+                gl_Position = vec4(disturbedPos, 1.0);
+                gl_PointSize = 3.0; // 点覆盖更多像素，增加片段计算
+                // 传递法线到 varying（供片段着色器用）
+                gl_FrontColor = vec4(disturbedNormal, 1.0);
+            }
+        `;
+
+        // 3. 片段着色器：超复杂计算（三角函数嵌套+软阴影+光线追踪简化）
+        const fragmentShaderSource = `
+            precision highp float;
+            uniform float uTime;
+            uniform int uComplexity; // 每帧递增的复杂度参数
+            uniform vec3 uLightDir;
+            varying vec4 gl_FrontColor; // 从顶点着色器接收的法线
+
+            // 三角函数嵌套计算（复杂度随uComplexity递增）
+            float trigonometricHell(vec2 p) {
+                float res = 0.0;
+                for(int i=0; i<uComplexity; i++) {
+                    float t = uTime * 0.01 + float(i) * 0.1;
+                    res += sin(p.x * cos(t) + sin(p.y * sin(t)) + t);
+                    res += cos(p.y * sin(t) + cos(p.x * cos(t)) + t);
+                    res = pow(res, 1.1 + sin(t) * 0.2); // 动态幂运算
+                }
+                return res;
+            }
+
+            // 软阴影采样（每次采样都含复杂计算，数量随uComplexity递增）
+            float softShadow(vec3 pos, vec3 normal, vec3 lightDir) {
+                float shadow = 1.0;
+                float stepSize = 0.02;
+                float samples = float(uComplexity / 20); // 每帧增加采样数
+                for(float i=0.0; i<samples; i++) {
+                    vec3 samplePos = pos + lightDir * stepSize * i;
+                    // 采样点噪声遮挡判断（嵌套三角函数）
+                    float occ = trigonometricHell(samplePos.xy) * 0.5;
+                    shadow *= smoothstep(0.0, 1.0, occ + 0.5);
+                }
+                return shadow;
+            }
+
+            // 简化光线反射计算（增加片段开销）
+            vec3 reflectLight(vec3 normal, vec3 lightDir) {
+                vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0) - pos);
+                vec3 reflectDir = reflect(-lightDir, normal);
+                float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0 + sin(uTime) * 8.0);
+                return vec3(spec) * 0.5;
+            }
+
+            void main() {
+                vec2 fragUV = gl_FragCoord.xy / vec2(${canvas.width}, ${canvas.height});
+                vec3 normal = normalize(gl_FrontColor.xyz);
+                vec3 pos = vec3(fragUV * 4.0 - 2.0, sin(uTime) * 0.5);
+
+                // 1. 基础颜色：三角函数嵌套计算
+                float colorBase = trigonometricHell(pos.xy) * 0.5 + 0.5;
+
+                // 2. 软阴影计算（每帧增加采样数）
+                float shadow = softShadow(pos, normal, uLightDir);
+
+                // 3. 光照模型（Phong模型+反射计算）
+                float diffuse = max(dot(normal, uLightDir), 0.0) * shadow;
+                vec3 specular = reflectLight(pos, normal, uLightDir);
+
+                // 4. 最终颜色：叠加多层计算
+                gl_FragColor = vec4(
+                    colorBase * diffuse + specular,
+                    colorBase * 0.7 * diffuse + specular * 0.8,
+                    colorBase * 0.5 * diffuse + specular * 0.6,
+                    1.0
+                );
+
+                // 5. 额外计算：循环叠加（确保无空闲）
+                for(int i=0; i<uComplexity/50; i++) {
+                    gl_FragColor.rgb = mix(
+                        gl_FragColor.rgb,
+                        vec3(trigonometricHell(fragUV + vec2(float(i) * 0.1, 0.0))),
+                        0.1
+                    );
+                }
+            }
+        `;
+
+        // 4. 编译着色器（保留错误检测，确保计算逻辑不被优化）
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            console.error('Program error:', gl.getProgramInfoLog(shaderProgram));
+        }
+        gl.useProgram(shaderProgram);
+
+        // 5. 顶点数据：初始1万个顶点，每帧新增1万个（含位置+法线+噪声种子）
+        let currentVertexCount = 10000;  // 初始1万顶点
+        const vertexStep = 10000;        // 每次新增1万顶点
+        let vertices = [];                // 位置(x,y,z)
+        let normals = [];                 // 法线(x,y,z)
+        let noiseSeeds = [];              // 噪声种子
+
+        // 生成复杂顶点数据（含随机法线+种子，每帧重算）
+        function generateComplexVertices(count) {
+            vertices = [];
+            normals = [];
+            noiseSeeds = [];
+            for (let i=0; i<count; i++) {
+                // 随机位置（范围[-2,2]，覆盖更多空间）
+                const x = (Math.random() * 4) - 2;
+                const y = (Math.random() * 4) - 2;
+                const z = (Math.random() * 2) - 1;
+                vertices.push(x, y, z);
+
+                // 随机法线（确保每个顶点法线不同，增加计算）
+                const nx = (Math.random() * 2) - 1;
+                const ny = (Math.random() * 2) - 1;
+                const nz = (Math.random() * 2) - 1;
+                normals.push(nx, ny, nz);
+
+                // 随机噪声种子（每个顶点独立，避免计算重复）
+                noiseSeeds.push(Math.random() * 10000);
+            }
+
+            // 位置缓冲区
+            const posBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+            const posAttrib = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+            gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(posAttrib);
+
+            // 法线缓冲区
+            const normalBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.DYNAMIC_DRAW);
+            const normalAttrib = gl.getAttribLocation(shaderProgram, 'aVertexNormal');
+            gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(normalAttrib);
+
+            // 噪声种子缓冲区
+            const seedBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, seedBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(noiseSeeds), gl.DYNAMIC_DRAW);
+            const seedAttrib = gl.getAttribLocation(shaderProgram, 'aNoiseSeed');
+            gl.vertexAttribPointer(seedAttrib, 1, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(seedAttrib);
+        }
+
+        generateComplexVertices(currentVertexCount);
+
+        // 6. 获取Uniform变量（核心：uComplexity每帧递增）
+        const uTimeLoc = gl.getUniformLocation(shaderProgram, 'uTime');
+        const uComplexityLoc = gl.getUniformLocation(shaderProgram, 'uComplexity');
+        const uLightDirLoc = gl.getUniformLocation(shaderProgram, 'uLightDir');
+        let currentComplexity = 10; // 初始复杂度，每帧+5
+
+        // 7. 多通道渲染（深度→颜色→后期处理，叠加负载）
+        function multiPassRender() {
+            // 通道1：深度缓冲预渲染（强制所有顶点深度计算）
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LESS);
+            gl.clearDepth(1.0);
+            gl.clear(gl.DEPTH_BUFFER_BIT);
+            gl.drawArrays(gl.POINTS, 0, currentVertexCount);
+
+            // 通道2：颜色渲染（含完整片段计算）
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.drawArrays(gl.POINTS, 0, currentVertexCount);
+
+            // 通道3：后期处理（全屏高斯模糊，16次采样）
+            const blurStep = 1.0 / canvas.width;
+            for (let i=0; i<16; i++) {
+                gl.uniform2f(
+                    gl.getUniformLocation(shaderProgram, 'uBlurOffset'),
+                    blurStep * (i - 8),
+                    blurStep * (i - 8)
+                );
+                gl.drawArrays(gl.POINTS, 0, currentVertexCount / 2); // 半顶点数但多轮采样
+            }
+        }
+
+        // 8. 主循环：每帧递增复杂度+顶点数，持续压榨GPU
+        let uTime = 0;
+        function burnGPU() {
+            // 1. 更新复杂度参数（每帧+5，驱动计算量暴增）
+            currentComplexity += 5;
+            gl.uniform1i(uComplexityLoc, currentComplexity);
+            gl.uniform1f(uTimeLoc, uTime);
+            gl.uniform3f(uLightDirLoc, 
+                sin(uTime * 0.2) * 0.5 + 0.5, 
+                cos(uTime * 0.3) * 0.5 + 0.5, 
+                0.5
+            );
+
+            // 2. 每3帧新增1万顶点（避免顶点数增长过快导致卡顿断层）
+            if (uTime % 3 === 0 && currentVertexCount < 200000) { // 上限20万顶点
+                currentVertexCount += vertexStep;
+                generateComplexVertices(currentVertexCount); // 重生成复杂顶点
+            }
+
+            // 3. 多通道渲染（深度+颜色+后期，无间断负载）
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            multiPassRender();
+
+            // 4. 强制GPU无空闲（每帧重算所有参数）
+            uTime += 0.1;
+            requestAnimationFrame(burnGPU);
+        }
+
+        // 启动极限压榨
+        burnGPU();
+
+        // 窗口resize时强制重算（增加额外负载）
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            generateComplexVertices(currentVertexCount); // 重新生成顶点
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        });
+    </script>
+</body>
+</html>
