@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GPU Gradual Burner</title>
+    <style>
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: block;
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('glCanvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+
+        if (!gl) {
+            alert('WebGL not supported');
+            throw new Error('WebGL unavailable');
+        }
+
+        // 顶点着色器：带波动和偏移，增加计算
+        const vertexShaderSource = `
+            attribute vec4 aVertexPosition;
+            attribute float aOffset;
+            uniform float uTime;
+            void main() {
+                float t = uTime * 0.01 + aOffset;
+                vec4 pos = aVertexPosition;
+                pos.x += sin(t) * 0.1;
+                pos.y += cos(t * 1.1) * 0.1;
+                gl_Position = pos;
+                gl_PointSize = 2.0;
+            }
+        `;
+
+        // 片段着色器：超 heavy 计算，循环200次
+        const fragmentShaderSource = `
+            precision highp float;
+            uniform vec3 uPos;
+            uniform float uLen;
+            uniform float uAng1;
+            uniform float uAng2;
+            uniform float uTime;
+
+            float kernel(vec3 ver) {
+                vec3 a = ver;
+                float b, c, d, e;
+                for(int i=0; i<200; i++) {
+                    b = length(a);
+                    c = atan(a.y, a.x) * 8.0 + uTime * 0.1;
+                    e = 1.0 / (b + 0.001);
+                    d = acos(clamp(a.z / (b + 0.001), -1.0, 1.0)) * 8.0;
+                    b = pow(b, 8.0);
+                    a = vec3(
+                        b * sin(d) * cos(c),
+                        b * sin(d) * sin(c),
+                        b * cos(d)
+                    ) + ver + vec3(sin(uTime * 0.05), cos(uTime * 0.03), sin(uTime * 0.07));
+                    if (b > 10.0) break;
+                }
+                return 4.0 - dot(a, a);
+            }
+
+            void main() {
+                vec3 fragPos = vec3(
+                    gl_FragCoord.x / float(${canvas.width}) * 2.0 - 1.0,
+                    gl_FragCoord.y / float(${canvas.height}) * 2.0 - 1.0,
+                    0.0
+                );
+                vec3 transformedPos = vec3(
+                    uLen * sin(uAng1) * cos(uAng2) + uPos.x + sin(uTime * 0.02),
+                    uLen * sin(uAng1) * sin(uAng2) + uPos.y + cos(uTime * 0.04),
+                    uLen * cos(uAng1) + uPos.z + sin(uTime * 0.06)
+                );
+                float colorVal = kernel(fragPos + transformedPos);
+                colorVal = sin(colorVal * 3.14159) * cos(colorVal * 2.71828);
+                gl_FragColor = vec4(
+                    colorVal,
+                    colorVal * 0.5 + sin(uTime * 0.01),
+                    colorVal * 0.8 + cos(uTime * 0.01),
+                    1.0
+                );
+            }
+        `;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+        const shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+            console.error('Program link error:', gl.getProgramInfoLog(shaderProgram));
+        }
+        gl.useProgram(shaderProgram);
+
+        // 初始顶点数量和递增步长
+        let currentVertexCount = 100; // 从100个顶点开始
+        const vertexStep = 100;       // 每次增加100个顶点
+        const maxVertexCount = 100000; // 最大顶点数（可根据设备调整）
+        let vertices = [];
+        let offsets = [];
+
+        // 生成顶点数据的函数
+        function generateVertices(count) {
+            vertices = [];
+            offsets = [];
+            for (let i = 0; i < count; i++) {
+                const nx = (Math.random() * 2) - 1;
+                const ny = (Math.random() * 2) - 1;
+                vertices.push(nx, ny);
+                offsets.push(Math.random() * 10);
+            }
+            // 更新缓冲区
+            const vertexBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+            gl.bufferData(
+                gl.ARRAY_BUFFER,
+                new Float32Array([...vertices, ...offsets]),
+                gl.DYNAMIC_DRAW // 动态更新，因为顶点数会变
+            );
+
+            const posAttribLoc = gl.getAttribLocation(shaderProgram, 'aVertexPosition');
+            gl.vertexAttribPointer(posAttribLoc, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(posAttribLoc);
+
+            const offsetAttribLoc = gl.getAttribLocation(shaderProgram, 'aOffset');
+            gl.vertexAttribPointer(offsetAttribLoc, 1, gl.FLOAT, false, 0, vertices.length * 4);
+            gl.enableVertexAttribArray(offsetAttribLoc);
+        }
+
+        generateVertices(currentVertexCount);
+
+        const uPosLoc = gl.getUniformLocation(shaderProgram, 'uPos');
+        const uLenLoc = gl.getUniformLocation(shaderProgram, 'uLen');
+        const uAng1Loc = gl.getUniformLocation(shaderProgram, 'uAng1');
+        const uAng2Loc = gl.getUniformLocation(shaderProgram, 'uAng2');
+        const uTimeLoc = gl.getUniformLocation(shaderProgram, 'uTime');
+
+        let len = 1.6;
+        let ang1 = 2.8;
+        let ang2 = 0.4;
+        const cenx = 0.0;
+        const ceny = 0.0;
+        const cenz = 0.0;
+        let time = 0;
+
+        function draw() {
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.uniform3f(uPosLoc, cenx, ceny, cenz);
+            gl.uniform1f(uLenLoc, len);
+            gl.uniform1f(uAng1Loc, ang1);
+            gl.uniform1f(uAng2Loc, ang2);
+            gl.uniform1f(uTimeLoc, time);
+
+            // 每帧绘制5次，叠加负载
+            for (let i = 0; i < 5; i++) {
+                gl.drawArrays(gl.POINTS, 0, currentVertexCount);
+            }
+
+            // 递增顶点数量，直到达到最大值
+            if (currentVertexCount < maxVertexCount) {
+                currentVertexCount += vertexStep;
+                if (currentVertexCount > maxVertexCount) {
+                    currentVertexCount = maxVertexCount;
+                }
+                generateVertices(currentVertexCount);
+            }
+
+            ang1 += 0.1;
+            ang2 += 0.05;
+            time += 1;
+            len = 1.6 + Math.sin(time * 0.01) * 0.5;
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        });
+    </script>
+</body>
+</html>
