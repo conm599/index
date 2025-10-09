@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>视频抽帧并打包ZIP</title>
+</head>
+<body>
+  <h3>选择视频文件（仅支持浏览器可播放格式，如 MP4）</h3>
+  <input type="file" id="videoFile" accept="video/*">
+  <br><br>
+  <progress id="progressBar" value="0" max="100" style="width:100%; height:20px;"></progress>
+  <p id="status">请先选择视频</p>
+  <br>
+  <button id="startBtn" disabled>开始提取帧</button>
+  <br><br>
+  <a id="downloadLink" style="display:none;">下载ZIP</a>
+
+  <!-- 加载 JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    let videoFile = null;
+    let totalFrames = 0;
+    let currentFrame = 0;
+
+    document.getElementById('videoFile').addEventListener('change', function(e) {
+      videoFile = e.target.files[0];
+      if (videoFile) {
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('status').textContent = '已选择视频：' + videoFile.name;
+      }
+    });
+
+    document.getElementById('startBtn').addEventListener('click', async function() {
+      if (!videoFile) return;
+
+      const video = document.createElement('video');
+      video.muted = true;
+      video.preload = 'metadata';
+
+      const url = URL.createObjectURL(videoFile);
+      video.src = url;
+
+      await new Promise((resolve) => {
+        video.addEventListener('loadedmetadata', resolve);
+      });
+
+      const fps = 1; // 每秒提取1帧（可改为 video.fps 若需真实FPS，但浏览器不直接提供）
+      const duration = video.duration; // 秒
+      totalFrames = Math.floor(duration * fps);
+      if (totalFrames <= 0) {
+        alert('视频时长无效');
+        return;
+      }
+
+      const zip = new JSZip();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // 设置 canvas 尺寸
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      document.getElementById('progressBar').max = totalFrames;
+      document.getElementById('status').textContent = '正在处理...';
+
+      for (let i = 0; i < totalFrames; i++) {
+        const time = i / fps; // 当前时间点（秒）
+        video.currentTime = time;
+
+        // 等待视频跳转完成并可绘制
+        await new Promise((resolve) => {
+          const attempt = () => {
+            if (video.currentTime >= time - 0.01) {
+              resolve();
+            } else {
+              setTimeout(attempt, 10);
+            }
+          };
+          attempt();
+        });
+
+        // 绘制当前帧到 canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // 转为 PNG Blob
+        const dataUrl = canvas.toDataURL('image/png');
+        const filename = `frame_${String(i + 1).padStart(4, '0')}.png`;
+        zip.file(filename, dataUrl.split(',')[1], { base64: true });
+
+        // 更新进度
+        currentFrame = i + 1;
+        document.getElementById('progressBar').value = currentFrame;
+        document.getElementById('status').textContent = `已处理 ${currentFrame}/${totalFrames} 帧`;
+      }
+
+      // 生成 ZIP 并提供下载
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.getElementById('downloadLink');
+      link.href = downloadUrl;
+      link.download = 'video_frames.zip';
+      link.style.display = 'inline';
+      link.textContent = '点击下载ZIP包';
+
+      URL.revokeObjectURL(url);
+      document.getElementById('status').textContent = '完成！';
+    });
+  </script>
+</body>
+</html>
