@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>视频帧提取工具</title>
+    <style>
+        /* 简单样式，方便操作 */
+        .container { max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        #frameContainer { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fill, 200px); gap: 10px; }
+        #frameContainer img { width: 100%; height: auto; border: 1px solid #eee; }
+        button { margin-top: 10px; padding: 8px 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>视频帧提取</h3>
+        <!-- 1. 视频上传区域 -->
+        <input type="file" id="videoInput" accept="video/*" placeholder="选择视频文件">
+        
+        <!-- 2. 隐藏的视频播放器（仅用于加载视频，不显示） -->
+        <video id="videoPlayer" controls style="display: none;"></video>
+        
+        <!-- 3. 隐藏的Canvas（核心：用于绘制视频帧） -->
+        <canvas id="frameCanvas" style="display: none;"></canvas>
+        
+        <!-- 4. 操作按钮 -->
+        <button id="extractBtn" disabled>提取当前帧</button>
+        
+        <!-- 5. 提取的图片展示区域 -->
+        <div id="frameContainer">选择视频后，点击“提取当前帧”获取图片</div>
+    </div>
+
+    <script>
+        // 获取页面元素
+        const videoInput = document.getElementById('videoInput');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const frameCanvas = document.getElementById('frameCanvas');
+        const extractBtn = document.getElementById('extractBtn');
+        const frameContainer = document.getElementById('frameContainer');
+        const canvasCtx = frameCanvas.getContext('2d'); // Canvas绘图上下文
+
+        // 1. 选择视频文件后，加载视频到播放器
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 重置展示区域
+            frameContainer.innerHTML = '';
+            // 用本地文件URL加载视频
+            videoPlayer.src = URL.createObjectURL(file);
+            
+            // 视频加载完成后，设置Canvas尺寸（和视频一致，避免画面拉伸）
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                frameCanvas.width = videoPlayer.videoWidth;
+                frameCanvas.height = videoPlayer.videoHeight;
+                extractBtn.disabled = false; // 启用提取按钮
+            });
+        });
+
+        // 2. 点击按钮，提取当前视频帧并转为图片
+        extractBtn.addEventListener('click', () => {
+            // 步骤1：将视频当前画面绘制到Canvas
+            canvasCtx.drawImage(
+                videoPlayer, // 要绘制的视频元素
+                0, 0, // 绘制起点（Canvas左上角）
+                frameCanvas.width, frameCanvas.height // 绘制尺寸（和Canvas一致）
+            );
+
+            // 步骤2：将Canvas内容转为图片URL（PNG格式，质量高）
+            const frameUrl = frameCanvas.toDataURL('image/png');
+            
+            // 步骤3：创建图片元素，显示到页面
+            const frameImg = document.createElement('img');
+            frameImg.src = frameUrl;
+            frameImg.title = `视频帧（时间：${videoPlayer.currentTime.toFixed(1)}秒）`;
+            frameContainer.appendChild(frameImg);
+        });
+    </script>
+</body>
+</html>
