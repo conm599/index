@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频帧提取工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #4CAF50;
+            background-color: #f9f9f9;
+        }
+        .upload-area p {
+            margin: 0;
+            color: #666;
+        }
+        #videoInput {
+            display: none;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .video-container {
+            margin: 20px 0;
+        }
+        #videoPlayer {
+            max-width: 100%;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .progress-container {
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        #status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+        }
+        .settings {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .settings label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .settings input {
+            padding: 5px;
+            width: 80px;
+            margin-bottom: 10px;
+        }
+        .info {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>视频帧提取工具</h1>
+    
+    <div class="upload-area" id="uploadArea">
+        <p>点击或拖拽视频文件到此处上传</p>
+        <input type="file" id="videoInput" accept="video/*">
+    </div>
+    
+    <div class="settings">
+        <label for="fpsInput">提取帧率 (FPS):</label>
+        <input type="number" id="fpsInput" value="30" min="1" max="60">
+        <p class="info">设置每秒提取的帧数。较高的值会提取更多帧，但处理时间更长。</p>
+        <p class="info">注意：实际提取的帧数可能受视频原始帧率限制。</p>
+    </div>
+    
+    <div class="video-container">
+        <video id="videoPlayer" controls style="display: none;"></video>
+    </div>
+    
+    <div style="text-align: center;">
+        <button id="extractBtn" disabled>提取所有帧</button>
+    </div>
+    
+    <div class="progress-container">
+        <div class="progress-bar">
+            <div class="progress" id="progressBar"></div>
+        </div>
+        <div id="progressText">0%</div>
+    </div>
+    
+    <div id="status">请上传视频文件开始处理</div>
+    
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoInput = document.getElementById('videoInput');
+            const uploadArea = document.getElementById('uploadArea');
+            const extractBtn = document.getElementById('extractBtn');
+            const videoPlayer = document.getElementById('videoPlayer');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const statusDiv = document.getElementById('status');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const fpsInput = document.getElementById('fpsInput');
+            
+            let videoFile = null;
+            
+            // 处理文件拖放
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#4CAF50';
+                uploadArea.style.backgroundColor = '#f0fff0';
+            });
+            
+            uploadArea.addEventListener('dragleave', function() {
+                uploadArea.style.borderColor = '#ccc';
+                uploadArea.style.backgroundColor = '';
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#ccc';
+                uploadArea.style.backgroundColor = '';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.type.startsWith('video/')) {
+                        handleVideoFile(file);
+                    } else {
+                        statusDiv.textContent = '请上传视频文件';
+                    }
+                }
+            });
+            
+            // 处理点击上传
+            uploadArea.addEventListener('click', function() {
+                videoInput.click();
+            });
+            
+            // 处理文件选择
+            videoInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    handleVideoFile(file);
+                }
+            });
+            
+            function handleVideoFile(file) {
+                videoFile = file;
+                const videoURL = URL.createObjectURL(file);
+                videoPlayer.src = videoURL;
+                videoPlayer.style.display = 'block';
+                extractBtn.disabled = false;
+                statusDiv.textContent = '视频已加载，点击"提取所有帧"按钮开始处理';
+                
+                // 重置进度条
+                progressBar.style.width = '0%';
+                progressText.textContent = '0%';
+            }
+            
+            // 提取所有帧
+            extractBtn.addEventListener('click', async function() {
+                if (!videoFile) return;
+                
+                extractBtn.disabled = true;
+                statusDiv.textContent = '正在处理视频，请稍候...';
+                
+                try {
+                    // 等待视频元数据加载完成
+                    await new Promise((resolve, reject) => {
+                        if (videoPlayer.readyState >= 2) {
+                            resolve();
+                        } else {
+                            videoPlayer.addEventListener('loadedmetadata', resolve, { once: true });
+                            videoPlayer.addEventListener('error', reject, { once: true });
+                        }
+                    });
+                    
+                    // 设置Canvas尺寸与视频相同
+                    canvas.width = videoPlayer.videoWidth;
+                    canvas.height = videoPlayer.videoHeight;
+                    
+                    // 获取用户设置的帧率
+                    const fps = parseInt(fpsInput.value) || 30;
+                    const duration = videoPlayer.duration;
+                    const totalFrames = Math.ceil(duration * fps);
+                    
+                    statusDiv.textContent = `正在提取 ${totalFrames} 帧...`;
+                    
+                    // 创建ZIP包
+                    const zip = new JSZip();
+                    
+                    // 逐帧提取
+                    for (let frame = 0; frame < totalFrames; frame++) {
+                        // 设置视频当前时间
+                        const currentTime = frame / fps;
+                        videoPlayer.currentTime = currentTime;
+                        
+                        // 等待视频跳转到指定时间
+                        await new Promise((resolve) => {
+                            videoPlayer.addEventListener('seeked', resolve, { once: true });
+                        });
+                        
+                        // 绘制当前帧到Canvas
+                        ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+                        
+                        // 将Canvas转换为图片数据
+                        const imageData = canvas.toDataURL('image/jpeg', 0.95);
+                        
+                        // 移除Data URL前缀
+                        const base64Data = imageData.replace(/^data:image\/jpeg;base64,/, '');
+                        
+                        // 添加到ZIP包，按顺序命名
+                        const frameNumber = String(frame + 1).padStart(6, '0');
+                        zip.file(`frame_${frameNumber}.jpg`, base64Data, {base64: true});
+                        
+                        // 更新进度
+                        const progress = ((frame + 1) / totalFrames) * 100;
+                        progressBar.style.width = `${progress}%`;
+                        progressText.textContent = `${Math.round(progress)}%`;
+                        
+                        // 更新状态
+                        if (frame % 10 === 0 || frame === totalFrames - 1) {
+                            statusDiv.textContent = `正在提取 ${frame + 1}/${totalFrames} 帧...`;
+                        }
+                    }
+                    
+                    // 生成ZIP文件
+                    statusDiv.textContent = '正在生成ZIP文件...';
+                    const zipBlob = await zip.generateAsync({type: 'blob'});
+                    
+                    // 下载ZIP文件
+                    saveAs(zipBlob, 'video_frames.zip');
+                    
+                    statusDiv.textContent = `成功提取 ${totalFrames} 帧并打包完成!`;
+                    extractBtn.disabled = false;
+                    
+                } catch (error) {
+                    console.error('提取过程中出错:', error);
+                    statusDiv.textContent = '提取过程中出错: ' + error.message;
+                    extractBtn.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
