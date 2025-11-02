@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片分辨率降低工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .description {
+            font-size: 1.1rem;
+            color: #555;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls-section {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .preview-section {
+            flex: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .preview-container {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .preview-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .upload-area {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            background-color: #f8f9fa;
+            border-color: #2980b9;
+        }
+        
+        .upload-area i {
+            font-size: 48px;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .btn-download {
+            background: #2ecc71;
+        }
+        
+        .btn-download:hover {
+            background: #27ae60;
+        }
+        
+        .btn-2048 {
+            background: #9b59b6;
+        }
+        
+        .btn-2048:hover {
+            background: #8e44ad;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #ddd;
+            outline: none;
+        }
+        
+        .range-value {
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #3498db;
+            margin-top: 10px;
+        }
+        
+        .preview-img {
+            max-width: 100%;
+            max-height: 400px;
+            display: block;
+            margin: 0 auto;
+            border-radius: 6px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .image-info {
+            margin-top: 15px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .comparison-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .resolution-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .resolution-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .resolution-btn:hover {
+            background: #c0392b;
+        }
+        
+        .resolution-btn.active {
+            background: #2ecc71;
+            box-shadow: 0 0 0 2px #27ae60;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .preview-section {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>图片分辨率降低工具</h1>
+            <p class="description">上传您的图片，选择降低倍数或固定分辨率，然后下载处理后的图片。所有处理均在浏览器中完成，无需上传到服务器。</p>
+        </header>
+        
+        <div class="app-container">
+            <div class="upload-section">
+                <h2>上传图片</h2>
+                <div class="upload-area" id="uploadArea">
+                    <i>📁</i>
+                    <p>拖放图片到这里或点击选择文件</p>
+                    <p class="file-types">支持格式: JPG, PNG, GIF, WebP</p>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept="image/*">
+                <button id="processBtn" class="btn" disabled>处理图片</button>
+            </div>
+            
+            <div class="controls-section">
+                <h2>调整设置</h2>
+                <div class="control-group">
+                    <label for="scaleRange">分辨率降低倍数: <span id="scaleValue">0.5</span>x</label>
+                    <input type="range" id="scaleRange" min="0.1" max="0.9" step="0.1" value="0.5">
+                    <div class="range-value" id="scaleText">原始尺寸的 50%</div>
+                </div>
+                
+                <div class="control-group">
+                    <label>固定分辨率选项</label>
+                    <div class="resolution-options">
+                        <button class="resolution-btn active" data-width="2048" data-height="2048">2048×2048</button>
+                        <button class="resolution-btn" data-width="1920" data-height="1080">1920×1080</button>
+                        <button class="resolution-btn" data-width="1280" data-height="720">1280×720</button>
+                        <button class="resolution-btn" data-width="1024" data-height="768">1024×768</button>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #7f8c8d;">
+                        选择固定分辨率后，高于此分辨率的图片将自动调整到此尺寸
+                    </p>
+                </div>
+                
+                <div class="control-group">
+                    <label>图片信息</label>
+                    <div id="imageInfo">请上传图片查看信息</div>
+                </div>
+                
+                <button id="downloadBtn" class="btn btn-download" disabled>下载处理后的图片</button>
+            </div>
+        </div>
+        
+        <div class="preview-section">
+            <div class="preview-container">
+                <h3 class="preview-title">原图预览</h3>
+                <div id="originalPreview">
+                    <p style="text-align: center; padding: 40px;">图片将在此处显示</p>
+                </div>
+            </div>
+            
+            <div class="preview-container">
+                <h3 class="preview-title">处理后预览</h3>
+                <div id="processedPreview">
+                    <p style="text-align: center; padding: 40px;">处理后的图片将在此处显示</p>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2023 图片分辨率降低工具 | 所有处理均在您的浏览器中完成，保护您的隐私</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            const processBtn = document.getElementById('processBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const scaleRange = document.getElementById('scaleRange');
+            const scaleValue = document.getElementById('scaleValue');
+            const scaleText = document.getElementById('scaleText');
+            const originalPreview = document.getElementById('originalPreview');
+            const processedPreview = document.getElementById('processedPreview');
+            const imageInfo = document.getElementById('imageInfo');
+            const resolutionBtns = document.querySelectorAll('.resolution-btn');
+            
+            let originalImage = null;
+            let processedImageDataUrl = null;
+            let currentMode = 'scale'; // 'scale' 或 'fixed'
+            let fixedWidth = 2048;
+            let fixedHeight = 2048;
+            
+            // 上传区域点击事件
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // 拖放功能
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#2980b9';
+                uploadArea.style.backgroundColor = '#f8f9fa';
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#3498db';
+                uploadArea.style.backgroundColor = 'transparent';
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#3498db';
+                uploadArea.style.backgroundColor = 'transparent';
+                
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleImageUpload(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // 文件选择变化
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) {
+                    handleImageUpload(fileInput.files[0]);
+                }
+            });
+            
+            // 缩放滑块变化
+            scaleRange.addEventListener('input', () => {
+                const value = scaleRange.value;
+                scaleValue.textContent = value;
+                scaleText.textContent = `原始尺寸的 ${(value * 100).toFixed(0)}%`;
+                currentMode = 'scale';
+                
+                // 更新按钮状态
+                resolutionBtns.forEach(btn => btn.classList.remove('active'));
+                
+                if (originalImage) {
+                    processImage();
+                }
+            });
+            
+            // 分辨率按钮点击事件
+            resolutionBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // 更新按钮状态
+                    resolutionBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    // 设置固定分辨率
+                    fixedWidth = parseInt(btn.dataset.width);
+                    fixedHeight = parseInt(btn.dataset.height);
+                    currentMode = 'fixed';
+                    
+                    if (originalImage) {
+                        processImage();
+                    }
+                });
+            });
+            
+            // 处理图片按钮
+            processBtn.addEventListener('click', processImage);
+            
+            // 下载按钮
+            downloadBtn.addEventListener('click', () => {
+                if (processedImageDataUrl) {
+                    const a = document.createElement('a');
+                    a.href = processedImageDataUrl;
+                    
+                    if (currentMode === 'scale') {
+                        a.download = `resized-image-${scaleRange.value}x.png`;
+                    } else {
+                        a.download = `resized-image-${fixedWidth}x${fixedHeight}.png`;
+                    }
+                    
+                    a.click();
+                }
+            });
+            
+            // 处理图片上传
+            function handleImageUpload(file) {
+                if (!file.type.match('image.*')) {
+                    alert('请上传图片文件！');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    originalImage = new Image();
+                    originalImage.onload = function() {
+                        // 显示原图
+                        originalPreview.innerHTML = '';
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'preview-img';
+                        originalPreview.appendChild(img);
+                        
+                        // 显示图片信息
+                        imageInfo.innerHTML = `
+                            <div>尺寸: ${originalImage.width} × ${originalImage.height} 像素</div>
+                            <div>文件大小: ${(file.size / 1024).toFixed(2)} KB</div>
+                        `;
+                        
+                        // 启用处理按钮
+                        processBtn.disabled = false;
+                        
+                        // 处理图片
+                        processImage();
+                    };
+                    originalImage.src = e.target.result;
+                };
+                
+                reader.readAsDataURL(file);
+            }
+            
+            // 处理图片函数
+            function processImage() {
+                if (!originalImage) return;
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                let newWidth, newHeight;
+                
+                if (currentMode === 'scale') {
+                    // 按比例缩放模式
+                    const scale = parseFloat(scaleRange.value);
+                    newWidth = Math.round(originalImage.width * scale);
+                    newHeight = Math.round(originalImage.height * scale);
+                } else {
+                    // 固定分辨率模式
+                    // 如果原图尺寸小于目标尺寸，保持原尺寸
+                    if (originalImage.width <= fixedWidth && originalImage.height <= fixedHeight) {
+                        newWidth = originalImage.width;
+                        newHeight = originalImage.height;
+                    } else {
+                        // 计算等比例缩放后的尺寸
+                        const widthRatio = fixedWidth / originalImage.width;
+                        const heightRatio = fixedHeight / originalImage.height;
+                        const ratio = Math.min(widthRatio, heightRatio);
+                        
+                        newWidth = Math.round(originalImage.width * ratio);
+                        newHeight = Math.round(originalImage.height * ratio);
+                    }
+                }
+                
+                // 设置canvas尺寸
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                
+                // 绘制缩小后的图片
+                ctx.drawImage(originalImage, 0, 0, newWidth, newHeight);
+                
+                // 获取Data URL
+                processedImageDataUrl = canvas.toDataURL('image/png');
+                
+                // 显示处理后的图片
+                processedPreview.innerHTML = '';
+                const img = document.createElement('img');
+                img.src = processedImageDataUrl;
+                img.className = 'preview-img';
+                processedPreview.appendChild(img);
+                
+                // 显示处理后图片信息
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'image-info';
+                infoDiv.innerHTML = `新尺寸: ${newWidth} × ${newHeight} 像素`;
+                processedPreview.appendChild(infoDiv);
+                
+                // 启用下载按钮
+                downloadBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
