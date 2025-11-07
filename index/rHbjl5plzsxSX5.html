@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级在线网速测试工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+        
+        .control-panel {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .time-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .time-input input {
+            width: 80px;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        .time-input span {
+            font-weight: 600;
+        }
+        
+        .thread-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .thread-input input {
+            width: 120px;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(1px);
+        }
+        
+        .btn:disabled {
+            background: rgba(255, 255, 255, 0.2);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .progress-container {
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00c6ff, #0072ff);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        
+        .result-container {
+            display: none;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .result-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .result-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .result-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .result-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin-top: 20px;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #ff8a00;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .info-message {
+            background: rgba(0, 150, 255, 0.2);
+            border: 1px solid rgba(0, 150, 255, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .stats-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .stats-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .input-group {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .time-input, .thread-input {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .time-input input, .thread-input input {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>高级在线网速测试</h1>
+            <p class="subtitle">自定义测试时间和线程数，支持文件下载完成后自动重新开始</p>
+        </header>
+        
+        <div class="error-message" id="error-message"></div>
+        <div class="info-message" id="info-message"></div>
+        
+        <div class="control-panel">
+            <div class="form-group">
+                <label>测试时间设置:</label>
+                <div class="input-group">
+                    <div class="time-input">
+                        <input type="number" id="minutes" min="0" max="59" value="0">
+                        <span>分钟</span>
+                    </div>
+                    <div class="time-input">
+                        <input type="number" id="seconds" min="1" max="59" value="15">
+                        <span>秒</span>
+                    </div>
+                </div>
+                <small style="opacity: 0.7; margin-top: 5px; display: block;">最大测试时间: 1小时 (60分钟)</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="threads">下载线程数:</label>
+                <div class="thread-input">
+                    <input type="number" id="threads" min="1" max="5000" value="48">
+                    <span>线程 (1-5000)</span>
+                </div>
+            </div>
+            
+            <button id="start-test" class="btn">开始测速</button>
+            <button id="stop-test" class="btn" style="margin-top: 10px; background: linear-gradient(90deg, #ff416c, #ff4b2b); display: none;">停止测试</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在测试下载速度，请稍候...</p>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+            </div>
+            <div class="progress-text">
+                <span id="progress-percent">0%</span>
+                <span id="time-left">剩余时间: 0分15秒</span>
+            </div>
+        </div>
+        
+        <div class="result-container" id="result-container">
+            <h2 class="result-title">测速结果</h2>
+            <div class="result-grid">
+                <div class="result-card">
+                    <div class="result-label">下载速度</div>
+                    <div class="result-value" id="speed-mbps">0.00</div>
+                    <div class="result-label">Mbps</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">下载速度</div>
+                    <div class="result-value" id="speed-mbs">0.00</div>
+                    <div class="result-label">MB/s</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">使用线程</div>
+                    <div class="result-value" id="threads-used">48</div>
+                    <div class="result-label">线程</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">测试时间</div>
+                    <div class="result-value" id="test-time">0.00</div>
+                    <div class="result-label">秒</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="speed-chart"></canvas>
+            </div>
+            
+            <div class="stats-container">
+                <div class="stats-title">测试统计</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span>总下载量:</span>
+                        <span id="total-download">0 MB</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>下载次数:</span>
+                        <span id="download-count">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>平均速度:</span>
+                        <span id="avg-speed">0 Mbps</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>峰值速度:</span>
+                        <span id="peak-speed">0 Mbps</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>测速文件: https://cesu.naxid.top/hgf.txt | 最大测试时间: 1小时 | 最大线程数: 5000</p>
+        </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const minutesInput = document.getElementById('minutes');
+            const secondsInput = document.getElementById('seconds');
+            const threadsInput = document.getElementById('threads');
+            const startButton = document.getElementById('start-test');
+            const stopButton = document.getElementById('stop-test');
+            const progressBar = document.getElementById('progress');
+            const progressPercent = document.getElementById('progress-percent');
+            const timeLeft = document.getElementById('time-left');
+            const resultContainer = document.getElementById('result-container');
+            const speedMbps = document.getElementById('speed-mbps');
+            const speedMBs = document.getElementById('speed-mbs');
+            const threadsUsed = document.getElementById('threads-used');
+            const testTime = document.getElementById('test-time');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('error-message');
+            const infoMessage = document.getElementById('info-message');
+            const totalDownloadEl = document.getElementById('total-download');
+            const downloadCountEl = document.getElementById('download-count');
+            const avgSpeedEl = document.getElementById('avg-speed');
+            const peakSpeedEl = document.getElementById('peak-speed');
+            
+            // 图表初始化
+            const ctx = document.getElementById('speed-chart').getContext('2d');
+            const speedChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '下载速度 (Mbps)',
+                        data: [],
+                        borderColor: '#ff8a00',
+                        backgroundColor: 'rgba(255, 138, 0, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 测速功能
+            startButton.addEventListener('click', startSpeedTest);
+            stopButton.addEventListener('click', stopSpeedTest);
+            
+            // 全局变量
+            let testCompleted = false;
+            let controllers = [];
+            let updateTimer = null;
+            let testTimeout = null;
+            let startTime = null;
+            let totalDownloaded = 0;
+            let downloadCount = 0;
+            let speedHistory = [];
+            let peakSpeed = 0;
+            
+            function startSpeedTest() {
+                // 获取用户输入
+                const minutes = parseInt(minutesInput.value) || 0;
+                const seconds = parseInt(secondsInput.value) || 15;
+                const threads = parseInt(threadsInput.value) || 48;
+                
+                // 验证输入
+                if (minutes < 0 || minutes > 60) {
+                    showError('分钟数必须在0-60之间');
+                    return;
+                }
+                
+                if (seconds < 1 || seconds > 59) {
+                    showError('秒数必须在1-59之间');
+                    return;
+                }
+                
+                if (threads < 1 || threads > 5000) {
+                    showError('线程数必须在1-5000之间');
+                    return;
+                }
+                
+                // 计算总测试时间（毫秒）
+                const testDuration = (minutes * 60 + seconds) * 1000;
+                
+                // 重置UI
+                startButton.disabled = true;
+                stopButton.style.display = 'block';
+                loading.style.display = 'block';
+                resultContainer.style.display = 'none';
+                errorMessage.style.display = 'none';
+                infoMessage.style.display = 'none';
+                progressBar.style.width = '0%';
+                progressPercent.textContent = '0%';
+                
+                // 重置变量
+                testCompleted = false;
+                controllers = [];
+                totalDownloaded = 0;
+                downloadCount = 0;
+                speedHistory = [];
+                peakSpeed = 0;
+                
+                // 更新统计信息
+                totalDownloadEl.textContent = '0 MB';
+                downloadCountEl.textContent = '0';
+                avgSpeedEl.textContent = '0 Mbps';
+                peakSpeedEl.textContent = '0 Mbps';
+                
+                // 重置图表
+                speedChart.data.labels = [];
+                speedChart.data.datasets[0].data = [];
+                speedChart.update();
+                
+                // 显示信息
+                showInfo(`测速已开始，测试时间: ${minutes}分${seconds}秒，线程数: ${threads}`);
+                
+                // 开始测试
+                startTime = Date.now();
+                runSpeedTest(threads, testDuration);
+            }
+            
+            function runSpeedTest(threads, testDuration) {
+                // 更新剩余时间显示
+                updateTimeLeft(testDuration);
+                
+                // 创建多线程下载
+                const threadBytes = new Array(threads).fill(0);
+                const threadDownloads = new Array(threads).fill(0);
+                
+                for (let i = 0; i < threads; i++) {
+                    startDownloadThread(i, threadBytes, threadDownloads, testDuration);
+                }
+                
+                // 设置测试超时
+                testTimeout = setTimeout(() => {
+                    testCompleted = true;
+                    controllers.forEach(controller => controller.abort());
+                    finishTest(threads);
+                }, testDuration);
+                
+                // 更新UI的定时器
+                const updateInterval = 500; // 每500ms更新一次
+                let lastUpdateTime = Date.now();
+                let lastTotalBytes = 0;
+                
+                updateTimer = setInterval(() => {
+                    if (testCompleted) {
+                        clearInterval(updateTimer);
+                        return;
+                    }
+                    
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(100, (elapsed / testDuration) * 100);
+                    progressBar.style.width = `${progress}%`;
+                    progressPercent.textContent = `${Math.round(progress)}%`;
+                    
+                    // 更新剩余时间
+                    updateTimeLeft(testDuration - elapsed);
+                    
+                    // 计算当前速度
+                    const currentTime = Date.now();
+                    const timeDiff = (currentTime - lastUpdateTime) / 1000; // 转换为秒
+                    
+                    if (timeDiff > 0) {
+                        // 计算当前总下载量
+                        const currentTotalBytes = threadBytes.reduce((sum, bytes) => sum + bytes, 0);
+                        const bytesSinceLastUpdate = currentTotalBytes - lastTotalBytes;
+                        const currentSpeedMbps = (bytesSinceLastUpdate * 8) / timeDiff / 1000000;
+                        
+                        // 更新峰值速度
+                        if (currentSpeedMbps > peakSpeed) {
+                            peakSpeed = currentSpeedMbps;
+                            peakSpeedEl.textContent = `${peakSpeed.toFixed(2)} Mbps`;
+                        }
+                        
+                        speedHistory.push(currentSpeedMbps);
+                        
+                        // 更新速度显示
+                        speedMbps.textContent = currentSpeedMbps.toFixed(2);
+                        speedMBs.textContent = (currentSpeedMbps / 8).toFixed(2);
+                        threadsUsed.textContent = threads;
+                        
+                        // 更新总下载量
+                        totalDownloaded = currentTotalBytes;
+                        totalDownloadEl.textContent = `${(totalDownloaded / 1000000).toFixed(2)} MB`;
+                        downloadCountEl.textContent = downloadCount;
+                        
+                        // 更新平均速度
+                        const avgSpeed = speedHistory.reduce((a, b) => a + b, 0) / speedHistory.length;
+                        avgSpeedEl.textContent = `${avgSpeed.toFixed(2)} Mbps`;
+                        
+                        // 更新图表
+                        const timeLabel = `${(elapsed / 1000).toFixed(1)}s`;
+                        speedChart.data.labels.push(timeLabel);
+                        speedChart.data.datasets[0].data.push(currentSpeedMbps);
+                        
+                        // 限制图表数据点数量
+                        if (speedChart.data.labels.length > 30) {
+                            speedChart.data.labels.shift();
+                            speedChart.data.datasets[0].data.shift();
+                        }
+                        
+                        speedChart.update();
+                        
+                        lastTotalBytes = currentTotalBytes;
+                    }
+                    
+                    lastUpdateTime = currentTime;
+                }, updateInterval);
+            }
+            
+            function startDownloadThread(threadIndex, threadBytes, threadDownloads, testDuration) {
+                if (testCompleted) return;
+                
+                const controller = new AbortController();
+                controllers.push(controller);
+                
+                // 为每个线程添加随机参数避免缓存
+                const url = 'https://cesu.naxid.top/hgf.txt?t=' + Date.now() + '&thread=' + threadIndex;
+                
+                fetch(url, {
+                    signal: controller.signal
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const reader = response.body.getReader();
+                    let threadDownloaded = 0;
+                    
+                    return new Promise((resolve, reject) => {
+                        function read() {
+                            reader.read().then(({done, value}) => {
+                                // 如果测试已完成或请求被中止，则停止
+                                if (testCompleted || controller.signal.aborted) {
+                                    resolve(threadDownloaded);
+                                    return;
+                                }
+                                
+                                if (done) {
+                                    // 文件下载完成，记录下载量并开始新的下载
+                                    threadBytes[threadIndex] += threadDownloaded;
+                                    threadDownloads[threadIndex]++;
+                                    downloadCount++;
+                                    
+                                    // 如果测试时间还没到，重新开始下载
+                                    if (Date.now() - startTime < testDuration) {
+                                        startDownloadThread(threadIndex, threadBytes, threadDownloads, testDuration);
+                                    }
+                                    
+                                    resolve(threadDownloaded);
+                                    return;
+                                }
+                                
+                                threadDownloaded += value.length;
+                                threadBytes[threadIndex] += value.length;
+                                
+                                // 如果测试时间还没到，继续读取
+                                if (Date.now() - startTime < testDuration) {
+                                    read();
+                                } else {
+                                    resolve(threadDownloaded);
+                                }
+                            }).catch(reject);
+                        }
+                        
+                        read();
+                    });
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error('下载错误:', error);
+                        showError(`线程 ${threadIndex} 下载失败: ${error.message}`);
+                        
+                        // 如果测试时间还没到，尝试重新开始下载
+                        if (Date.now() - startTime < testDuration) {
+                            setTimeout(() => {
+                                startDownloadThread(threadIndex, threadBytes, threadDownloads, testDuration);
+                            }, 1000);
+                        }
+                    }
+                });
+            }
+            
+            function updateTimeLeft(remainingMs) {
+                const minutes = Math.floor(remainingMs / 60000);
+                const seconds = Math.floor((remainingMs % 60000) / 1000);
+                timeLeft.textContent = `剩余时间: ${minutes}分${seconds}秒`;
+            }
+            
+            function stopSpeedTest() {
+                testCompleted = true;
+                
+                if (testTimeout) clearTimeout(testTimeout);
+                if (updateTimer) clearInterval(updateTimer);
+                
+                controllers.forEach(controller => controller.abort());
+                
+                const totalTime = Date.now() - startTime;
+                finishTest(parseInt(threadsInput.value), totalTime);
+            }
+            
+            function finishTest(threads, totalTime) {
+                // 计算平均速度 - 过滤掉异常值
+                const filteredSpeeds = filterOutliers(speedHistory);
+                const avgSpeedMbps = filteredSpeeds.length > 0 ? 
+                    filteredSpeeds.reduce((a, b) => a + b, 0) / filteredSpeeds.length : 0;
+                
+                // 显示结果
+                speedMbps.textContent = avgSpeedMbps.toFixed(2);
+                speedMBs.textContent = (avgSpeedMbps / 8).toFixed(2);
+                threadsUsed.textContent = threads;
+                testTime.textContent = (totalTime / 1000).toFixed(2);
+                
+                // 更新UI
+                loading.style.display = 'none';
+                resultContainer.style.display = 'block';
+                startButton.disabled = false;
+                stopButton.style.display = 'none';
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                timeLeft.textContent = '测试完成';
+                infoMessage.style.display = 'none';
+            }
+            
+            // 过滤异常值的函数
+            function filterOutliers(speeds) {
+                if (speeds.length < 5) return speeds;
+                
+                // 计算平均值和标准差
+                const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                const squareDiffs = speeds.map(value => {
+                    const diff = value - mean;
+                    return diff * diff;
+                });
+                const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
+                const stdDev = Math.sqrt(avgSquareDiff);
+                
+                // 过滤掉与平均值相差超过2个标准差的值
+                const filtered = speeds.filter(speed => {
+                    return Math.abs(speed - mean) <= 2 * stdDev;
+                });
+                
+                // 如果过滤后数据太少，返回原始数据的前70%（去掉前30%可能不稳定的数据）
+                if (filtered.length < speeds.length * 0.5) {
+                    const startIndex = Math.floor(speeds.length * 0.3);
+                    return speeds.slice(startIndex);
+                }
+                
+                return filtered;
+            }
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                loading.style.display = 'none';
+                startButton.disabled = false;
+                stopButton.style.display = 'none';
+            }
+            
+            function showInfo(message) {
+                infoMessage.textContent = message;
+                infoMessage.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
