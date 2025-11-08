@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python版本下载 - 清华镜像源</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- Tailwind CSS 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3772FF',
+                        secondary: '#4ECDC4',
+                        accent: '#FF6B6B',
+                        dark: '#292F36',
+                        light: '#F7FFF7',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义样式 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .transition-smooth {
+                transition: all 0.3s ease;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark">
+    <!-- 顶部导航 -->
+    <header class="bg-primary text-white shadow-md">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fa fa-code text-3xl"></i>
+                    <h1 class="text-2xl font-bold">Python版本下载中心</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="https://mirrors.tuna.tsinghua.edu.cn" target="_blank" class="hover:text-secondary transition-smooth">
+                        <i class="fa fa-home mr-1"></i> 清华镜像站
+                    </a>
+                    <a href="#" class="hover:text-secondary transition-smooth" id="update-info">
+                        <i class="fa fa-refresh mr-1"></i>
+                        <span id="last-update"></span>
+                    </a>
+                </div>
+            </div>
+            <p class="mt-2 text-sm opacity-90">使用清华镜像源快速下载Python各版本安装包</p>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 筛选器 -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="flex flex-wrap items-center gap-4">
+                <h2 class="text-xl font-semibold mr-4">筛选版本:</h2>
+                <div class="flex flex-wrap gap-2" id="version-filters">
+                    <!-- 筛选器将通过JS动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 版本列表 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="version-cards">
+            <!-- 版本卡片将通过JS动态生成 -->
+            <div class="col-span-full text-center py-16" id="loading">
+                <i class="fa fa-circle-o-notch fa-spin text-4xl text-primary mb-4"></i>
+                <p class="text-lg">正在加载Python版本信息...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-dark text-white py-8 mt-12">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p class="text-sm opacity-75">数据来源: <a href="https://mirrors.tuna.tsinghua.edu.cn/python/" class="underline hover:text-secondary transition-smooth" target="_blank">清华大学开源软件镜像站</a></p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="#" class="hover:text-secondary transition-smooth"><i class="fa fa-github text-xl"></i></a>
+                    <a href="#" class="hover:text-secondary transition-smooth"><i class="fa fa-twitter text-xl"></i></a>
+                    <a href="#" class="hover:text-secondary transition-smooth"><i class="fa fa-envelope text-xl"></i></a>
+                </div>
+            </div>
+            <div class="text-center mt-6 text-sm opacity-50">
+                © 2025 Python版本下载中心 - 所有下载链接均指向清华镜像源
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 存储所有版本数据
+        let pythonData = null;
+        let currentFilter = 'all';
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPythonVersions();
+        });
+        
+        // 加载Python版本数据
+        async function loadPythonVersions() {
+            try {
+                // 在本地环境中，由于浏览器安全限制，我们使用内嵌的JSON数据
+                // 实际部署时可以取消注释下面的代码来加载外部JSON文件
+                // const response = await fetch('python_versions.json');
+                // pythonData = await response.json();
+                
+                // 解析python_versions.json数据
+                // 由于浏览器安全限制，这里提供一个示例数据结构
+                // 实际应用中，我们将通过Python脚本动态注入数据
+                pythonData = {
+                    "all_versions": {},
+                    "major_versions": {},
+                    "last_updated": new Date().toLocaleString('zh-CN')
+                };
+                
+                // 加载本地JSON数据（通过Python脚本注入）
+                // 这里是为了在本地环境中模拟数据加载
+                // 实际部署时，我们可以使用Python生成包含所有版本信息的HTML文件
+                const mockData = {
+                    "3.15.0": {
+                        "version": "3.15.0",
+                        "date": "2025-01-01",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/python-3.15.0-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/python-3.15.0.exe",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/python-3.15.0-arm64.exe"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/python-3.15.0-macosx10.9.pkg",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/python-3.15.0-macos11.0-arm64.pkg"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/Python-3.15.0.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.15.0/Python-3.15.0.tar.xz"
+                    },
+                    "3.14.1": {
+                        "version": "3.14.1",
+                        "date": "2024-11-01",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/python-3.14.1-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/python-3.14.1.exe",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/python-3.14.1-arm64.exe"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/python-3.14.1-macosx10.9.pkg",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/python-3.14.1-macos11.0-arm64.pkg"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/Python-3.14.1.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.14.1/Python-3.14.1.tar.xz"
+                    },
+                    "3.13.9": {
+                        "version": "3.13.9",
+                        "date": "2024-09-15",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/python-3.13.9-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/python-3.13.9.exe",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/python-3.13.9-arm64.exe"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/python-3.13.9-macosx10.9.pkg",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/python-3.13.9-macos11.0-arm64.pkg"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/Python-3.13.9.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.13.9/Python-3.13.9.tar.xz"
+                    },
+                    "3.12.7": {
+                        "version": "3.12.7",
+                        "date": "2024-08-20",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/python-3.12.7-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/python-3.12.7.exe",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/python-3.12.7-arm64.exe"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/python-3.12.7-macosx10.9.pkg",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/python-3.12.7-macos11.0-arm64.pkg"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/Python-3.12.7.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.12.7/Python-3.12.7.tar.xz"
+                    },
+                    "3.11.9": {
+                        "version": "3.11.9",
+                        "date": "2024-07-10",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9.exe",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9-arm64.exe"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9-macosx10.9.pkg",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/python-3.11.9-macos11.0-arm64.pkg"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/Python-3.11.9.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.11.9/Python-3.11.9.tar.xz"
+                    },
+                    "3.10.15": {
+                        "version": "3.10.15",
+                        "date": "2024-06-25",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/python-3.10.15-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/python-3.10.15.exe",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/python-3.10.15-arm64.exe"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/python-3.10.15-macosx10.9.pkg",
+                            "arm64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/python-3.10.15-macos11.0-arm64.pkg"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/Python-3.10.15.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.10.15/Python-3.10.15.tar.xz"
+                    },
+                    "3.9.21": {
+                        "version": "3.9.21",
+                        "date": "2024-05-15",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.9.21/python-3.9.21-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.9.21/python-3.9.21.exe",
+                            "arm64": "暂无此支持"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.9.21/python-3.9.21-macosx10.9.pkg",
+                            "arm64": "暂无此支持"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.9.21/Python-3.9.21.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.9.21/Python-3.9.21.tar.xz"
+                    },
+                    "3.8.19": {
+                        "version": "3.8.19",
+                        "date": "2024-04-20",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.8.19/python-3.8.19-amd64.exe",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/3.8.19/python-3.8.19.exe",
+                            "arm64": "暂无此支持"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.8.19/python-3.8.19-macosx10.9.pkg",
+                            "arm64": "暂无此支持"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/3.8.19/Python-3.8.19.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/3.8.19/Python-3.8.19.tar.xz"
+                    },
+                    "2.7.18": {
+                        "version": "2.7.18",
+                        "date": "2020-04-20",
+                        "windows": {
+                            "64bit": "https://mirrors.tuna.tsinghua.edu.cn/python/2.7.18/python-2.7.18.amd64.msi",
+                            "32bit": "https://mirrors.tuna.tsinghua.edu.cn/python/2.7.18/python-2.7.18.msi",
+                            "arm64": "暂无此支持"
+                        },
+                        "macos": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/2.7.18/python-2.7.18-macosx10.9.pkg",
+                            "arm64": "暂无此支持"
+                        },
+                        "linux": {
+                            "x86_64": "https://mirrors.tuna.tsinghua.edu.cn/python/2.7.18/Python-2.7.18.tar.xz",
+                            "aarch64": "暂无此支持"
+                        },
+                        "source": "https://mirrors.tuna.tsinghua.edu.cn/python/2.7.18/Python-2.7.18.tar.xz"
+                    }
+                };
+                
+                // 转换数据格式
+                Object.keys(mockData).forEach(version => {
+                    const v = mockData[version];
+                    pythonData.all_versions[version] = {
+                        "version": v.version,
+                        "date": v.date,
+                        "downloads": {
+                            "windows": v.windows,
+                            "macos": v.macos,
+                            "linux": v.linux,
+                            "source": v.source
+                        }
+                    };
+                    
+                    // 构建major_versions
+                    const major = version.split('.').slice(0, 2).join('.');
+                    if (!pythonData.major_versions[major]) {
+                        pythonData.major_versions[major] = [];
+                    }
+                    pythonData.major_versions[major].push(version);
+                });
+                
+                // 对每个大版本的子版本进行排序（从高到低）
+                Object.keys(pythonData.major_versions).forEach(major => {
+                    pythonData.major_versions[major].sort((a, b) => {
+                        const [a1, a2, a3] = a.split('.').map(Number);
+                        const [b1, b2, b3] = b.split('.').map(Number);
+                        if (a1 !== b1) return b1 - a1;
+                        if (a2 !== b2) return b2 - a2;
+                        return (b3 || 0) - (a3 || 0);
+                    });
+                });
+                
+                // 更新最后更新时间
+                document.getElementById('last-update').textContent = pythonData.last_updated;
+                
+                // 生成筛选器
+                generateFilters();
+                
+                // 生成版本卡片
+                generateVersionCards();
+                
+                // 隐藏加载状态
+                document.getElementById('loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error('加载Python版本数据失败:', error);
+                document.getElementById('loading').innerHTML = `
+                    <i class="fa fa-exclamation-circle text-4xl text-accent mb-4"></i>
+                    <p class="text-lg">加载失败，请刷新页面重试</p>
+                    <p class="text-sm text-gray-500 mt-2">错误: ${error.message}</p>
+                `;
+            }
+        }
+        
+        // 生成筛选器
+        function generateFilters() {
+            const filterContainer = document.getElementById('version-filters');
+            
+            // 清空容器
+            filterContainer.innerHTML = '';
+            
+            // 添加"全部"筛选器
+            const allFilter = document.createElement('button');
+            allFilter.className = 'px-4 py-2 rounded-full bg-primary text-white font-medium transition-smooth hover:bg-primary/90';
+            allFilter.textContent = '全部';
+            allFilter.dataset.filter = 'all';
+            allFilter.addEventListener('click', () => filterVersions('all'));
+            filterContainer.appendChild(allFilter);
+            
+            // 添加大版本筛选器
+            const majorVersions = Object.keys(pythonData.major_versions);
+            majorVersions.forEach(major => {
+                const filterBtn = document.createElement('button');
+                filterBtn.className = 'px-4 py-2 rounded-full bg-white border border-gray-300 text-dark font-medium transition-smooth hover:bg-gray-100';
+                filterBtn.textContent = major;
+                filterBtn.dataset.filter = major;
+                filterBtn.addEventListener('click', () => filterVersions(major));
+                filterContainer.appendChild(filterBtn);
+            });
+        }
+        
+        // 筛选版本
+        function filterVersions(filter) {
+            currentFilter = filter;
+            
+            // 更新筛选器样式
+            const filterButtons = document.querySelectorAll('#version-filters button');
+            filterButtons.forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.className = 'px-4 py-2 rounded-full bg-primary text-white font-medium transition-smooth hover:bg-primary/90';
+                } else {
+                    btn.className = 'px-4 py-2 rounded-full bg-white border border-gray-300 text-dark font-medium transition-smooth hover:bg-gray-100';
+                }
+            });
+            
+            // 重新生成版本卡片
+            generateVersionCards();
+        }
+        
+        // 生成版本卡片
+        function generateVersionCards() {
+            const cardContainer = document.getElementById('version-cards');
+            
+            // 清空容器
+            cardContainer.innerHTML = '';
+            
+            // 获取要显示的版本
+            let versionsToShow = [];
+            
+            if (currentFilter === 'all') {
+                // 显示所有版本
+                versionsToShow = Object.values(pythonData.all_versions);
+            } else {
+                // 显示特定大版本的所有子版本
+                const versionNumbers = pythonData.major_versions[currentFilter] || [];
+                versionsToShow = versionNumbers.map(v => pythonData.all_versions[v]).filter(v => v);
+            }
+            
+            // 如果没有版本，显示空状态
+            if (versionsToShow.length === 0) {
+                cardContainer.innerHTML = `
+                    <div class="col-span-full text-center py-16">
+                        <i class="fa fa-search text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-lg text-gray-500">没有找到符合条件的Python版本</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 创建版本卡片
+            versionsToShow.forEach(versionInfo => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-xl shadow-lg overflow-hidden card-shadow transition-smooth hover:shadow-xl transform hover:-translate-y-1';
+                
+                // 卡片头部
+                const headerClass = getVersionHeaderClass(versionInfo.version);
+                card.innerHTML = `
+                    <div class="${headerClass} px-6 py-4">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-bold text-white">Python ${versionInfo.version}</h3>
+                            <span class="bg-white/20 text-white text-xs px-2 py-1 rounded-full">${versionInfo.date || '未知日期'}</span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="space-y-4">
+                            <!-- Windows下载 -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-medium text-gray-700 mb-2 flex items-center">
+                                    <i class="fa fa-windows text-blue-600 mr-2"></i>
+                                    Windows
+                                </h4>
+                                <div class="grid grid-cols-3 gap-2 text-sm">
+                                    ${createDownloadLink('64位', versionInfo.downloads.windows['64bit'])}
+                                    ${createDownloadLink('32位', versionInfo.downloads.windows['32bit'])}
+                                    ${createDownloadLink('ARM64', versionInfo.downloads.windows['arm64'])}
+                                </div>
+                            </div>
+                            
+                            <!-- macOS下载 -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-medium text-gray-700 mb-2 flex items-center">
+                                    <i class="fa fa-apple text-gray-800 mr-2"></i>
+                                    macOS
+                                </h4>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    ${createDownloadLink('Intel', versionInfo.downloads.macos['x86_64'])}
+                                    ${createDownloadLink('Apple Silicon', versionInfo.downloads.macos['arm64'])}
+                                </div>
+                            </div>
+                            
+                            <!-- Linux下载 -->
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h4 class="font-medium text-gray-700 mb-2 flex items-center">
+                                    <i class="fa fa-linux text-orange-600 mr-2"></i>
+                                    Linux / 源码
+                                </h4>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    ${createDownloadLink('x86_64', versionInfo.downloads.linux['x86_64'])}
+                                    ${createDownloadLink('源码', versionInfo.downloads.source)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                cardContainer.appendChild(card);
+            });
+        }
+        
+        // 创建下载链接
+        function createDownloadLink(label, url) {
+            if (url === '暂无此支持') {
+                return `
+                    <div class="text-center py-1 px-2">
+                        <span class="text-gray-400 font-medium">${label}</span>
+                        <div class="text-xs text-gray-300 mt-1">暂无支持</div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <a href="${url}" target="_blank" class="bg-primary/10 hover:bg-primary/20 text-primary text-center py-1 px-2 rounded transition-smooth">
+                    <span class="font-medium">${label}</span>
+                    <div class="text-xs text-primary/70 mt-1">下载</div>
+                </a>
+            `;
+        }
+        
+        // 根据版本号获取头部样式类
+        function getVersionHeaderClass(version) {
+            const majorVersion = parseFloat(version.split('.').slice(0, 2).join('.'));
+            
+            if (majorVersion >= 3.15) return 'bg-gradient-to-r from-purple-600 to-indigo-700';
+            if (majorVersion >= 3.13) return 'bg-gradient-to-r from-indigo-600 to-blue-700';
+            if (majorVersion >= 3.11) return 'bg-gradient-to-r from-blue-600 to-cyan-700';
+            if (majorVersion >= 3.9) return 'bg-gradient-to-r from-cyan-600 to-teal-700';
+            if (majorVersion >= 3.7) return 'bg-gradient-to-r from-teal-600 to-green-700';
+            if (majorVersion >= 3.5) return 'bg-gradient-to-r from-green-600 to-lime-700';
+            if (majorVersion >= 3.3) return 'bg-gradient-to-r from-lime-600 to-yellow-700';
+            if (majorVersion >= 3.1) return 'bg-gradient-to-r from-yellow-600 to-orange-700';
+            if (majorVersion >= 3.0) return 'bg-gradient-to-r from-orange-600 to-red-700';
+            if (majorVersion >= 2.7) return 'bg-gradient-to-r from-red-600 to-pink-700';
+            return 'bg-gradient-to-r from-gray-600 to-gray-800';
+        }
+        
+        // 添加平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
