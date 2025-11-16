@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个性化浏览器主页</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            color: #fff;
+        }
+
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+            transition: filter 0.5s ease;
+        }
+
+        .blur-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            backdrop-filter: blur(0px);
+            z-index: -1;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            width: 250px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .control-panel.collapsed {
+            height: 40px;
+            overflow: hidden;
+        }
+
+        .panel-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .panel-toggle h3 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            display: block;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            text-align: center;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-input-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 搜索区域 */
+        .search-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 0;
+            margin-top: 40px;
+        }
+
+        .search-container {
+            display: flex;
+            max-width: 600px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 30px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .search-engine-selector {
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .search-engine-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .search-engine-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 200px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 5px;
+            display: none;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-engine-selector:hover .search-engine-dropdown {
+            display: block;
+        }
+
+        .search-engine-option {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-engine-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 15px 20px;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            font-size: 16px;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .search-button {
+            padding: 0 20px;
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .add-engine-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        /* 网站区域 */
+        .websites-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .websites-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .website-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            position: relative;
+        }
+
+        .website-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .website-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
+        }
+
+        .website-icon img {
+            width: 70%;
+            height: 70%;
+            object-fit: contain;
+        }
+
+        .website-name {
+            font-size: 14px;
+            text-align: center;
+            max-width: 80px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .website-actions {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            display: none;
+        }
+
+        .website-item:hover .website-actions {
+            display: block;
+        }
+
+        .delete-btn {
+            background: rgba(255, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-website-btn {
+            width: 64px;
+            height: 64px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-bottom: 8px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            transition: all 0.3s;
+        }
+
+        .add-website-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: rgba(30, 30, 30, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            width: 90%;
+            max-width: 400px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            outline: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #4a6cf7;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        /* 拖拽样式 */
+        .website-item.dragging {
+            opacity: 0.5;
+        }
+
+        .website-item.drag-over {
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景元素 -->
+    <div id="background"></div>
+    <div class="blur-overlay" id="blurOverlay"></div>
+
+    <!-- 控制面板 -->
+    <div class="control-panel" id="controlPanel">
+        <div class="panel-toggle" id="panelToggle">
+            <h3>控制面板</h3>
+            <span>▼</span>
+        </div>
+        <div class="control-content">
+            <div class="control-group">
+                <label for="blurRange">模糊程度: <span id="blurValue">0</span>%</label>
+                <input type="range" id="blurRange" min="0" max="100" value="0">
+            </div>
+            <div class="control-group">
+                <label>背景设置</label>
+                <div class="file-input-wrapper">
+                    <div class="file-input-button">上传背景图片</div>
+                    <input type="file" id="bgImageUpload" accept="image/*">
+                </div>
+                <div class="file-input-wrapper" style="margin-top: 10px;">
+                    <div class="file-input-button">上传背景视频</div>
+                    <input type="file" id="bgVideoUpload" accept="video/*">
+                </div>
+            </div>
+            <div class="control-group">
+                <label>图标大小: <span id="iconSizeValue">64</span>px</label>
+                <input type="range" id="iconSizeRange" min="40" max="120" value="64">
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要内容 -->
+    <div class="container">
+        <!-- 搜索区域 -->
+        <section class="search-section">
+            <div class="search-container">
+                <div class="search-engine-selector">
+                    <div class="search-engine-icon" id="currentEngineIcon"></div>
+                    <span id="currentEngine">Bing</span>
+                    <div class="search-engine-dropdown">
+                        <div class="search-engine-option" data-engine="Bing" data-url="https://www.bing.com/search?q=">
+                            <div class="search-engine-icon" style="background-color: #008373;"></div>
+                            <span>Bing</span>
+                        </div>
+                        <div class="search-engine-option" data-engine="Google" data-url="https://www.google.com/search?q=">
+                            <div class="search-engine-icon" style="background-color: #EA4335;"></div>
+                            <span>Google</span>
+                        </div>
+                        <div class="search-engine-option" data-engine="百度" data-url="https://www.baidu.com/s?wd=">
+                            <div class="search-engine-icon" style="background-color: #2932E1;"></div>
+                            <span>百度</span>
+                        </div>
+                        <div class="search-engine-option" data-engine="DuckDuckGo" data-url="https://duckduckgo.com/?q=">
+                            <div class="search-engine-icon" style="background-color: #DE5833;"></div>
+                            <span>DuckDuckGo</span>
+                        </div>
+                        <button class="add-engine-btn" id="addEngineBtn">添加搜索引擎</button>
+                    </div>
+                </div>
+                <input type="text" class="search-input" id="searchInput" placeholder="搜索...">
+                <button class="search-button" id="searchButton">🔍</button>
+            </div>
+        </section>
+
+        <!-- 网站区域 -->
+        <section class="websites-section">
+            <div class="websites-container" id="websitesContainer">
+                <!-- 网站项目将通过JS动态添加 -->
+            </div>
+        </section>
+    </div>
+
+    <!-- 添加网站模态框 -->
+    <div class="modal" id="addWebsiteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">添加网站</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="websiteName">网站名称</label>
+                <input type="text" id="websiteName" placeholder="例如：Google">
+            </div>
+            <div class="form-group">
+                <label for="websiteUrl">网站地址</label>
+                <input type="text" id="websiteUrl" placeholder="https://www.example.com">
+            </div>
+            <div class="form-group">
+                <label for="websiteIcon">图标URL</label>
+                <input type="text" id="websiteIcon" placeholder="https://www.example.com/favicon.ico">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancelAddWebsite">取消</button>
+                <button class="btn btn-primary" id="saveWebsite">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加搜索引擎模态框 -->
+    <div class="modal" id="addEngineModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">添加搜索引擎</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="engineName">搜索引擎名称</label>
+                <input type="text" id="engineName" placeholder="例如：GitHub">
+            </div>
+            <div class="form-group">
+                <label for="engineUrl">搜索URL格式</label>
+                <input type="text" id="engineUrl" placeholder="https://github.com/search?q={query}">
+                <small style="color: #aaa; font-size: 12px;">使用{query}作为搜索关键词占位符</small>
+            </div>
+            <div class="form-group">
+                <label for="engineColor">图标颜色</label>
+                <input type="color" id="engineColor" value="#4a6cf7">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancelAddEngine">取消</button>
+                <button class="btn btn-primary" id="saveEngine">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let currentEngine = {
+            name: 'Bing',
+            url: 'https://www.bing.com/search?q=',
+            color: '#008373'
+        };
+        
+        let websites = [
+            { name: 'Google', url: 'https://www.google.com', icon: 'https://www.google.com/favicon.ico' },
+            { name: 'GitHub', url: 'https://github.com', icon: 'https://github.com/favicon.ico' },
+            { name: 'YouTube', url: 'https://www.youtube.com', icon: 'https://www.youtube.com/favicon.ico' },
+            { name: '知乎', url: 'https://www.zhihu.com', icon: 'https://static.zhihu.com/heifetz/favicon.ico' },
+            { name: 'Bilibili', url: 'https://www.bilibili.com', icon: 'https://www.bilibili.com/favicon.ico' },
+            { name: '豆瓣', url: 'https://www.douban.com', icon: 'https://www.douban.com/favicon.ico' }
+        ];
+        
+        // DOM元素
+        const backgroundElement = document.getElementById('background');
+        const blurOverlay = document.getElementById('blurOverlay');
+        const blurRange = document.getElementById('blurRange');
+        const blurValue = document.getElementById('blurValue');
+        const bgImageUpload = document.getElementById('bgImageUpload');
+        const bgVideoUpload = document.getElementById('bgVideoUpload');
+        const iconSizeRange = document.getElementById('iconSizeRange');
+        const iconSizeValue = document.getElementById('iconSizeValue');
+        const controlPanel = document.getElementById('controlPanel');
+        const panelToggle = document.getElementById('panelToggle');
+        const currentEngineIcon = document.getElementById('currentEngineIcon');
+        const currentEngineElement = document.getElementById('currentEngine');
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const websitesContainer = document.getElementById('websitesContainer');
+        const addWebsiteBtn = document.createElement('div');
+        const addWebsiteModal = document.getElementById('addWebsiteModal');
+        const addEngineModal = document.getElementById('addEngineModal');
+        const addEngineBtn = document.getElementById('addEngineBtn');
+        
+        // 初始化页面
+        function init() {
+            // 设置当前搜索引擎
+            updateCurrentEngine();
+            
+            // 初始化网站列表
+            renderWebsites();
+            
+            // 添加"添加网站"按钮
+            addWebsiteBtn.className = 'website-item';
+            addWebsiteBtn.innerHTML = `
+                <div class="add-website-btn">+</div>
+                <div class="website-name">添加快捷方式</div>
+            `;
+            addWebsiteBtn.addEventListener('click', openAddWebsiteModal);
+            websitesContainer.appendChild(addWebsiteBtn);
+            
+            // 事件监听器
+            setupEventListeners();
+            
+            // 从本地存储加载设置
+            loadSettings();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 模糊调整
+            blurRange.addEventListener('input', function() {
+                const blurValue = this.value;
+                document.getElementById('blurValue').textContent = blurValue;
+                blurOverlay.style.backdropFilter = `blur(${blurValue / 10}px)`;
+                saveSettings();
+            });
+            
+            // 图标大小调整
+            iconSizeRange.addEventListener('input', function() {
+                const size = this.value;
+                iconSizeValue.textContent = size;
+                document.querySelectorAll('.website-icon').forEach(icon => {
+                    icon.style.width = `${size}px`;
+                    icon.style.height = `${size}px`;
+                });
+                document.querySelectorAll('.add-website-btn').forEach(btn => {
+                    btn.style.width = `${size}px`;
+                    btn.style.height = `${size}px`;
+                });
+                saveSettings();
+            });
+            
+            // 背景上传
+            bgImageUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    setBackground(url, 'image');
+                    saveSettings();
+                }
+            });
+            
+            bgVideoUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    setBackground(url, 'video');
+                    saveSettings();
+                }
+            });
+            
+            // 控制面板折叠/展开
+            panelToggle.addEventListener('click', function() {
+                controlPanel.classList.toggle('collapsed');
+            });
+            
+            // 搜索引擎切换
+            document.querySelectorAll('.search-engine-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const engine = this.getAttribute('data-engine');
+                    const url = this.getAttribute('data-url');
+                    const color = this.querySelector('.search-engine-icon').style.backgroundColor;
+                    currentEngine = { name: engine, url, color };
+                    updateCurrentEngine();
+                    saveSettings();
+                });
+            });
+            
+            // 搜索功能
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            
+            // 添加搜索引擎
+            addEngineBtn.addEventListener('click', openAddEngineModal);
+            
+            // 模态框关闭
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    this.closest('.modal').style.display = 'none';
+                });
+            });
+            
+            document.getElementById('cancelAddWebsite').addEventListener('click', function() {
+                addWebsiteModal.style.display = 'none';
+            });
+            
+            document.getElementById('cancelAddEngine').addEventListener('click', function() {
+                addEngineModal.style.display = 'none';
+            });
+            
+            // 保存网站
+            document.getElementById('saveWebsite').addEventListener('click', saveWebsite);
+            
+            // 保存搜索引擎
+            document.getElementById('saveEngine').addEventListener('click', saveEngine);
+        }
+        
+        // 更新当前搜索引擎显示
+        function updateCurrentEngine() {
+            currentEngineIcon.style.backgroundColor = currentEngine.color;
+            currentEngineElement.textContent = currentEngine.name;
+        }
+        
+        // 执行搜索
+        function performSearch() {
+            const query = searchInput.value.trim();
+            if (query) {
+                const searchUrl = currentEngine.url + encodeURIComponent(query);
+                window.open(searchUrl, '_self');
+            }
+        }
+        
+        // 渲染网站列表
+        function renderWebsites() {
+            websitesContainer.innerHTML = '';
+            
+            websites.forEach((website, index) => {
+                const websiteElement = document.createElement('div');
+                websiteElement.className = 'website-item';
+                websiteElement.draggable = true;
+                websiteElement.innerHTML = `
+                    <div class="website-icon">
+                        <img src="${website.icon}" alt="${website.name}" onerror="this.style.display='none'">
+                    </div>
+                    <div class="website-name">${website.name}</div>
+                    <div class="website-actions">
+                        <button class="delete-btn" data-index="${index}">×</button>
+                    </div>
+                `;
+                
+                // 点击打开网站
+                websiteElement.addEventListener('click', function(e) {
+                    if (!e.target.classList.contains('delete-btn')) {
+                        window.open(website.url, '_self');
+                    }
+                });
+                
+                // 双击更换图标
+                let clickCount = 0;
+                let clickTimer;
+                websiteElement.addEventListener('click', function(e) {
+                    if (!e.target.classList.contains('delete-btn')) {
+                        clickCount++;
+                        if (clickCount === 1) {
+                            clickTimer = setTimeout(function() {
+                                clickCount = 0;
+                            }, 300);
+                        } else if (clickCount === 2) {
+                            clearTimeout(clickTimer);
+                            clickCount = 0;
+                            changeWebsiteIcon(index);
+                        }
+                    }
+                });
+                
+                // 删除网站
+                websiteElement.querySelector('.delete-btn').addEventListener('click', function() {
+                    websites.splice(index, 1);
+                    renderWebsites();
+                    saveSettings();
+                });
+                
+                // 拖拽功能
+                websiteElement.addEventListener('dragstart', function(e) {
+                    this.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', index);
+                });
+                
+                websiteElement.addEventListener('dragend', function() {
+                    this.classList.remove('dragging');
+                    document.querySelectorAll('.website-item').forEach(item => {
+                        item.classList.remove('drag-over');
+                    });
+                });
+                
+                websiteElement.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('drag-over');
+                });
+                
+                websiteElement.addEventListener('dragleave', function() {
+                    this.classList.remove('drag-over');
+                });
+                
+                websiteElement.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('drag-over');
+                    
+                    const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const toIndex = index;
+                    
+                    if (fromIndex !== toIndex) {
+                        const [movedItem] = websites.splice(fromIndex, 1);
+                        websites.splice(toIndex, 0, movedItem);
+                        renderWebsites();
+                        saveSettings();
+                    }
+                });
+                
+                websitesContainer.appendChild(websiteElement);
+            });
+            
+            // 重新添加"添加网站"按钮
+            websitesContainer.appendChild(addWebsiteBtn);
+        }
+        
+        // 打开添加网站模态框
+        function openAddWebsiteModal() {
+            document.getElementById('websiteName').value = '';
+            document.getElementById('websiteUrl').value = '';
+            document.getElementById('websiteIcon').value = '';
+            addWebsiteModal.style.display = 'flex';
+        }
+        
+        // 保存网站
+        function saveWebsite() {
+            const name = document.getElementById('websiteName').value.trim();
+            const url = document.getElementById('websiteUrl').value.trim();
+            const icon = document.getElementById('websiteIcon').value.trim();
+            
+            if (name && url) {
+                websites.push({
+                    name,
+                    url: url.startsWith('http') ? url : `https://${url}`,
+                    icon: icon || `https://${new URL(url.startsWith('http') ? url : `https://${url}`).hostname}/favicon.ico`
+                });
+                
+                renderWebsites();
+                addWebsiteModal.style.display = 'none';
+                saveSettings();
+            }
+        }
+        
+        // 更换网站图标
+        function changeWebsiteIcon(index) {
+            const newIconUrl = prompt('请输入新的图标URL:', websites[index].icon);
+            if (newIconUrl) {
+                websites[index].icon = newIconUrl;
+                renderWebsites();
+                saveSettings();
+            }
+        }
+        
+        // 打开添加搜索引擎模态框
+        function openAddEngineModal() {
+            document.getElementById('engineName').value = '';
+            document.getElementById('engineUrl').value = '';
+            document.getElementById('engineColor').value = '#4a6cf7';
+            addEngineModal.style.display = 'flex';
+        }
+        
+        // 保存搜索引擎
+        function saveEngine() {
+            const name = document.getElementById('engineName').value.trim();
+            const url = document.getElementById('engineUrl').value.trim();
+            const color = document.getElementById('engineColor').value;
+            
+            if (name && url && url.includes('{query}')) {
+                const engineOption = document.createElement('div');
+                engineOption.className = 'search-engine-option';
+                engineOption.setAttribute('data-engine', name);
+                engineOption.setAttribute('data-url', url);
+                engineOption.innerHTML = `
+                    <div class="search-engine-icon" style="background-color: ${color};"></div>
+                    <span>${name}</span>
+                `;
+                
+                engineOption.addEventListener('click', function() {
+                    currentEngine = { name, url, color };
+                    updateCurrentEngine();
+                    saveSettings();
+                });
+                
+                document.querySelector('.search-engine-dropdown').insertBefore(engineOption, addEngineBtn);
+                addEngineModal.style.display = 'none';
+                saveSettings();
+            } else {
+                alert('请填写所有字段，并确保URL中包含{query}占位符');
+            }
+        }
+        
+        // 设置背景
+        function setBackground(url, type) {
+            if (type === 'image') {
+                backgroundElement.style.backgroundImage = `url(${url})`;
+                backgroundElement.style.backgroundSize = 'cover';
+                backgroundElement.style.backgroundPosition = 'center';
+                backgroundElement.innerHTML = '';
+            } else if (type === 'video') {
+                backgroundElement.innerHTML = `<video autoplay muted loop><source src="${url}" type="video/mp4"></video>`;
+            }
+        }
+        
+        // 保存设置到本地存储
+        function saveSettings() {
+            const settings = {
+                currentEngine,
+                websites,
+                blurValue: blurRange.value,
+                iconSize: iconSizeRange.value,
+                background: backgroundElement.style.backgroundImage || backgroundElement.innerHTML
+            };
+            localStorage.setItem('browserHomeSettings', JSON.stringify(settings));
+        }
+        
+        // 从本地存储加载设置
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('browserHomeSettings');
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                
+                if (settings.currentEngine) {
+                    currentEngine = settings.currentEngine;
+                    updateCurrentEngine();
+                }
+                
+                if (settings.websites) {
+                    websites = settings.websites;
+                    renderWebsites();
+                }
+                
+                if (settings.blurValue) {
+                    blurRange.value = settings.blurValue;
+                    blurValue.textContent = settings.blurValue;
+                    blurOverlay.style.backdropFilter = `blur(${settings.blurValue / 10}px)`;
+                }
+                
+                if (settings.iconSize) {
+                    iconSizeRange.value = settings.iconSize;
+                    iconSizeValue.textContent = settings.iconSize;
+                    document.querySelectorAll('.website-icon').forEach(icon => {
+                        icon.style.width = `${settings.iconSize}px`;
+                        icon.style.height = `${settings.iconSize}px`;
+                    });
+                    document.querySelectorAll('.add-website-btn').forEach(btn => {
+                        btn.style.width = `${settings.iconSize}px`;
+                        btn.style.height = `${settings.iconSize}px`;
+                    });
+                }
+                
+                if (settings.background) {
+                    if (settings.background.includes('url(')) {
+                        backgroundElement.style.backgroundImage = settings.background;
+                        backgroundElement.style.backgroundSize = 'cover';
+                        backgroundElement.style.backgroundPosition = 'center';
+                    } else {
+                        backgroundElement.innerHTML = settings.background;
+                    }
+                }
+            }
+        }
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
