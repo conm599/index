@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自定义浏览器主页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --blur-intensity: 0px;
+        }
+        
+        .blur-background {
+            backdrop-filter: blur(var(--blur-intensity));
+            -webkit-backdrop-filter: blur(var(--blur-intensity));
+        }
+        
+        .website-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: move;
+            user-select: none;
+        }
+        
+        .website-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .resize-handle {
+            position: absolute;
+            right: -5px;
+            bottom: -5px;
+            width: 10px;
+            height: 10px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .website-card:hover .resize-handle {
+            opacity: 1;
+        }
+        
+        .background-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: cover;
+        }
+        
+        .settings-panel {
+            transition: all 0.3s ease;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .search-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-900 text-white">
+    <!-- 背景层 -->
+    <div id="background-layer" class="background-layer"></div>
+    
+    <!-- 设置面板 -->
+    <div class="fixed top-4 left-4 z-10">
+        <button id="settings-toggle" class="bg-gray-800 bg-opacity-70 p-2 rounded-full hover:bg-gray-700 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
+        
+        <div id="settings-panel" class="settings-panel absolute top-12 left-0 bg-gray-800 bg-opacity-80 rounded-lg p-4 w-64 hidden fade-in">
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">页面模糊度: <span id="blur-value">20</span></label>
+                <input type="range" min="0" max="100" value="20" id="blur-slider" class="w-full">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">上传背景</label>
+                <input type="file" id="background-upload" accept="image/*,video/*" class="w-full text-sm">
+            </div>
+            
+            <div class="mb-4">
+                <button id="add-search-engine-btn" class="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm w-full">添加搜索引擎</button>
+            </div>
+            
+            <div>
+                <button id="add-website-btn" class="bg-green-600 hover:bg-green-700 text-white py-1 px-3 rounded text-sm w-full">添加网站</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主内容区域 -->
+    <div class="container mx-auto px-4 py-8 blur-background">
+        <!-- 搜索框 -->
+        <div class="search-container mt-16 mb-12">
+            <div class="flex">
+                <div class="relative flex-grow">
+                    <input type="text" id="search-input" placeholder="搜索网页..." 
+                           class="w-full py-3 px-4 rounded-l-lg bg-gray-800 bg-opacity-70 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button id="search-btn" class="bg-blue-600 hover:bg-blue-700 py-3 px-6 rounded-r-lg transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </button>
+                <div class="relative ml-2">
+                    <button id="engine-toggle" class="bg-gray-800 bg-opacity-70 hover:bg-gray-700 py-3 px-4 rounded-lg flex items-center transition">
+                        <span id="current-engine">Bing</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="engine-list" class="absolute top-12 right-0 bg-gray-800 bg-opacity-90 rounded-lg py-2 w-40 hidden fade-in">
+                        <!-- 搜索引擎列表将在这里动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 网站导航区域 -->
+        <div id="websites-container" class="grid-container">
+            <!-- 网站卡片将在这里动态生成 -->
+        </div>
+    </div>
+    
+    <!-- 模态框 -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-20">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 id="modal-title" class="text-xl font-bold mb-4">添加搜索引擎</h3>
+            <form id="modal-form">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">名称</label>
+                    <input type="text" id="modal-input-1" class="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1" id="modal-label-2">搜索URL (使用%s作为搜索词占位符)</label>
+                    <input type="text" id="modal-input-2" class="w-full p-2 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" id="modal-cancel" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition">取消</button>
+                    <button type="submit" id="modal-submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 数据模型
+        const state = {
+            searchEngines: [
+                { id: 1, name: 'Bing', url: 'https://www.bing.com/search?q=%s' },
+                { id: 2, name: 'Google', url: 'https://www.google.com/search?q=%s' },
+                { id: 3, name: '百度', url: 'https://www.baidu.com/s?wd=%s' }
+            ],
+            currentEngineId: 1,
+            websites: [],
+            background: {
+                type: 'color', // 'color', 'image', 'video'
+                url: '',
+                blur: 20
+            }
+        };
+
+        // DOM 元素
+        const elements = {
+            settingsToggle: document.getElementById('settings-toggle'),
+            settingsPanel: document.getElementById('settings-panel'),
+            blurSlider: document.getElementById('blur-slider'),
+            blurValue: document.getElementById('blur-value'),
+            backgroundUpload: document.getElementById('background-upload'),
+            addSearchEngineBtn: document.getElementById('add-search-engine-btn'),
+            addWebsiteBtn: document.getElementById('add-website-btn'),
+            searchInput: document.getElementById('search-input'),
+            searchBtn: document.getElementById('search-btn'),
+            engineToggle: document.getElementById('engine-toggle'),
+            currentEngine: document.getElementById('current-engine'),
+            engineList: document.getElementById('engine-list'),
+            websitesContainer: document.getElementById('websites-container'),
+            modalOverlay: document.getElementById('modal-overlay'),
+            modalTitle: document.getElementById('modal-title'),
+            modalForm: document.getElementById('modal-form'),
+            modalInput1: document.getElementById('modal-input-1'),
+            modalInput2: document.getElementById('modal-input-2'),
+            modalLabel2: document.getElementById('modal-label-2'),
+            modalCancel: document.getElementById('modal-cancel'),
+            modalSubmit: document.getElementById('modal-submit'),
+            backgroundLayer: document.getElementById('background-layer')
+        };
+
+        // 当前操作状态
+        let currentAction = null;
+        let isDragging = false;
+        let isResizing = false;
+        let dragElement = null;
+        let dragOffset = { x: 0, y: 0 };
+        let resizeStartSize = { width: 0, height: 0 };
+        let resizeStartPos = { x: 0, y: 0 };
+
+        // 初始化
+        function init() {
+            loadFromStorage();
+            renderSearchEngines();
+            renderWebsites();
+            updateBackground();
+            updateBlurEffect();
+            setupEventListeners();
+        }
+
+        // 从本地存储加载数据
+        function loadFromStorage() {
+            const savedData = localStorage.getItem('browserHomeData');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                Object.assign(state, data);
+            }
+        }
+
+        // 保存数据到本地存储
+        function saveToStorage() {
+            localStorage.setItem('browserHomeData', JSON.stringify(state));
+        }
+
+        // 渲染搜索引擎列表
+        function renderSearchEngines() {
+            const currentEngine = state.searchEngines.find(e => e.id === state.currentEngineId);
+            elements.currentEngine.textContent = currentEngine.name;
+            
+            elements.engineList.innerHTML = '';
+            state.searchEngines.forEach(engine => {
+                const engineItem = document.createElement('div');
+                engineItem.className = 'px-4 py-2 hover:bg-gray-700 cursor-pointer flex justify-between items-center';
+                engineItem.innerHTML = `
+                    <span>${engine.name}</span>
+                    ${engine.id === state.currentEngineId ? 
+                        '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : 
+                        ''}
+                `;
+                engineItem.addEventListener('click', () => {
+                    state.currentEngineId = engine.id;
+                    renderSearchEngines();
+                    elements.engineList.classList.add('hidden');
+                    saveToStorage();
+                });
+                elements.engineList.appendChild(engineItem);
+            });
+        }
+
+        // 渲染网站卡片
+        function renderWebsites() {
+            elements.websitesContainer.innerHTML = '';
+            
+            state.websites.forEach(website => {
+                const websiteCard = document.createElement('div');
+                websiteCard.className = 'website-card bg-gray-800 bg-opacity-70 rounded-lg p-3 flex flex-col items-center justify-center relative';
+                websiteCard.style.width = `${website.width || 100}px`;
+                websiteCard.style.height = `${website.height || 100}px`;
+                websiteCard.style.left = `${website.x || 0}px`;
+                websiteCard.style.top = `${website.y || 0}px`;
+                websiteCard.setAttribute('data-id', website.id);
+                
+                websiteCard.innerHTML = `
+                    <img src="${website.icon}" alt="${website.name}" class="w-12 h-12 mb-2 rounded">
+                    <span class="text-sm text-center truncate w-full">${website.name}</span>
+                    <div class="resize-handle"></div>
+                `;
+                
+                // 双击事件 - 更换图标
+                websiteCard.addEventListener('dblclick', () => {
+                    changeWebsiteIcon(website.id);
+                });
+                
+                // 拖拽功能
+                websiteCard.addEventListener('mousedown', startDrag);
+                
+                // 调整大小功能
+                const resizeHandle = websiteCard.querySelector('.resize-handle');
+                resizeHandle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    startResize(websiteCard, website.id, e);
+                });
+                
+                // 点击网站跳转
+                websiteCard.addEventListener('click', (e) => {
+                    if (!isDragging && !isResizing) {
+                        window.open(website.url, '_blank');
+                    }
+                });
+                
+                elements.websitesContainer.appendChild(websiteCard);
+            });
+        }
+
+        // 开始拖拽
+        function startDrag(e) {
+            if (e.button !== 0) return; // 只响应左键
+            
+            isDragging = true;
+            dragElement = e.currentTarget;
+            dragOffset.x = e.clientX - dragElement.offsetLeft;
+            dragOffset.y = e.clientY - dragElement.offsetTop;
+            
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+            
+            e.preventDefault();
+        }
+
+        // 拖拽中
+        function onDrag(e) {
+            if (!isDragging) return;
+            
+            const x = e.clientX - dragOffset.x;
+            const y = e.clientY - dragOffset.y;
+            
+            dragElement.style.left = `${x}px`;
+            dragElement.style.top = `${y}px`;
+        }
+
+        // 停止拖拽
+        function stopDrag() {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            
+            // 保存新位置
+            const websiteId = parseInt(dragElement.getAttribute('data-id'));
+            const website = state.websites.find(w => w.id === websiteId);
+            if (website) {
+                website.x = parseInt(dragElement.style.left);
+                website.y = parseInt(dragElement.style.top);
+                saveToStorage();
+            }
+        }
+
+        // 开始调整大小
+        function startResize(element, websiteId, e) {
+            isResizing = true;
+            resizeStartSize.width = element.offsetWidth;
+            resizeStartSize.height = element.offsetHeight;
+            resizeStartPos.x = e.clientX;
+            resizeStartPos.y = e.clientY;
+            
+            document.addEventListener('mousemove', (e) => onResize(e, element, websiteId));
+            document.addEventListener('mouseup', () => stopResize(websiteId));
+            
+            e.preventDefault();
+        }
+
+        // 调整大小中
+        function onResize(e, element, websiteId) {
+            if (!isResizing) return;
+            
+            const deltaX = e.clientX - resizeStartPos.x;
+            const deltaY = e.clientY - resizeStartPos.y;
+            
+            const newWidth = Math.max(80, resizeStartSize.width + deltaX);
+            const newHeight = Math.max(80, resizeStartSize.height + deltaY);
+            
+            element.style.width = `${newWidth}px`;
+            element.style.height = `${newHeight}px`;
+        }
+
+        // 停止调整大小
+        function stopResize(websiteId) {
+            if (!isResizing) return;
+            
+            isResizing = false;
+            document.removeEventListener('mousemove', onResize);
+            document.removeEventListener('mouseup', stopResize);
+            
+            // 保存新尺寸
+            const website = state.websites.find(w => w.id === websiteId);
+            if (website) {
+                website.width = parseInt(dragElement.style.width);
+                website.height = parseInt(dragElement.style.height);
+                saveToStorage();
+            }
+        }
+
+        // 更换网站图标
+        function changeWebsiteIcon(websiteId) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            
+            input.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const website = state.websites.find(w => w.id === websiteId);
+                        if (website) {
+                            website.icon = event.target.result;
+                            renderWebsites();
+                            saveToStorage();
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            
+            input.click();
+        }
+
+        // 更新背景
+        function updateBackground() {
+            elements.backgroundLayer.innerHTML = '';
+            
+            if (state.background.type === 'image' && state.background.url) {
+                const img = document.createElement('img');
+                img.src = state.background.url;
+                img.className = 'background-layer';
+                elements.backgroundLayer.appendChild(img);
+            } else if (state.background.type === 'video' && state.background.url) {
+                const video = document.createElement('video');
+                video.src = state.background.url;
+                video.className = 'background-layer';
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                elements.backgroundLayer.appendChild(video);
+            }
+        }
+
+        // 更新模糊效果
+        function updateBlurEffect() {
+            document.documentElement.style.setProperty('--blur-intensity', `${state.background.blur * 0.2}px`);
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 设置面板切换
+            elements.settingsToggle.addEventListener('click', () => {
+                elements.settingsPanel.classList.toggle('hidden');
+            });
+
+            // 模糊度调整
+            elements.blurSlider.addEventListener('input', (e) => {
+                state.background.blur = parseInt(e.target.value);
+                elements.blurValue.textContent = state.background.blur;
+                updateBlurEffect();
+                saveToStorage();
+            });
+
+            // 背景上传
+            elements.backgroundUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        if (file.type.startsWith('image/')) {
+                            state.background.type = 'image';
+                        } else if (file.type.startsWith('video/')) {
+                            state.background.type = 'video';
+                        }
+                        state.background.url = event.target.result;
+                        updateBackground();
+                        saveToStorage();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // 搜索引擎切换
+            elements.engineToggle.addEventListener('click', () => {
+                elements.engineList.classList.toggle('hidden');
+            });
+
+            // 搜索功能
+            elements.searchBtn.addEventListener('click', performSearch);
+            elements.searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+
+            // 添加搜索引擎
+            elements.addSearchEngineBtn.addEventListener('click', () => {
+                showModal('添加搜索引擎', '名称', '搜索URL (使用%s作为搜索词占位符)', '添加', (name, url) => {
+                    if (name && url && url.includes('%s')) {
+                        const newEngine = {
+                            id: Date.now(),
+                            name: name,
+                            url: url
+                        };
+                        state.searchEngines.push(newEngine);
+                        renderSearchEngines();
+                        saveToStorage();
+                        return true;
+                    } else {
+                        alert('请填写完整信息，并且URL必须包含%s作为搜索词占位符');
+                        return false;
+                    }
+                });
+            });
+
+            // 添加网站
+            elements.addWebsiteBtn.addEventListener('click', () => {
+                showModal('添加网站', '网站名称', '网站URL', '添加', (name, url) => {
+                    if (name && url) {
+                        const newWebsite = {
+                            id: Date.now(),
+                            name: name,
+                            url: url.startsWith('http') ? url : `https://${url}`,
+                            icon: `https://www.google.com/s2/favicons?domain=${url}&sz=64`,
+                            width: 100,
+                            height: 100,
+                            x: Math.random() * (window.innerWidth - 200),
+                            y: Math.random() * (window.innerHeight - 200)
+                        };
+                        state.websites.push(newWebsite);
+                        renderWebsites();
+                        saveToStorage();
+                        return true;
+                    } else {
+                        alert('请填写完整信息');
+                        return false;
+                    }
+                });
+            });
+
+            // 模态框事件
+            elements.modalCancel.addEventListener('click', hideModal);
+            elements.modalForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const value1 = elements.modalInput1.value.trim();
+                const value2 = elements.modalInput2.value.trim();
+                
+                if (currentAction && currentAction(value1, value2)) {
+                    hideModal();
+                }
+            });
+
+            // 点击页面其他地方关闭下拉和面板
+            document.addEventListener('click', (e) => {
+                if (!elements.settingsToggle.contains(e.target) && !elements.settingsPanel.contains(e.target)) {
+                    elements.settingsPanel.classList.add('hidden');
+                }
+                
+                if (!elements.engineToggle.contains(e.target) && !elements.engineList.contains(e.target)) {
+                    elements.engineList.classList.add('hidden');
+                }
+            });
+        }
+
+        // 显示模态框
+        function showModal(title, label1, label2, submitText, action) {
+            elements.modalTitle.textContent = title;
+            elements.modalInput1.placeholder = label1;
+            elements.modalLabel2.textContent = label2;
+            elements.modalInput2.placeholder = label2;
+            elements.modalSubmit.textContent = submitText;
+            
+            elements.modalInput1.value = '';
+            elements.modalInput2.value = '';
+            
+            currentAction = action;
+            elements.modalOverlay.classList.remove('hidden');
+        }
+
+        // 隐藏模态框
+        function hideModal() {
+            elements.modalOverlay.classList.add('hidden');
+            currentAction = null;
+        }
+
+        // 执行搜索
+        function performSearch() {
+            const query = elements.searchInput.value.trim();
+            if (query) {
+                const engine = state.searchEngines.find(e => e.id === state.currentEngineId);
+                if (engine) {
+                    const searchUrl = engine.url.replace('%s', encodeURIComponent(query));
+                    window.open(searchUrl, '_blank');
+                }
+            }
+        }
+
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html>
