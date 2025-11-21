@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的自定义导航</title>
+    <style>
+        :root {
+            --bg-blur: 0px;
+            --primary-color: rgba(255, 255, 255, 0.2);
+            --text-color: #fff;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+            color: var(--text-color);
+        }
+
+        /* 背景层 */
+        #bg-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
+            background: #333;
+            overflow: hidden;
+        }
+        #bg-media {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        #bg-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            backdrop-filter: blur(var(--bg-blur));
+            background: rgba(0,0,0,0.2);
+            transition: backdrop-filter 0.3s;
+        }
+
+        /* 左上角设置区域 */
+        .settings-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: opacity 0.3s;
+            opacity: 0.2;
+        }
+        .settings-panel:hover { opacity: 1; }
+        
+        .control-group { margin-bottom: 10px; }
+        .control-group label { display: block; font-size: 12px; margin-bottom: 5px; opacity: 0.8; }
+        input[type="range"] { width: 100%; }
+
+        /* 主容器 */
+        #main-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 搜索框区域 */
+        .search-wrapper {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            max-width: 90%;
+            z-index: 50;
+            display: flex;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .search-engine-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+        .search-engine-icon img { width: 24px; height: 24px; border-radius: 50%; }
+
+        #search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0 20px;
+            font-size: 18px;
+            color: white;
+            outline: none;
+            height: 50px;
+        }
+
+        /* 快捷方式区域 (画布) */
+        #shortcut-area {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+        }
+
+        /* 单个快捷方式图标 */
+        .shortcut-item {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100px; 
+            height: 100px;
+            cursor: grab;
+            transition: transform 0.1s, box-shadow 0.2s;
+            border-radius: 12px;
+        }
+        
+        .shortcut-item:active { cursor: grabbing; transform: scale(0.95); }
+        .shortcut-item:hover { background: rgba(255,255,255,0.1); }
+
+        .shortcut-icon {
+            width: 60px; height: 60px;
+            border-radius: 12px;
+            object-fit: cover;
+            pointer-events: none; /* 让点击穿透到父元素处理 */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .shortcut-title {
+            margin-top: 8px;
+            font-size: 14px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            padding: 0 5px;
+        }
+
+        /* 右键/添加 菜单 */
+        .context-menu {
+            position: fixed;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 5px 0;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            color: #eee;
+            font-size: 14px;
+        }
+        .menu-item:hover { background: #444; }
+
+        /* 模态框 (编辑用) */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #222;
+            padding: 20px;
+            border-radius: 12px;
+            width: 300px;
+            color: white;
+            border: 1px solid #444;
+        }
+        .modal-content h3 { margin-top: 0; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
+        .input-group input {
+            width: 100%; padding: 8px; background: #333; border: 1px solid #555; color: white; border-radius: 4px;
+        }
+        .btn-row { display: flex; justify-content: space-between; margin-top: 20px; }
+        button { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: none; }
+        .btn-save { background: #0078d4; color: white; }
+        .btn-cancel { background: #444; color: white; }
+        .btn-delete { background: #d93025; color: white; }
+
+        /* 添加按钮 */
+        #add-btn {
+            position: absolute;
+            bottom: 30px; right: 30px;
+            width: 50px; height: 50px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; cursor: pointer; z-index: 90;
+            backdrop-filter: blur(5px);
+        }
+        #add-btn:hover { background: rgba(255,255,255,0.4); }
+
+    </style>
+</head>
+<body>
+
+    <div id="bg-container">
+        <img id="bg-media" src="https://bing.biturl.top/?resolution=1920&format=image&index=0&mkt=zh-CN" alt="background">
+        <div id="bg-overlay"></div>
+    </div>
+
+    <div class="settings-panel">
+        <div class="control-group">
+            <label>背景模糊 (<span id="blur-val">0</span>px)</label>
+            <input type="range" id="blur-range" min="0" max="100" value="0">
+        </div>
+        <div class="control-group">
+            <label>上传背景 (图片/视频)</label>
+            <input type="file" id="bg-upload" accept="image/*,video/*">
+        </div>
+        <div class="control-group">
+             <button onclick="resetLayout()" style="width:100%; font-size:12px; background:#555; color:#fff;">重置布局</button>
+        </div>
+    </div>
+
+    <div class="search-wrapper">
+        <div class="search-engine-icon" id="engine-switch" title="点击切换搜索引擎">
+            <img id="current-engine-icon" src="https://www.bing.com/favicon.ico" alt="engine">
+        </div>
+        <input type="text" id="search-input" placeholder="搜索..." autocomplete="off">
+    </div>
+
+    <div id="shortcut-area"></div>
+
+    <div id="add-btn" title="添加网站">+</div>
+
+    <div class="modal" id="edit-modal">
+        <div class="modal-content">
+            <h3 id="modal-title">编辑快捷方式</h3>
+            <input type="hidden" id="edit-id">
+            <div class="input-group">
+                <label>名称</label>
+                <input type="text" id="edit-name">
+            </div>
+            <div class="input-group">
+                <label>网址 (URL)</label>
+                <input type="text" id="edit-url">
+            </div>
+            <div class="input-group">
+                <label>图标地址 (留空自动获取)</label>
+                <input type="text" id="edit-icon">
+            </div>
+            <div class="input-group">
+                <label>图标大小缩放 (<span id="scale-val">1.0</span>x)</label>
+                <input type="range" id="edit-scale" min="0.5" max="3.0" step="0.1" value="1">
+            </div>
+            <div class="btn-row">
+                <button class="btn-delete" id="btn-delete">删除</button>
+                <div>
+                    <button class="btn-cancel" id="btn-cancel">取消</button>
+                    <button class="btn-save" id="btn-save">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 状态管理 & 初始化 ---
+        const defaultShortcuts = [
+            { id: '1', name: 'Bilibili', url: 'https://www.bilibili.com', icon: 'https://www.bilibili.com/favicon.ico', x: 100, y: 400, scale: 1 },
+            { id: '2', name: 'GitHub', url: 'https://github.com', icon: 'https://github.com/favicon.ico', x: 250, y: 400, scale: 1 }
+        ];
+
+        const engines = [
+            { name: 'Bing', url: 'https://www.bing.com/search?q=', icon: 'https://www.bing.com/favicon.ico' },
+            { name: 'Google', url: 'https://www.google.com/search?q=', icon: 'https://www.google.com/favicon.ico' },
+            { name: 'Baidu', url: 'https://www.baidu.com/s?wd=', icon: 'https://www.baidu.com/favicon.ico' }
+        ];
+        let currentEngineIndex = 0;
+
+        let shortcuts = JSON.parse(localStorage.getItem('myNav_shortcuts')) || defaultShortcuts;
+        let settings = JSON.parse(localStorage.getItem('myNav_settings')) || { blur: 0, bgType: 'img', bgUrl: '' };
+
+        // 初始化 DOM 引用
+        const shortcutArea = document.getElementById('shortcut-area');
+        const modal = document.getElementById('edit-modal');
+        const bgContainer = document.getElementById('bg-container');
+        const bgOverlay = document.getElementById('bg-overlay');
+
+        // --- 2. 核心功能逻辑 ---
+
+        // 初始化页面
+        function init() {
+            renderShortcuts();
+            applySettings();
+            
+            // 恢复上次的搜索引擎
+            const savedEngineIdx = localStorage.getItem('myNav_engine');
+            if(savedEngineIdx !== null) {
+                currentEngineIndex = parseInt(savedEngineIdx);
+                updateEngineIcon();
+            }
+        }
+
+        // 渲染图标
+        function renderShortcuts() {
+            shortcutArea.innerHTML = '';
+            shortcuts.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'shortcut-item';
+                el.id = `sc-${item.id}`;
+                el.style.left = item.x + 'px';
+                el.style.top = item.y + 'px';
+                el.style.transform = `scale(${item.scale || 1})`;
+                
+                // 自动获取图标 (如果是新建)
+                const iconSrc = item.icon || `https://www.google.com/s2/favicons?sz=64&domain_url=${item.url}`;
+
+                el.innerHTML = `
+                    <img src="${iconSrc}" class="shortcut-icon" alt="${item.name}" draggable="false">
+                    <div class="shortcut-title">${item.name}</div>
+                `;
+
+                // 绑定拖拽事件
+                makeDraggable(el, item.id);
+
+                // 绑定双击事件
+                el.addEventListener('dblclick', (e) => {
+                    e.stopPropagation(); // 防止冒泡
+                    openEditModal(item.id);
+                });
+
+                // 点击跳转 (如果没在拖拽)
+                el.addEventListener('click', () => {
+                    if(!el.isDragging) {
+                        window.location.href = item.url;
+                    }
+                });
+
+                shortcutArea.appendChild(el);
+            });
+        }
+
+        // 拖拽逻辑
+        function makeDraggable(element, id) {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            element.addEventListener('mousedown', (e) => {
+                if(e.button !== 0) return; // 只响应左键
+                isDragging = false;
+                element.isDragging = false;
+                
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = element.offsetLeft;
+                initialTop = element.offsetTop;
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+
+            function onMouseMove(e) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                // 如果移动距离超过 5px，视为拖拽，阻止点击跳转
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                    isDragging = true;
+                    element.isDragging = true;
+                    element.style.cursor = 'grabbing';
+                }
+
+                element.style.left = `${initialLeft + dx}px`;
+                element.style.top = `${initialTop + dy}px`;
+            }
+
+            function onMouseUp(e) {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                element.style.cursor = 'grab';
+
+                if (isDragging) {
+                    // 保存新位置
+                    const item = shortcuts.find(s => s.id === id);
+                    if(item) {
+                        item.x = parseInt(element.style.left);
+                        item.y = parseInt(element.style.top);
+                        saveData();
+                    }
+                }
+            }
+        }
+
+        // --- 3. 模态框与编辑 ---
+
+        function openEditModal(id) {
+            const item = id ? shortcuts.find(s => s.id === id) : { id: '', name: '', url: '', icon: '', scale: 1 };
+            
+            document.getElementById('modal-title').innerText = id ? "编辑快捷方式" : "添加新网站";
+            document.getElementById('edit-id').value = item.id || '';
+            document.getElementById('edit-name').value = item.name;
+            document.getElementById('edit-url').value = item.url;
+            document.getElementById('edit-icon').value = item.icon || '';
+            
+            const scaleInput = document.getElementById('edit-scale');
+            scaleInput.value = item.scale || 1;
+            document.getElementById('scale-val').innerText = scaleInput.value;
+
+            // 显示删除按钮 (如果是编辑模式)
+            document.getElementById('btn-delete').style.display = id ? 'block' : 'none';
+
+            modal.style.display = 'flex';
+        }
+
+        document.getElementById('edit-scale').addEventListener('input', (e) => {
+            document.getElementById('scale-val').innerText = e.target.value;
+        });
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            const id = document.getElementById('edit-id').value;
+            const name = document.getElementById('edit-name').value;
+            let url = document.getElementById('edit-url').value;
+            const icon = document.getElementById('edit-icon').value;
+            const scale = parseFloat(document.getElementById('edit-scale').value);
+
+            if (!url.startsWith('http')) url = 'https://' + url;
+
+            if (id) {
+                // 编辑现有
+                const item = shortcuts.find(s => s.id === id);
+                item.name = name;
+                item.url = url;
+                item.icon = icon;
+                item.scale = scale;
+            } else {
+                // 新增
+                shortcuts.push({
+                    id: Date.now().toString(),
+                    name: name || '新网站',
+                    url: url,
+                    icon: icon,
+                    scale: scale,
+                    x: window.innerWidth / 2 - 50, // 默认放到中间
+                    y: window.innerHeight / 2 + 50
+                });
+            }
+            saveData();
+            renderShortcuts();
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('btn-delete').addEventListener('click', () => {
+            const id = document.getElementById('edit-id').value;
+            shortcuts = shortcuts.filter(s => s.id !== id);
+            saveData();
+            renderShortcuts();
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('btn-cancel').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        document.getElementById('add-btn').addEventListener('click', () => openEditModal(null));
+
+        // --- 4. 搜索与背景功能 ---
+
+        // 切换搜索引擎
+        const searchInput = document.getElementById('search-input');
+        const engineSwitch = document.getElementById('engine-switch');
+        
+        function updateEngineIcon() {
+            document.getElementById('current-engine-icon').src = engines[currentEngineIndex].icon;
+            localStorage.setItem('myNav_engine', currentEngineIndex);
+        }
+
+        engineSwitch.addEventListener('click', () => {
+            currentEngineIndex = (currentEngineIndex + 1) % engines.length;
+            updateEngineIcon();
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value;
+                if (query) {
+                    window.location.href = engines[currentEngineIndex].url + encodeURIComponent(query);
+                }
+            }
+        });
+
+        // 背景模糊设置
+        const blurRange = document.getElementById('blur-range');
+        const blurVal = document.getElementById('blur-val');
+
+        blurRange.addEventListener('input', (e) => {
+            const val = e.target.value;
+            blurVal.innerText = val;
+            document.documentElement.style.setProperty('--bg-blur', val + 'px');
+            settings.blur = val;
+            localStorage.setItem('myNav_settings', JSON.stringify(settings));
+        });
+
+        // 背景上传
+        const bgUpload = document.getElementById('bg-upload');
+        bgUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const url = URL.createObjectURL(file);
+            const isVideo = file.type.startsWith('video');
+            
+            // 保存配置 (注意：Blob URL 重启浏览器会失效，这里为了演示使用 IndexedDB 存文件太复杂，
+            // 实际生产通常存 Base64(小文件) 或 每次提示用户重新选择。
+            // 为了更好的体验，这里我们将使用 FileReader 读成 Base64 存入 LocalStorage (限制大小)
+            // 如果文件太大，LocalStorage 存不下。这里简化逻辑：只在本次会话有效，或存个标识)
+            
+            // 这里采用 FileReader 转换为 Base64 存储（注意：大视频会卡死 LocalStorage，建议仅存小图）
+            // 如果是大文件，最好提示用户“刷新后需重新上传”或者使用 IndexedDB。
+            // 为了演示代码稳定性，我们这里只做简单的 DOM 替换，不做大文件持久化。
+            
+            updateBackground(url, isVideo);
+        });
+
+        function updateBackground(url, isVideo) {
+            const oldMedia = document.getElementById('bg-media');
+            if (oldMedia) oldMedia.remove();
+
+            let newMedia;
+            if (isVideo) {
+                newMedia = document.createElement('video');
+                newMedia.autoplay = true;
+                newMedia.loop = true;
+                newMedia.muted = true;
+            } else {
+                newMedia = document.createElement('img');
+            }
+            
+            newMedia.id = 'bg-media';
+            newMedia.src = url;
+            bgContainer.prepend(newMedia);
+        }
+
+        function applySettings() {
+            // 应用模糊
+            blurRange.value = settings.blur || 0;
+            blurVal.innerText = settings.blur || 0;
+            document.documentElement.style.setProperty('--bg-blur', (settings.blur || 0) + 'px');
+        }
+
+        function resetLayout() {
+            if(confirm('确定重置所有图标位置吗？')) {
+                shortcuts.forEach((s, i) => {
+                    s.x = 100 + (i % 5) * 120;
+                    s.y = 200 + Math.floor(i / 5) * 120;
+                });
+                saveData();
+                renderShortcuts();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('myNav_shortcuts', JSON.stringify(shortcuts));
+        }
+
+        // 启动
+        init();
+
+    </script>
+</body>
+</html>
