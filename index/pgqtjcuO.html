@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简易 MP3 转 MIDI 工具 (纯前端版)</title>
+    <style>
+        :root {
+            --primary: #6200ea;
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --text: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--surface);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 { margin-bottom: 10px; font-weight: 300; }
+        p { color: #aaa; font-size: 0.9em; margin-bottom: 30px; }
+
+        .upload-box {
+            border: 2px dashed #444;
+            padding: 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .upload-box:hover { border-color: var(--primary); background-color: #2a2a2a; }
+        
+        input[type="file"] {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        #status { margin: 15px 0; font-weight: bold; min-height: 24px; }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s;
+            display: none; /* Hidden until file loaded */
+        }
+
+        button:active { transform: scale(0.98); }
+        button:disabled { background-color: #444; cursor: not-allowed; }
+
+        .download-link {
+            display: block;
+            margin-top: 20px;
+            color: #bb86fc;
+            text-decoration: none;
+            border: 1px solid #bb86fc;
+            padding: 10px 20px;
+            border-radius: 4px;
+        }
+        
+        .note {
+            background: #332b00;
+            color: #ffd54f;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-top: 30px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>MP3 转 MIDI</h1>
+        <p>纯前端处理 | 仅适合单音旋律 (清唱/口哨/独奏)</p>
+
+        <div class="upload-box">
+            <span id="file-label">点击或拖拽 MP3 文件到这里</span>
+            <input type="file" id="audioInput" accept="audio/*">
+        </div>
+
+        <div id="status">等待上传...</div>
+        
+        <button id="convertBtn">开始转换</button>
+        <div id="resultArea"></div>
+
+        <div class="note">
+            <strong>💡 提示：</strong><br>
+            此工具使用简单的音高检测算法（自相关）。<br>
+            如果是复杂的流行歌曲（有人声、鼓点、吉他混合），生成的 MIDI 听起来会很乱。请使用简单的录音文件测试。
+        </div>
+    </div>
+
+    <script>
+        // === 核心逻辑 ===
+        const audioInput = document.getElementById('audioInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const statusEl = document.getElementById('status');
+        const resultArea = document.getElementById('resultArea');
+        const fileLabel = document.getElementById('file-label');
+
+        let audioContext = null;
+        let audioBuffer = null;
+
+        // 1. 监听文件上传
+        audioInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileLabel.innerText = `已选择: ${file.name}`;
+            statusEl.innerText = "正在解码音频...";
+            convertBtn.style.display = 'none';
+            resultArea.innerHTML = '';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                statusEl.innerText = `音频加载完毕 (${audioBuffer.duration.toFixed(1)}秒)`;
+                convertBtn.style.display = 'inline-block';
+                convertBtn.disabled = false;
+            } catch (err) {
+                statusEl.innerText = "错误: 无法解码音频文件";
+                console.error(err);
+            }
+        });
+
+        // 2. 点击转换
+        convertBtn.addEventListener('click', async () => {
+            if (!audioBuffer) return;
+            
+            convertBtn.disabled = true;
+            statusEl.innerText = "正在分析音高 (这可能需要几秒钟)...";
+
+            // 给 UI 一点渲染时间
+            setTimeout(() => {
+                processAudioToMidi(audioBuffer);
+            }, 100);
+        });
+
+        // === 音频处理算法 ===
+
+        function processAudioToMidi(buffer) {
+            const channelData = buffer.getChannelData(0); // 只取单声道
+            const sampleRate = buffer.sampleRate;
+            
+            // 参数设置
+            const sliceDuration = 0.05; // 50ms 一个切片进行分析
+            const samplesPerSlice = Math.floor(sampleRate * sliceDuration);
+            const totalSlices = Math.floor(channelData.length / samplesPerSlice);
+            
+            const midiEvents = [];
+            let lastNote = -1;
+            let lastNoteStartTime = 0;
+            
+            // 将 MIDI 时间转换为 Delta Time (基于 480 ticks per beat, 假设 120 BPM)
+            // 简单起见，我们直接用绝对时间累加
+            const ticksPerSecond = 960; // 随意定义的一个精度
+
+            let currentTime = 0;
+
+            for (let i = 0; i < totalSlices; i++) {
+                const start = i * samplesPerSlice;
+                const end = start + samplesPerSlice;
+                const slice = channelData.slice(start, end);
+                
+                // 1. 检测音量 (RMS) - 过滤静音
+                const rms = Math.sqrt(slice.reduce((sum, x) => sum + x * x, 0) / slice.length);
+                const threshold = 0.02; // 静音阈值
+
+                let note = -1;
+
+                if (rms > threshold) {
+                    // 2. 检测频率 (自相关算法)
+                    const frequency = autoCorrelate(slice, sampleRate);
+                    if (frequency > 0) {
+                        note = frequencyToMidi(frequency);
+                    }
+                }
+
+                // 3. 构建 MIDI 事件流
+                // 如果音符改变了
+                if (note !== lastNote) {
+                    // 如果之前有音符在响，先把它关掉 (Note Off)
+                    if (lastNote !== -1) {
+                        const duration = currentTime - lastNoteStartTime;
+                        midiEvents.push({
+                            type: 'noteOff',
+                            note: lastNote,
+                            duration: duration
+                        });
+                    }
+
+                    // 如果现在有新音符，开启它 (Note On)
+                    if (note !== -1) {
+                        midiEvents.push({
+                            type: 'noteOn',
+                            note: note,
+                            startTime: currentTime // 用于后续计算 delta
+                        });
+                        lastNoteStartTime = currentTime;
+                    }
+                    lastNote = note;
+                }
+
+                currentTime += sliceDuration;
+            }
+
+            // 结束时关闭最后一个音符
+            if (lastNote !== -1) {
+                midiEvents.push({
+                    type: 'noteOff',
+                    note: lastNote,
+                    duration: currentTime - lastNoteStartTime
+                });
+            }
+
+            generateMidiFile(midiEvents);
+            statusEl.innerText = "转换完成！";
+            convertBtn.disabled = false;
+        }
+
+        // 简单的自相关算法 (Pitch Detection)
+        function autoCorrelate(buf, sampleRate) {
+            let size = buf.length;
+            let bestOffset = -1;
+            let bestCorrelation = 0;
+            let rms = 0;
+            let foundGoodCorrelation = false;
+            let correlations = new Array(size).fill(0);
+
+            for (let i = 0; i < size; i++) {
+                const val = buf[i];
+                rms += val * val;
+            }
+            rms = Math.sqrt(rms / size);
+            if (rms < 0.01) return -1; // 信号太弱
+
+            let lastCorrelation = 1;
+            for (let offset = 0; offset < size; offset++) {
+                let correlation = 0;
+
+                for (let i = 0; i < size - offset; i++) {
+                    correlation += Math.abs((buf[i]) - (buf[i + offset]));
+                }
+                
+                correlation = 1 - (correlation / size); // 归一化
+                correlations[offset] = correlation; 
+
+                if ((correlation > 0.9) && (correlation > lastCorrelation)) {
+                    foundGoodCorrelation = true;
+                    if (correlation > bestCorrelation) {
+                        bestCorrelation = correlation;
+                        bestOffset = offset;
+                    }
+                } else if (foundGoodCorrelation) {
+                    // 找到局部最大值后，简单的防倍频干扰逻辑可以加在这里
+                    // 这里为了代码简洁，直接返回找到的第一个强峰值
+                    let shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];  
+                    return sampleRate / (bestOffset + (8 * shift));
+                }
+                lastCorrelation = correlation;
+            }
+            
+            if (bestCorrelation > 0.01) {
+                 return sampleRate / bestOffset;
+            }
+            return -1;
+        }
+
+        function frequencyToMidi(frequency) {
+            // MIDI 69 = A4 = 440Hz
+            const note = 12 * (Math.log(frequency / 440) / Math.log(2)) + 69;
+            return Math.round(note);
+        }
+
+        // === MIDI 文件生成 (二进制处理) ===
+        function generateMidiFile(events) {
+            // MIDI Header Chunk
+            // MThd + length(6) + format(0) + tracks(1) + time_division(120 ticks/beat approx)
+            // Time division: 0x01E0 = 480 ticks per quarter note
+            let midiData = [
+                0x4D, 0x54, 0x68, 0x64, // "MThd"
+                0x00, 0x00, 0x00, 0x06, // chunk length
+                0x00, 0x00,             // format 0 (single track)
+                0x00, 0x01,             // 1 track
+                0x01, 0xE0              // 480 ticks per beat
+            ];
+
+            // Track Chunk Header placeholder
+            // MTrk + length (calculated later)
+            let trackData = [];
+            
+            // Set Tempo (Optional, default is 120 BPM)
+            // Meta event 0xFF 0x51 0x03 + 500000 (07 A1 20) microseconds per quarter note
+            trackData.push(0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20);
+
+            // Convert seconds to ticks
+            // 120 BPM = 0.5s per beat. 480 ticks per beat.
+            // 1 second = 960 ticks.
+            const ticksPerSecond = 960; 
+
+            let lastEventTick = 0;
+
+            events.forEach(e => {
+                let currentTick = 0;
+                if (e.type === 'noteOn') {
+                    // Note On 总是接在前一个事件之后
+                    // 这里简化处理：我们的 events 列表是 NoteOn 记录了绝对开始时间，NoteOff 是相对 NoteOn 的持续时间
+                    // 为了线性写入，我们需要重新排序吗？
+                    // 上面的算法是线性的：NoteOn -> wait -> NoteOff -> wait -> NoteOn...
+                    // 但上面的算法逻辑中，NoteOff 产生时，时间已经流逝了。
+                }
+                // 修正：上面的 processAudioToMidi 生成逻辑有点问题，无法直接线性写入 MIDI
+                // 我们重新整理 events 逻辑：仅仅生成 NoteOn 和 NoteOff 的线性序列
+            });
+
+            // === 重新生成线性事件流以便写入 ===
+            let linearEvents = [];
+            let currentTime = 0;
+            
+            // 上面的 events 数组里是混合结构，我们将其展开
+            // 实际上上面的 loop 逻辑已经不仅是线性的，我们需要更严格的 Delta Time 计算
+            
+            // 简化方案：重新遍历 events (此时 events 结构不适合直接写)
+            // 我们在 processAudioToMidi 里已经尽力做了线性切割。
+            // 我们假设 events 里的顺序就是时间顺序。
+            
+            // 修正 events 结构处理：
+            // 上面的 loop 生成的 events 是：
+            // 1. NoteOn (at time X)
+            // 2. NoteOff (duration Y) - 这意味着在 X+Y 时间点发生
+            
+            // 我们需要记录当前的绝对 tick
+            let currentTick = 0;
+
+            events.forEach(evt => {
+                if (evt.type === 'noteOn') {
+                    // 计算从上一个事件结束到现在的时间差 (Delta Time)
+                    // 由于我们在 loop 里是连续切片的，如果中间有静音，loop 会空转，但 noteOn 的 startTime 是准确的。
+                    // 让我们用一个简化的 Delta Time 计算器
+                }
+            });
+
+            // === 重新实现最简单的 MIDI 写入逻辑 ===
+            // 抛弃上面的复杂 events 结构，直接根据 processAudioToMidi 的切片结果写入
+            // 但 processAudioToMidi 已经执行完了。
+            
+            // 让我们用最笨但也最稳的方法：重写 Track Data 构建
+            trackData = [];
+            // Tempo set again
+            trackData.push(0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20);
+
+            let currentAbsoluteTime = 0; // in seconds
+            let lastMidiTick = 0;
+
+            events.forEach(evt => {
+                let eventTime = 0;
+                let typeByte = 0;
+                let velocity = 64; // default volume
+
+                if (evt.type === 'noteOn') {
+                    eventTime = evt.startTime;
+                    typeByte = 0x90; // Note On channel 0
+                } else {
+                    // 这是一个 NoteOff，它的时间是上一条 NoteOn 的 startTime + duration
+                    // 但由于我们是数组遍历，这比较难搞。
+                }
+            });
+
+            // *** 最终修正的 MIDI 生成逻辑 ***
+            // 为了保证单文件代码的简洁性，我们采用“时间轴排序法”
+            let timeline = [];
+            events.forEach(e => {
+                if (e.type === 'noteOn') {
+                    timeline.push({ time: e.startTime, type: 0x90, note: e.note });
+                } else if (e.type === 'noteOff') {
+                    // NoteOff 的绝对时间 = noteOn 的 startTime + duration
+                    // 但我们在数组里没存 noteOn 的 startTime 给 noteOff 对象
+                    // 我们回溯一下 processAudioToMidi 逻辑：
+                    // e.duration 是对的，但我们需要知道它什么时候开始的。
+                    // 实际上，在 processAudioToMidi 的循环里，noteOff 紧接着 noteOn 发生（或者隔着静音）。
+                    // 让我们修改 processAudioToMidi 的输出，让其更直观。
+                }
+            });
+            
+            // --- 这里的逻辑如果太复杂会导致代码量巨大 ---
+            // 让我们用一种非常即时的方式写入：
+            // Delta Time 是指“距离上一个 MIDI 事件”过了多久。
+            
+            trackData = [];
+            trackData.push(0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20);
+            
+            let prevTick = 0;
+            
+            // 重新遍历 events，这次我们假设 events 已经是按照时间顺序排列的
+            // (在 processAudioToMidi 中，我们是按时间切片 push 的，所以顺序是保证的)
+            // 唯一的难点是 NoteOn 和 NoteOff 的配对。
+            // 让我们把 processAudioToMidi 的输出改成： { absTime: 0.5, type: 'on', note: 60 }
+            
+            // 既然不能改上面的函数了（为了保持结构清晰），我们在生成前做一次转换
+            let absEvents = [];
+            let currentAbs = 0;
+            
+            // 重新模拟时间流
+            // 我们需要知道上一个 NoteOn 的时间
+            // 这是一个简单的 hack：
+            // processAudioToMidi 中的 events 列表其实已经是：
+            // 1. NoteOn (at start time)
+            // 2. NoteOff (after duration)
+            // ... 
+            // 我们只需要把 NoteOff 的时间算成绝对时间即可。
+            
+            let noteOnTime = 0;
+            let processedEvents = [];
+            
+            events.forEach(e => {
+                if (e.type === 'noteOn') {
+                    noteOnTime = e.startTime;
+                    processedEvents.push({ tick: Math.round(e.startTime * ticksPerSecond), type: 0x90, note: e.note });
+                } else {
+                    // noteOff
+                    let offTime = noteOnTime + e.duration;
+                    processedEvents.push({ tick: Math.round(offTime * ticksPerSecond), type: 0x80, note: e.note });
+                }
+            });
+
+            // 按时间排序 (防止微小的计算误差导致 NoteOff 比下一个 NoteOn 晚)
+            processedEvents.sort((a, b) => a.tick - b.tick);
+
+            let lastTick = 0;
+            processedEvents.forEach(e => {
+                let deltaTick = e.tick - lastTick;
+                lastTick = e.tick;
+                
+                // 写入 Delta Time (Variable Length Quantity)
+                trackData.push(...toVLQ(deltaTick));
+                
+                // 写入 Event
+                trackData.push(e.type, e.note, 64); // 64 is velocity
+            });
+
+            // End of Track
+            trackData.push(0x00, 0xFF, 0x2F, 0x00);
+
+            // 合并 Header 和 Track
+            // 需要计算 Track Chunk 的长度
+            let trackLength = trackData.length;
+            let trackHeader = [
+                0x4D, 0x54, 0x72, 0x6B, // MTrk
+                (trackLength >> 24) & 0xFF,
+                (trackLength >> 16) & 0xFF,
+                (trackLength >> 8) & 0xFF,
+                (trackLength & 0xFF)
+            ];
+
+            let finalFile = new Uint8Array([...midiData, ...trackHeader, ...trackData]);
+            createDownloadLink(finalFile);
+        }
+
+        // Variable Length Quantity 转换
+        function toVLQ(num) {
+            let buffer = [];
+            buffer.push(num & 0x7F);
+            while ((num >>= 7) > 0) {
+                buffer.push((num & 0x7F) | 0x80);
+            }
+            return buffer.reverse();
+        }
+
+        function createDownloadLink(data) {
+            const blob = new Blob([data], { type: 'audio/midi' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'converted_melody.mid';
+            link.innerText = '⬇️ 下载 MIDI 文件';
+            link.className = 'download-link';
+            
+            resultArea.innerHTML = '';
+            resultArea.appendChild(link);
+        }
+
+    </script>
+</body>
+</html>
