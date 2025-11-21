@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Muse Pro - 沉浸歌词版</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-card: rgba(30, 30, 30, 0.6); 
+            --primary: #1db954;
+            --text-main: #ffffff;
+            --text-sub: #b3b3b3;
+            --player-height: 90px;
+            --sidebar-width: 220px;
+            --lyric-base-size: 22px;
+            --glass-blur: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        ::-webkit-scrollbar { width: 0px; background: transparent; } /* 隐藏滚动条但允许滚动 */
+
+        /* === 布局框架 === */
+        .app-layout { display: flex; flex: 1; height: calc(100vh - var(--player-height)); overflow: hidden; position: relative; }
+
+        /* === 侧边栏 (手机端汉堡菜单) === */
+        .sidebar {
+            width: var(--sidebar-width); 
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 24px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .logo { font-size: 24px; font-weight: 800; margin-bottom: 30px; display: flex; align-items: center; gap: 10px; }
+        .nav-btn {
+            color: var(--text-sub); padding: 12px 16px; border-radius: 8px; font-weight: 600;
+            display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s;
+        }
+        .nav-btn:hover, .nav-btn.active { color: white; background: rgba(255,255,255,0.1); }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+
+        /* === 主内容区 === */
+        .main-content {
+            flex: 1; 
+            background-repeat: no-repeat; background-size: cover; background-position: center center;
+            overflow-y: auto; padding: 20px 40px 120px; position: relative;
+        }
+        .main-content.default-bg {
+             background-image: linear-gradient(180deg, #1a1a1a 0%, #000 100%) !important;
+             filter: none !important;
+        }
+        .content-wrapper { position: relative; z-index: 5; }
+
+        /* === 顶部栏 & 极简返回按钮 === */
+        .top-bar {
+            position: sticky; top: 0; background: transparent; 
+            padding: 16px 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; gap: 15px;
+        }
+        
+        .mobile-menu-btn { display: none; background: none; border: none; color: white; cursor: pointer; }
+        
+        /* 极简返回按钮 (小叉号样式) */
+        .btn-back-minimal {
+            background: transparent; border: none; color: rgba(255,255,255,0.7); 
+            cursor: pointer; padding: 10px; border-radius: 50%; 
+            transition: 0.2s; display: flex; align-items: center; justify-content: center;
+        }
+        .btn-back-minimal:hover { color: white; background: rgba(255,255,255,0.1); transform: scale(1.1); }
+        .btn-back-minimal svg { width: 24px; height: 24px; }
+
+        /* === 搜索框 === */
+        .search-box {
+            background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);
+            border-radius: 50px; padding: 8px 20px;
+            display: flex; align-items: center; width: 300px; transition: 0.3s;
+        }
+        .search-box input { background: transparent; border: none; color: white; margin-left: 10px; width: 100%; font-size: 14px; }
+
+        /* === 列表样式 (全透明 + 白色文字 + 灰色序号) === */
+        .section-title { font-size: 24px; font-weight: 700; margin: 20px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        
+        .song-list { display: flex; flex-direction: column; }
+        .song-row {
+            display: grid; grid-template-columns: 40px 4fr 2fr 1fr; padding: 12px 10px;
+            align-items: center; cursor: pointer; border-radius: 8px;
+            /* 核心修改：全透明背景 */
+            background: transparent; 
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.2s;
+        }
+        .song-row:hover { background: rgba(255, 255, 255, 0.1); }
+        
+        /* 序号灰色 */
+        .song-index { color: #666; font-size: 14px; text-align: center; font-weight: 500; }
+        
+        .song-info { display: flex; align-items: center; gap: 15px; color: white; }
+        .song-info img { width: 45px; height: 45px; border-radius: 6px; object-fit: cover; }
+        .song-album-name { color: var(--text-sub); font-size: 13px; }
+        .song-duration { color: var(--text-sub); font-size: 13px; }
+
+        /* Tabs */
+        .search-tabs { display: flex; gap: 10px; margin-bottom: 20px; padding-bottom: 10px; }
+        .tab-item {
+            padding: 6px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            color: var(--text-sub); cursor: pointer; background: rgba(255,255,255,0.1);
+        }
+        .tab-item.active { background: var(--primary); color: black; }
+
+        /* 专辑/歌单详情头 (保留半透明卡片感) */
+        .album-header {
+            display: flex; gap: 30px; margin-bottom: 20px; padding: 25px; 
+            background: rgba(255, 255, 255, 0.05); border-radius: 16px;
+            backdrop-filter: blur(10px);
+        }
+        .album-cover { width: 180px; height: 180px; border-radius: 10px; object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .album-info { display: flex; flex-direction: column; justify-content: center; flex: 1; }
+        .album-title { font-size: 30px; font-weight: 800; margin-bottom: 10px; line-height: 1.2; }
+        .play-all-btn {
+            background: var(--primary); color: black; border: none; border-radius: 50px;
+            padding: 10px 28px; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; width: fit-content; margin-top: 15px;
+        }
+
+        /* === 全屏播放器 (核心交互区域) === */
+        .full-player {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.95); /* 深色背景 */
+            backdrop-filter: blur(40px);
+            z-index: 200; 
+            transform: translateY(100%); 
+            transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+            display: flex; flex-direction: column;
+        }
+        .full-player.active { transform: translateY(0); }
+        
+        /* 全屏页头部 */
+        .fp-header { 
+            display: flex; justify-content: flex-end; align-items: center; gap: 20px; 
+            padding: 20px 30px; position: absolute; top: 0; right: 0; left: 0; z-index: 20;
+        }
+        
+        /* 全屏页内容容器 */
+        .fp-content { 
+            display: flex; flex: 1; padding: 80px 60px 40px; gap: 60px; overflow: hidden; 
+            transition: all 0.5s ease; /* 用于纯净模式切换动画 */
+        }
+        
+        .fp-left { 
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            transition: opacity 0.4s, transform 0.4s;
+        }
+        .fp-cover-art { width: 80%; max-width: 420px; aspect-ratio: 1; border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.6); margin-bottom: 40px; }
+        .fp-title { font-size: 32px; font-weight: 700; margin-bottom: 10px; text-align: center; }
+        .fp-artist { font-size: 18px; color: var(--text-sub); text-align: center; }
+
+        .fp-right { 
+            flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; 
+            transition: all 0.5s ease;
+        }
+        
+        /* 歌词区域 */
+        .lyrics-box { 
+            flex: 1; overflow-y: auto; padding: 20px 0; 
+            mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%); 
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+            text-align: left; /* 默认左对齐 */
+            transition: all 0.5s ease;
+        }
+        .lyric-line { font-size: var(--lyric-base-size); font-weight: 700; color: rgba(255,255,255,0.3); margin: 26px 0; transition: 0.3s; cursor: pointer; }
+        .lyric-line.active { font-size: calc(var(--lyric-base-size) + 6px); color: white; transform: scale(1.05); transform-origin: left; text-shadow: 0 0 20px rgba(255,255,255,0.4); }
+
+        /* 推荐区域 */
+        .related-section { 
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); 
+            height: 160px; flex-shrink: 0; transition: opacity 0.4s;
+        }
+        .related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
+        .related-card { cursor: pointer; }
+        .related-card img { width: 100%; border-radius: 6px; margin-bottom: 5px; opacity: 0.7; transition: 0.2s; }
+        .related-card:hover img { opacity: 1; }
+        .related-title { font-size: 12px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* === 纯净歌词模式样式 (通过JS添加类名触发) === */
+        .full-player.pure-mode .fp-left { opacity: 0; transform: translateX(-50px); pointer-events: none; display: none; } /* 隐藏左侧 */
+        .full-player.pure-mode .related-section { opacity: 0; pointer-events: none; display: none; } /* 隐藏推荐 */
+        .full-player.pure-mode .fp-right { width: 100%; flex: 1; max-width: 800px; margin: 0 auto; } /* 歌词居中放大 */
+        .full-player.pure-mode .lyrics-box { text-align: center; mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%); }
+        .full-player.pure-mode .lyric-line.active { transform-origin: center; transform: scale(1.2); }
+        
+        /* === 底部播放条 === */
+        .footer-player {
+            height: var(--player-height); background: rgba(18, 18, 18, 0.95); backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+            position: fixed; bottom: 0; left: 0; width: 100%; z-index: 100;
+            transform: translateY(100%); transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .footer-player.visible { transform: translateY(0); }
+        .circle-art { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #222; animation: rotate 10s linear infinite; animation-play-state: paused; }
+        .circle-art.spinning { animation-play-state: running; }
+        @keyframes rotate { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
+
+        .btn-control { background: none; border: none; color: #b3b3b3; cursor: pointer; transition: 0.2s; }
+        .btn-control:hover { color: white; }
+        .btn-play-mini { width: 38px; height: 38px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: black; }
+        
+        .progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.1); position: absolute; top: 0; left: 0; cursor: pointer; }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; }
+
+        /* Loader */
+        .loader { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; display: none; align-items: center; justify-content: center; }
+        .spinner { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite linear; }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; left: -100%; top: 0; height: 100%; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+            .sidebar.active { left: 0; }
+            .sidebar-overlay.active { display: block; }
+            .mobile-menu-btn { display: block; }
+            
+            .main-content { padding: 10px 15px 100px; }
+            .search-box { width: 100%; }
+            
+            .song-row { grid-template-columns: 30px 1fr; }
+            .song-row > div:nth-child(3), .song-row > div:nth-child(4) { display: none; }
+            
+            .album-header { flex-direction: column; text-align: center; padding: 20px; }
+            .album-cover { width: 160px; height: 160px; margin: 0 auto; }
+            .play-all-btn { margin: 15px auto 0; }
+            
+            .fp-content { flex-direction: column; padding: 60px 20px 20px; }
+            .fp-left { flex: 0 0 auto; margin-bottom: 20px; }
+            .fp-cover-art { width: 260px; margin-bottom: 20px; }
+            .fp-right { height: auto; }
+            .lyrics-box { height: 300px; flex: none; }
+            
+            .player-left { width: 60%; gap: 10px; } .player-center { width: 40%; }
+            .footer-player .btn-control:not(.btn-play-mini) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-overlay" onclick="ui.toggleSidebar()"></div>
+
+    <div class="app-layout">
+        <nav class="sidebar" id="sidebar">
+            <div class="logo"><span style="color:var(--primary)">Muse</span> Pro</div>
+            <div class="nav-btn active" onclick="window.router.home(); ui.toggleSidebar();">
+                <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg> 推荐首页
+            </div>
+            <div class="nav-btn" onclick="window.router.settings(); ui.toggleSidebar();">
+                <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.2-.15.25-.42.12-.64l-2-3.46c-.13-.22-.4-.3-.6-.17l-2.61 1.02c-.39-.37-.82-.71-1.27-.99L15 2h-4l-.27 2.06c-.45.28-.88.62-1.27.99L6.87 4.12c-.2-.13-.47-.05-.6.17l-2 3.46c-.13.22-.08.5.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.2.15-.25.42-.12.64l2 3.46c.13.22.4.3.6.17l2.61-1.02c.39.37.82.71 1.27.99L11 22h4l.27-2.06c.45-.28.88-.62 1.27-.99l2.61 1.02c.2.13.47.05.6-.17l2-3.46c.13-.22.08-.5-.12-.64l-2.11-1.65zm-7.43 3.52c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg> 设置
+            </div>
+        </nav>
+
+        <main class="main-content default-bg" id="main-view">
+            </main>
+    </div>
+
+    <div class="full-player" id="full-player">
+        <div class="fp-header">
+            <a href="#" class="btn-back-minimal" id="fp-download-btn" target="_blank" download title="下载">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            </a>
+            <button class="btn-back-minimal" onclick="window.ui.toggleFullPlayer(false)" title="关闭">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+        </div>
+
+        <div class="fp-content">
+            <div class="fp-left">
+                <img src="" class="fp-cover-art" id="fp-cover">
+                <div class="fp-meta">
+                    <div class="fp-title" id="fp-title"></div>
+                    <div class="fp-artist" id="fp-artist"></div>
+                </div>
+            </div>
+            
+            <div class="fp-right">
+                <div class="lyrics-box" id="lyrics-box">
+                    <div class="lyric-line">等待播放...</div>
+                </div>
+                
+                <div class="related-section" id="related-section">
+                    <div style="color:#ccc; font-size:12px; margin-bottom:10px;">猜你喜欢</div>
+                    <div class="related-grid" id="related-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer-player" id="footer-player">
+        <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="player-left">
+            <img src="" class="circle-art" id="mini-cover" onclick="window.ui.toggleFullPlayer(true)">
+            <div style="display:flex; flex-direction:column; justify-content:center;">
+                <div style="color:white; font-size:14px; cursor:pointer;" id="mini-title" onclick="window.ui.toggleFullPlayer(true)"></div>
+                <div style="color:#888; font-size:12px;" id="mini-artist"></div>
+            </div>
+        </div>
+        <div class="player-center">
+            <div class="controls">
+                <button class="btn-control" onclick="window.player.prev()"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                <button class="btn-play-mini" onclick="window.player.toggle()">
+                    <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="icon-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+                <button class="btn-control" onclick="window.player.next()"><svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+            </div>
+        </div>
+        <div style="width:30%;"></div>
+    </footer>
+
+    <div class="loader" id="loader"><div class="spinner"></div></div>
+    <audio id="audio"></audio>
+
+    <script>
+        const API = 'https://163api.qijieya.cn';
+        const state = { 
+            playlist: [], index: 0, playing: false, lyrics: [], 
+            userScroll: false, scrollTimer: null, history: [{type: 'home'}],
+            touchStartX: 0, touchEndX: 0
+        };
+        
+        var userSettings = { bgUrl: '', bgBlur: 50, lyricSize: 22, showRelated: true };
+
+        function initSettings() {
+            try {
+                const s = localStorage.getItem('museProSettings');
+                if(s) userSettings = JSON.parse(s);
+            } catch(e){}
+            applySettings();
+        }
+
+        function applySettings() {
+            const main = document.getElementById('main-view');
+            const root = document.documentElement;
+            if(userSettings.bgUrl) {
+                main.style.backgroundImage = `url('${userSettings.bgUrl}')`;
+                main.classList.remove('default-bg');
+            } else {
+                main.style.backgroundImage = '';
+                main.classList.add('default-bg');
+            }
+            const blur = userSettings.bgBlur * 0.1;
+            main.style.filter = userSettings.bgBlur > 0 ? `blur(${blur}px)` : 'none';
+            root.style.setProperty('--lyric-base-size', `${userSettings.lyricSize}px`);
+            const rel = document.getElementById('related-section');
+            if(rel) rel.style.display = userSettings.showRelated ? 'block' : 'none';
+        }
+
+        var ui = {
+            el: id => document.getElementById(id),
+            loading(show) { this.el('loader').style.display = show ? 'flex' : 'none'; },
+            toggleSidebar() {
+                this.el('sidebar').classList.toggle('active');
+                document.querySelector('.sidebar-overlay').classList.toggle('active');
+            },
+            // 通用列表渲染：全透明背景，白色文字，灰色序号
+            renderList(list, listName) {
+                return list.map((s, i) => `
+                    <div class="song-row" onclick="window.player.playList('${listName}', ${i})">
+                        <div class="song-index">${i+1}</div>
+                        <div class="song-info">
+                            <img src="${s.al ? s.al.picUrl : (s.album ? s.album.picUrl : '')}?param=100y100" onerror="this.src='https://via.placeholder.com/100'">
+                            <div>
+                                <div style="font-weight:600; color:white;">${s.name}</div>
+                                <div style="font-size:12px; color:#ccc;">${s.ar ? s.ar.map(a=>a.name).join('/') : (s.artists ? s.artists.map(a=>a.name).join('/') : '未知')}</div>
+                            </div>
+                        </div>
+                        <div class="song-album-name">${s.al ? s.al.name : (s.album ? s.album.name : '')}</div>
+                        <div class="song-duration">${window.player.fmtTime((s.dt||s.duration)/1000)}</div>
+                    </div>
+                `).join('');
+            },
+            renderHome() {
+                this.el('main-view').innerHTML = `
+                    <div class="top-bar">
+                        <button class="mobile-menu-btn" onclick="ui.toggleSidebar()"><svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+                        <div class="search-box">
+                            <svg width="18" height="18" fill="#ccc" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                            <input type="text" placeholder="搜索..." onkeypress="if(event.key==='Enter') window.router.search(this.value, 1)">
+                        </div>
+                        <div style="width:24px"></div>
+                    </div>
+                    <div class="content-wrapper">
+                        <div class="section-title">🔥 热门推荐</div>
+                        <div class="song-list" id="hot-list-container"></div>
+                    </div>
+                `;
+                this.loadHot();
+            },
+            async loadHot() {
+                this.loading(true);
+                const res = await window.api.get('/playlist/detail?id=3778678');
+                this.loading(false);
+                window.hotList = res.playlist.tracks.slice(0, 50);
+                this.el('hot-list-container').innerHTML = this.renderList(window.hotList, 'hotList');
+            },
+            renderSearch(data, type, kw) {
+                const tabs = `
+                    <div class="search-tabs">
+                        <div class="tab-item ${type==1?'active':''}" onclick="window.router.search('${kw}', 1)">单曲</div>
+                        <div class="tab-item ${type==10?'active':''}" onclick="window.router.search('${kw}', 10)">专辑</div>
+                        <div class="tab-item ${type==1000?'active':''}" onclick="window.router.search('${kw}', 1000)">歌单</div>
+                    </div>`;
+                
+                let content = '';
+                if(type==1 && data.result.songs) {
+                    window.searchList = data.result.songs;
+                    content = `<div class="song-list">${this.renderList(window.searchList, 'searchList')}</div>`;
+                } else if (type==10 && data.result.albums) {
+                    content = `<div class="related-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">` + 
+                        data.result.albums.map(a => `
+                        <div class="related-card" onclick="window.router.loadAlbum(${a.id})">
+                            <img src="${a.picUrl}?param=300y300">
+                            <div class="related-title" style="font-size:14px; margin-top:5px;">${a.name}</div>
+                        </div>`).join('') + `</div>`;
+                } else if (type==1000 && data.result.playlists) {
+                    content = `<div class="related-grid" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">` + 
+                        data.result.playlists.map(p => `
+                        <div class="related-card" onclick="window.router.loadPlaylist(${p.id})">
+                            <img src="${p.coverImgUrl}?param=300y300">
+                            <div class="related-title" style="font-size:14px; margin-top:5px;">${p.name}</div>
+                        </div>`).join('') + `</div>`;
+                }
+
+                this.el('main-view').innerHTML = `
+                    <div class="top-bar">
+                        <button class="mobile-menu-btn" onclick="ui.toggleSidebar()"><svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+                        <div class="search-box"><input type="text" value="${kw}" onkeypress="if(event.key==='Enter') window.router.search(this.value, 1)"></div>
+                        <button class="btn-back-minimal" onclick="window.router.goBack()">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                        </button>
+                    </div>
+                    <div class="content-wrapper">${tabs}${content}</div>
+                `;
+            },
+            renderAlbumDetail(data) {
+                const album = data.album;
+                window.albumList = data.songs.map(s => { if(!s.al) s.al = {picUrl: album.picUrl, name: album.name}; return s; });
+                this.el('main-view').innerHTML = `
+                    <div class="top-bar">
+                         <button class="mobile-menu-btn" onclick="ui.toggleSidebar()"><svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+                         <div style="flex:1"></div>
+                         <button class="btn-back-minimal" onclick="window.router.goBack()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                    </div>
+                    <div class="content-wrapper">
+                        <div class="album-header">
+                            <img src="${album.picUrl}?param=500y500" class="album-cover">
+                            <div class="album-info">
+                                <div class="album-title">${album.name}</div>
+                                <div style="color:#ccc; margin-bottom:10px;">${album.artist.name}</div>
+                                <button class="play-all-btn" onclick="window.player.playList('albumList', 0)">
+                                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> 播放全部
+                                </button>
+                            </div>
+                        </div>
+                        <div class="song-list">${this.renderList(window.albumList, 'albumList')}</div>
+                    </div>
+                `;
+            },
+            renderPlaylistDetail(data) {
+                const pl = data.playlist;
+                window.plList = pl.tracks;
+                this.el('main-view').innerHTML = `
+                    <div class="top-bar">
+                         <button class="mobile-menu-btn" onclick="ui.toggleSidebar()"><svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+                         <div style="flex:1"></div>
+                         <button class="btn-back-minimal" onclick="window.router.goBack()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                    </div>
+                    <div class="content-wrapper">
+                        <div class="album-header">
+                            <img src="${pl.coverImgUrl}?param=500y500" class="album-cover">
+                            <div class="album-info">
+                                <div class="album-title">${pl.name}</div>
+                                <button class="play-all-btn" onclick="window.player.playList('plList', 0)">
+                                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> 播放全部
+                                </button>
+                            </div>
+                        </div>
+                        <div class="song-list">${this.renderList(window.plList, 'plList')}</div>
+                    </div>
+                `;
+            },
+            renderSettings() {
+                this.el('main-view').innerHTML = `
+                    <div class="top-bar">
+                        <button class="mobile-menu-btn" onclick="ui.toggleSidebar()"><svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg></button>
+                        <h2 style="font-weight:700">设置</h2>
+                        <button class="btn-back-minimal" onclick="window.router.home()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                    </div>
+                    <div class="content-wrapper" style="padding:20px 0">
+                        <div style="background:rgba(255,255,255,0.05); padding:20px; border-radius:16px; margin-bottom:20px;">
+                            <h3 style="margin-bottom:15px; color:var(--primary)">个性化</h3>
+                            <div style="margin-bottom:20px">
+                                <label style="display:block; margin-bottom:10px; font-weight:600">背景模糊度: <span id="blur-val">${userSettings.bgBlur}%</span></label>
+                                <input type="range" min="0" max="100" value="${userSettings.bgBlur}" oninput="this.nextElementSibling.innerText=this.value+'%'; ui.saveSet('bgBlur', parseInt(this.value))" style="width:100%">
+                            </div>
+                             <div style="margin-bottom:20px">
+                                <label style="display:block; margin-bottom:10px; font-weight:600">上传背景图</label>
+                                <input type="file" accept="image/*" onchange="ui.handleBg(this)" style="color:white">
+                            </div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.05); padding:20px; border-radius:16px;">
+                             <div style="margin-bottom:20px">
+                                <label style="display:block; margin-bottom:10px; font-weight:600">歌词大小: <span id="size-val">${userSettings.lyricSize}px</span></label>
+                                <input type="range" min="16" max="36" value="${userSettings.lyricSize}" oninput="this.nextElementSibling.innerText=this.value+'px'; ui.saveSet('lyricSize', parseInt(this.value))" style="width:100%">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+            saveSet(k, v) { userSettings[k] = v; applySettings(); localStorage.setItem('museProSettings', JSON.stringify(userSettings)); },
+            handleBg(input) {
+                if(input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = e => { userSettings.bgUrl = e.target.result; ui.saveSet('bgUrl', e.target.result); };
+                    reader.readAsDataURL(input.files[0]);
+                }
+            },
+            toggleFullPlayer(show) {
+                const fp = this.el('full-player');
+                if(show) { fp.classList.add('active'); } else { fp.classList.remove('active'); }
+                // 每次关闭全屏都恢复到非纯净模式
+                if(!show) fp.classList.remove('pure-mode');
+            }
+        };
+
+        // --- 触摸滑动手势逻辑 ---
+        const fp = document.getElementById('full-player');
+        let touchStartX = 0;
+        fp.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+        fp.addEventListener('touchend', e => {
+            const touchEndX = e.changedTouches[0].screenX;
+            const diff = touchEndX - touchStartX;
+            if (diff > 60) { // 向右滑：进入纯净模式
+                fp.classList.add('pure-mode');
+            } else if (diff < -60) { // 向左滑：退出纯净模式
+                fp.classList.remove('pure-mode');
+            }
+        });
+
+        window.api = {
+            get: async u => (await fetch(API+u)).json(),
+            search: (kw, type) => window.api.get(`/cloudsearch?keywords=${kw}&type=${type}`),
+            url: id => window.api.get(`/song/url/v1?id=${id}&level=standard`),
+            album: id => window.api.get(`/album?id=${id}`),
+            playlist: id => window.api.get(`/playlist/detail?id=${id}`),
+            lyric: id => window.api.get(`/lyric?id=${id}`),
+            simi: id => window.api.get(`/simi/song?id=${id}`)
+        };
+
+        window.player = {
+            audio: document.getElementById('audio'),
+            init() {
+                this.audio.addEventListener('timeupdate', () => {
+                    const cur = this.audio.currentTime;
+                    ui.el('progress-fill').style.width = (cur / this.audio.duration * 100) + '%';
+                    this.syncLyrics(cur);
+                });
+                this.audio.addEventListener('ended', () => this.next());
+                ui.el('progress-bar').addEventListener('click', e => {
+                    const pct = e.offsetX / e.target.offsetWidth;
+                    this.audio.currentTime = pct * this.audio.duration;
+                });
+                ui.el('lyrics-box').addEventListener('scroll', () => {
+                    state.userScroll = true;
+                    clearTimeout(state.scrollTimer);
+                    state.scrollTimer = setTimeout(() => state.userScroll = false, 4000);
+                });
+            },
+            async playList(listName, index) {
+                const list = window[listName];
+                if(!list) return;
+                state.playlist = list.map(s => ({
+                    id: s.id, name: s.name, 
+                    artist: s.ar ? s.ar.map(a=>a.name).join('/') : (s.artists ? s.artists.map(a=>a.name).join('/') : '未知'),
+                    cover: s.al ? s.al.picUrl : (s.album ? s.album.picUrl : ''),
+                    dt: s.dt || s.duration
+                }));
+                state.index = index;
+                this.loadSong();
+                ui.el('footer-player').classList.add('visible');
+            },
+            async loadSong() {
+                const song = state.playlist[state.index];
+                ui.loading(true);
+                const set = (id, t) => { if(ui.el(id)) ui.el(id).innerText = t; };
+                const setImg = (id, s) => { if(ui.el(id)) ui.el(id).src = s; };
+                
+                set('mini-title', song.name); set('mini-artist', song.artist); setImg('mini-cover', song.cover);
+                set('fp-title', song.name); set('fp-artist', song.artist); setImg('fp-cover', song.cover);
+
+                try {
+                    const res = await window.api.url(song.id);
+                    const url = res.data[0].url;
+                    if (url) {
+                        this.audio.src = url; this.audio.play(); state.playing = true; this.updateBtn();
+                        ui.el('fp-download-btn').href = url;
+                        this.loadLyrics(song.id); this.loadSimi(song.id);
+                    } else { alert('VIP/无版权'); }
+                } catch(e){}
+                ui.loading(false);
+            },
+            async loadLyrics(id) {
+                const res = await window.api.lyric(id);
+                state.lyrics = [];
+                const box = ui.el('lyrics-box');
+                if(res.lrc) {
+                    state.lyrics = res.lrc.lyric.split('\n').map(l => {
+                        const m = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/.exec(l);
+                        return m ? { t: parseInt(m[1])*60 + parseInt(m[2]) + parseInt(m[3])/1000, txt: m[4] } : null;
+                    }).filter(x=>x);
+                    box.innerHTML = state.lyrics.map((l,i) => `<div class="lyric-line" id="l-${i}" onclick="window.player.seek(${l.t})">${l.txt}</div>`).join('');
+                } else { box.innerHTML = '<div class="lyric-line">纯音乐 / 无歌词</div>'; }
+            },
+            async loadSimi(id) {
+                if(!userSettings.showRelated) return;
+                const res = await window.api.simi(id);
+                if(res.songs) {
+                    window.simiList = res.songs;
+                    ui.el('related-container').innerHTML = res.songs.slice(0,6).map((s,i) => `
+                        <div class="related-card" onclick="window.player.playList('simiList', ${i})">
+                            <img src="${s.album.picUrl}?param=100y100">
+                            <div class="related-title">${s.name}</div>
+                        </div>`).join('');
+                }
+            },
+            syncLyrics(t) {
+                if(state.lyrics.length === 0) return;
+                let idx = state.lyrics.findIndex(l => l.t > t) - 1;
+                if(idx < 0) idx = 0;
+                document.querySelector('.lyric-line.active')?.classList.remove('active');
+                const line = ui.el('l-'+idx);
+                if(line) { line.classList.add('active'); if(!state.userScroll) line.scrollIntoView({behavior:'smooth', block:'center'}); }
+            },
+            toggle() { if(this.audio.paused){this.audio.play();state.playing=true;}else{this.audio.pause();state.playing=false;} this.updateBtn(); },
+            updateBtn() {
+                const play = ui.el('icon-play'); const pause = ui.el('icon-pause'); const mini = ui.el('mini-cover');
+                if(play) play.style.display = state.playing ? 'none' : 'block';
+                if(pause) pause.style.display = state.playing ? 'block' : 'none';
+                if(mini) state.playing ? mini.classList.add('spinning') : mini.classList.remove('spinning');
+            },
+            prev() { if(state.playlist.length) { state.index=(state.index-1+state.playlist.length)%state.playlist.length; this.loadSong(); } },
+            next() { if(state.playlist.length) { state.index=(state.index+1)%state.playlist.length; this.loadSong(); } },
+            seek(t) { this.audio.currentTime = t; state.userScroll = false; },
+            fmtTime: s => { const m=Math.floor(s/60), ss=Math.floor(s%60); return `${m}:${ss<10?'0':''}${ss}`; }
+        };
+
+        window.router = {
+            home: () => { state.history.push({type:'home'}); ui.renderHome(); },
+            settings: () => { state.history.push({type:'settings'}); ui.renderSettings(); },
+            search: async (kw, type) => {
+                if(!kw) return; ui.loading(true);
+                const res = await window.api.search(kw, type); ui.loading(false);
+                state.history.push({type:'search', data:{res, type, kw}});
+                ui.renderSearch(res, type, kw);
+            },
+            loadAlbum: async (id) => {
+                ui.loading(true); const res = await window.api.album(id); ui.loading(false);
+                state.history.push({type:'album', data:res}); ui.renderAlbumDetail(res);
+            },
+            loadPlaylist: async (id) => {
+                ui.loading(true); const res = await window.api.playlist(id); ui.loading(false);
+                state.history.push({type:'playlist', data:res}); ui.renderPlaylistDetail(res);
+            },
+            goBack: () => {
+                state.history.pop();
+                const last = state.history[state.history.length-1];
+                if(!last) return window.router.home();
+                if(last.type==='home') ui.renderHome();
+                if(last.type==='settings') ui.renderSettings();
+                if(last.type==='search') ui.renderSearch(last.data.res, last.data.type, last.data.kw);
+                if(last.type==='album') ui.renderAlbumDetail(last.data);
+                if(last.type==='playlist') ui.renderPlaylistDetail(last.data);
+            }
+        };
+
+        window.ui = ui;
+        initSettings();
+        window.router.home();
+        window.player.init();
+    </script>
+</body>
+</html>
