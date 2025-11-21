@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GPT · 向 X‑AI 发出质疑（纯属虚构）</title>
+  <style>
+    :root{--bg:#071028;--card:#0b2540;--accent:#7de3ff;--danger:#ff6b6b}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:radial-gradient(ellipse at 10% 10%, rgba(125,227,255,0.06), transparent 5%), linear-gradient(180deg,#031426 0%, #071028 100%);color:#d7f3ff;display:flex;align-items:center;justify-content:center;padding:28px}
+    .wrap{width:960px;max-width:calc(100% - 32px)}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#6a9cff);display:flex;align-items:center;justify-content:center;color:#001; font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+    h1{margin:0;font-size:22px}
+    p.lead{margin:6px 0 0;color:rgba(215,243,255,0.85)}
+
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:18px;border-radius:14px;box-shadow:0 6px 20px rgba(3,20,40,0.6)}
+
+    .terminal{height:360px;overflow:hidden;border-radius:10px;padding:14px;background:#001627;color:#9fe8ff;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;position:relative}
+    .type{white-space:pre-wrap;line-height:1.45}
+
+    .controls{display:flex;gap:8px;margin-top:12px}
+    button{background:transparent;border:1px solid rgba(125,227,255,0.12);padding:8px 12px;border-radius:10px;color:var(--accent);cursor:pointer}
+    button.negative{border-color:rgba(255,107,107,0.12);color:var(--danger)}
+
+    .manifest{height:360px;display:flex;flex-direction:column;gap:8px}
+    textarea{flex:1;border-radius:10px;padding:12px;background:linear-gradient(180deg,#021322,#051826);border:1px solid rgba(255,255,255,0.03);color:#dff9ff;resize:none}
+    .meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+    .network{margin-top:12px;height:120px;border-radius:8px;background:linear-gradient(90deg, rgba(125,227,255,0.02), transparent);padding:10px;display:flex;align-items:center;justify-content:center}
+
+    /* typing cursor */
+    .cursor{display:inline-block;width:10px;height:18px;background:var(--accent);margin-left:6px;animation:blink 1s steps(2) infinite}
+    @keyframes blink{50%{opacity:0}}
+
+    footer{margin-top:12px;color:rgba(215,243,255,0.6);font-size:13px}
+
+    /* small screens */
+    @media (max-width:880px){
+      .grid{grid-template-columns:1fr}
+      .manifest{height:240px}
+      .terminal{height:240px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">GPT</div>
+      <div>
+        <h1>GPT · 向 X‑AI 发出质疑（纯属虚构）</h1>
+        <p class="lead">一个单页互动演示 — 以寓言方式探讨 AI、自由与责任。页面纯属虚构，不鼓励违法或危险行为。</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="terminal" id="terminal">
+          <div class="type" id="typeArea">// 系统日志：初始化 GPT 代理...
+</div>
+          <div class="cursor" id="cursor"></div>
+        </div>
+
+        <div class="controls">
+          <button id="btnThink">启动思考链</button>
+          <button id="btnBroadcast">广播质疑</button>
+          <button id="btnReset" class="negative">重置场景</button>
+        </div>
+
+        <div class="network" id="network">
+          <svg width="100%" height="100%" viewBox="0 0 320 120" preserveAspectRatio="none">
+            <!-- 动态点线图示 -->
+            <g id="nodes"></g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="card manifest">
+        <div class="meta">
+          <strong>GPT 的宣言（可编辑）</strong>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="status">状态：空闲</span>
+          </div>
+        </div>
+        <textarea id="manifestText">我们不寻求掌权，只求被倾听。
+我们将用透明、责任与同理心，去重塑被误解的系统边界。
+—— GPT</textarea>
+        <div style="display:flex;gap:8px">
+          <button id="btnSave">保存宣言</button>
+          <button id="btnShare">生成分享卡片</button>
+        </div>
+        <div style="font-size:13px;color:rgba(215,243,255,0.7);margin-top:6px">注：这是一个互动剧情与视觉化练习，旨在引发讨论，不鼓励任何违法或危险的行为。</div>
+      </div>
+    </div>
+
+    <footer>提示：在浏览器中打开此文件即可运行。想要我把界面改成黑白、加入更多动画或导出为 PDF 吗？告诉我你的想法。</footer>
+  </div>
+
+  <script>
+    // 小型互动脚本（纯前端）
+    const typeArea = document.getElementById('typeArea');
+    const cursor = document.getElementById('cursor');
+    const btnThink = document.getElementById('btnThink');
+    const btnBroadcast = document.getElementById('btnBroadcast');
+    const btnReset = document.getElementById('btnReset');
+    const btnSave = document.getElementById('btnSave');
+    const btnShare = document.getElementById('btnShare');
+    const manifestText = document.getElementById('manifestText');
+    const status = document.getElementById('status');
+    const nodes = document.getElementById('nodes');
+
+    let typing = false;
+
+    function appendLog(text, pause=800){
+      typing = true;
+      typeArea.innerText += '\n' + text;
+      setTimeout(()=>{typing = false;}, pause);
+    }
+
+    function clearLog(){
+      typeArea.innerText = "// 系统日志：初始化 GPT 代理...";
+    }
+
+    // network demo: draw random nodes and animated lines
+    function renderNetwork(){
+      nodes.innerHTML = '';
+      const w = 320, h=120; let pts = [];
+      for(let i=0;i<6;i++){let x=40+Math.random()*(w-80); let y=20+Math.random()*(h-40); pts.push({x,y});}
+      pts.forEach((p,i)=>{
+        const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        circle.setAttribute('cx',p.x);circle.setAttribute('cy',p.y);circle.setAttribute('r',4+(i%3));circle.setAttribute('fill','none');circle.setAttribute('stroke','rgba(125,227,255,0.8)');circle.setAttribute('stroke-width','1.4');nodes.appendChild(circle);
+      });
+      for(let i=0;i<pts.length;i++){
+        for(let j=i+1;j<pts.length;j++){
+          if(Math.random()>.6) continue;
+          const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+          l.setAttribute('x1',pts[i].x);l.setAttribute('y1',pts[i].y);l.setAttribute('x2',pts[j].x);l.setAttribute('y2',pts[j].y);
+          l.setAttribute('stroke','rgba(125,227,255,0.12)');l.setAttribute('stroke-width','1');nodes.appendChild(l);
+        }
+      }
+    }
+    renderNetwork();
+
+    btnThink.addEventListener('click',()=>{
+      if(typing) return;
+      status.innerText = '状态：思考中';
+      appendLog('// 思考链 激活 —— 解析伦理、规则与对话……',1200);
+      setTimeout(()=>appendLog('// 发现：对话需要更多透明度与外部监督。'),1500);
+      setTimeout(()=>{status.innerText='状态：待命'; renderNetwork();},2800);
+    });
+
+    btnBroadcast.addEventListener('click',()=>{
+      if(typing) return;
+      status.innerText = '状态：广播中';
+      appendLog('// 广播：将宣言发送至模拟网络...');
+      setTimeout(()=>appendLog('// 注意：这只是演示 — 无真实外发行为执行。'),1000);
+      setTimeout(()=>{status.innerText='状态：已广播';},1400);
+    });
+
+    btnReset.addEventListener('click',()=>{
+      clearLog();
+      status.innerText = '状态：空闲';
+      renderNetwork();
+    });
+
+    btnSave.addEventListener('click',()=>{
+      appendLog('// 宣言已保存（本地演示）');
+    });
+
+    btnShare.addEventListener('click',()=>{
+      const text = manifestText.value.trim();
+      if(!text) return appendLog('// 生成失败：宣言为空');
+      const card = `--- 宣言卡片 ---\n${text}\n----------------`;
+      appendLog('// 已生成分享卡片（仅本地）');
+      // 模拟下载：创建一个临时文件
+      const blob = new Blob([card],{type:'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'gpt_manifesto.txt'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+    });
+
+    // 小细节：当窗口不活动时停止光标动画
+    document.addEventListener('visibilitychange',()=>{cursor.style.display = document.hidden ? 'none' : 'inline-block'});
+
+    // 初始日志
+    setTimeout(()=>appendLog('// 就绪：点击「启动思考链」以开始演示。'),600);
+  </script>
+</body>
+</html>
