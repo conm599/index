@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MIDI Converter | 真实进度监控版</title>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0c15;
+            --card: #151621;
+            --primary: #00f2ff; /* 科技蓝 - 下载 */
+            --secondary: #bd00ff; /* 霓虹紫 - 推理 */
+            --text: #ffffff;
+            --text-mute: #6b7280;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .main-card {
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.05);
+            width: 90%;
+            max-width: 650px;
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        p.subtitle { color: var(--text-mute); margin-bottom: 30px; font-size: 0.9rem; }
+
+        /* --- 进度条组件 --- */
+        .progress-section {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: left;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: none; /* 默认隐藏 */
+        }
+        
+        .progress-label {
+            font-size: 0.85rem;
+            color: var(--text-mute);
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .progress-track {
+            height: 8px;
+            background: #2a2b36;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+        
+        .bar-download { background: var(--primary); box-shadow: 0 0 15px var(--primary); }
+        .bar-inference { background: var(--secondary); box-shadow: 0 0 15px var(--secondary); }
+
+        .data-stat { font-family: monospace; font-size: 0.8rem; color: #fff; }
+
+        /* --- 上传区 --- */
+        .upload-box {
+            border: 2px dashed #333;
+            border-radius: 16px;
+            padding: 40px 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .upload-box:hover { border-color: var(--text-mute); background: rgba(255,255,255,0.02); }
+        
+        .upload-box input {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: pointer;
+        }
+
+        /* --- 按钮 --- */
+        .btn {
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            border: none;
+            color: white;
+            padding: 14px 35px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 25px;
+            transition: 0.3s;
+            opacity: 0.5; 
+            pointer-events: none; /* 初始不可点 */
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn.active { opacity: 1; pointer-events: all; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(189, 0, 255, 0.3); }
+
+        /* --- 可视化 --- */
+        #visualizer {
+            width: 100%;
+            height: 150px;
+            margin-top: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            display: none;
+        }
+        
+        /* Magenta SVG 样式覆盖 */
+        #visualizer svg rect { fill: var(--primary) !important; stroke: none; }
+
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+<div class="main-card">
+    <h1>AI Audio Lab</h1>
+    <p class="subtitle">Onsets & Frames Model | 真实进度监控 | 高精度转录</p>
+
+    <div id="dl-progress-box" class="progress-section" style="display: block;">
+        <div class="progress-label">
+            <span>📡 初始化 AI 模型...</span>
+            <span id="dl-text" class="data-stat">0 MB / ~35 MB</span>
+        </div>
+        <div class="progress-track">
+            <div id="dl-bar" class="progress-bar bar-download"></div>
+        </div>
+    </div>
+
+    <div class="upload-box" id="uploadArea">
+        <div style="font-size: 2rem; margin-bottom: 10px;">🎵</div>
+        <span id="fileName">点击选择音频 (MP3/WAV)</span>
+        <input type="file" id="fileInput" accept="audio/*">
+    </div>
+
+    <div id="infer-progress-box" class="progress-section">
+        <div class="progress-label">
+            <span>🧠 神经网络正在听写...</span>
+            <span id="infer-text" class="data-stat">0%</span>
+        </div>
+        <div class="progress-track">
+            <div id="infer-bar" class="progress-bar bar-inference"></div>
+        </div>
+    </div>
+
+    <div id="visualizer"></div>
+
+    <button id="actionBtn" class="btn">等待模型下载...</button>
+</div>
+
+<script>
+    // === 0. 核心黑科技：Fetch 拦截器 (用于监控下载进度) ===
+    // 必须在任何网络请求发生前定义
+    
+    let totalDownloaded = 0;
+    const estimatedModelSize = 35 * 1024 * 1024; // 约 35MB (Onsets & Frames 权重大小)
+    
+    const originalFetch = window.fetch;
+    
+    window.fetch = async (url, options) => {
+        const response = await originalFetch(url, options);
+        
+        // 只拦截 Google Storage 的模型文件，且必须是成功的响应
+        if (url.toString().includes('storage.googleapis.com') && response.ok) {
+            
+            // 克隆响应以读取流，同时保留原始响应给 Magenta 库使用
+            const clone = response.clone();
+            const body = clone.body;
+            
+            if (body) {
+                const reader = body.getReader();
+                
+                // 不等待读取完成，直接让原始 fetch 返回，在后台统计流量
+                // 这样不会阻塞库的加载
+                (async () => {
+                    while(true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        totalDownloaded += value.byteLength;
+                        updateDownloadUI(totalDownloaded);
+                    }
+                })();
+            }
+        }
+        
+        return response;
+    };
+
+    // UI 更新函数
+    const ui = {
+        dlBox: document.getElementById('dl-progress-box'),
+        dlBar: document.getElementById('dl-bar'),
+        dlText: document.getElementById('dl-text'),
+        inferBox: document.getElementById('infer-progress-box'),
+        inferBar: document.getElementById('infer-bar'),
+        inferText: document.getElementById('infer-text'),
+        btn: document.getElementById('actionBtn'),
+        fileInput: document.getElementById('fileInput'),
+        fileName: document.getElementById('fileName'),
+        visualizer: document.getElementById('visualizer')
+    };
+
+    function updateDownloadUI(bytes) {
+        const mb = (bytes / (1024 * 1024)).toFixed(1);
+        // 如果超过预计大小，就让它停在 99% 或增加上限，避免溢出
+        let percent = (bytes / estimatedModelSize) * 100;
+        if (percent > 100) percent = 100;
+        
+        ui.dlBar.style.width = `${percent}%`;
+        ui.dlText.innerText = `${mb} MB / ~35 MB`;
+        
+        if (percent >= 100 && !modelReady) {
+            ui.dlText.innerText = "下载完成，正在解压编译...";
+        }
+    }
+
+    // === 1. 初始化 Magenta 模型 ===
+    const modelUrl = 'https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni';
+    let model = new mm.OnsetsAndFrames(modelUrl);
+    let modelReady = false;
+
+    async function init() {
+        try {
+            await model.initialize();
+            modelReady = true;
+            
+            // UI 状态切换
+            ui.dlBar.style.width = '100%';
+            ui.dlText.innerText = "✅ 模型已就绪";
+            setTimeout(() => {
+                ui.dlBox.style.display = 'none'; // 隐藏下载条
+            }, 2000);
+
+            checkBtnState();
+        } catch (err) {
+            console.error(err);
+            ui.dlText.innerText = "❌ 下载失败 (请检查网络)";
+            ui.dlBar.style.background = 'red';
+        }
+    }
+
+    // 页面加载开始初始化
+    window.addEventListener('load', init);
+
+    // === 2. 文件交互逻辑 ===
+    let selectedFile = null;
+
+    ui.fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            selectedFile = e.target.files[0];
+            ui.fileName.innerText = `📄 ${selectedFile.name}`;
+            checkBtnState();
+        }
+    });
+
+    function checkBtnState() {
+        if (modelReady && selectedFile) {
+            ui.btn.innerText = "开始 AI 转换";
+            ui.btn.classList.add('active');
+            ui.btn.onclick = startConversion;
+        } else if (!modelReady) {
+            ui.btn.innerText = "正在加载模型...";
+            ui.btn.classList.remove('active');
+        } else {
+            ui.btn.innerText = "请选择文件";
+            ui.btn.classList.remove('active');
+        }
+    }
+
+    // === 3. 转换与推理 ===
+    async function startConversion() {
+        ui.btn.disabled = true;
+        ui.btn.classList.remove('active');
+        ui.btn.innerText = "正在处理中...";
+        
+        ui.inferBox.style.display = 'block';
+        ui.visualizer.innerHTML = '';
+        ui.visualizer.style.display = 'none';
+
+        // 模拟推理进度条 (因为 TensorFlow.js 没有原生进度回调)
+        // 根据文件大小估算时间：1MB mp3 大约需要 10秒推理
+        let progress = 0;
+        const estimatedTime = (selectedFile.size / 1024 / 1024) * 10000; 
+        const intervalTime = 100;
+        const step = 100 / (estimatedTime / intervalTime);
+
+        const timer = setInterval(() => {
+            progress += step;
+            if (progress > 95) progress = 95; // 保持在95直到完成
+            ui.inferBar.style.width = `${progress}%`;
+            ui.inferText.innerText = `${Math.floor(progress)}%`;
+        }, intervalTime);
+
+        try {
+            // *** 核心：AI 转录 ***
+            const ns = await model.transcribeFromAudioFile(selectedFile);
+            
+            clearInterval(timer);
+            ui.inferBar.style.width = '100%';
+            ui.inferText.innerText = "100% 完成";
+
+            // 显示结果
+            showResult(ns);
+
+        } catch (err) {
+            clearInterval(timer);
+            ui.inferText.innerText = "错误";
+            ui.inferBar.style.background = 'red';
+            alert("转换失败：" + err.message);
+            console.error(err);
+            ui.btn.disabled = false;
+            ui.btn.classList.add('active');
+            ui.btn.innerText = "重试";
+        }
+    }
+
+    function showResult(noteSequence) {
+        ui.btn.innerText = "⬇️ 下载 MIDI 文件";
+        ui.btn.disabled = false;
+        ui.btn.classList.add('active');
+        
+        // 绑定下载事件
+        ui.btn.onclick = () => {
+            const midiData = mm.sequenceProtoToMidi(noteSequence);
+            const blob = new Blob([midiData], { type: 'audio/midi' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${selectedFile.name.replace(/\.[^/.]+$/, "")}_AI.mid`;
+            a.click();
+        };
+
+        // 可视化
+        ui.visualizer.style.display = 'block';
+        // 使用 Magenta 的可视化工具
+        new mm.PianoRollCanvasVisualizer(noteSequence, ui.visualizer, {
+            noteHeight: 4,
+            pixelsPerTimeStep: 40,
+            noteRGB: '0, 242, 255',
+            activeNoteRGB: '255, 255, 255'
+        });
+    }
+
+</script>
+</body>
+</html>
