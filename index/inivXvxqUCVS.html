@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MIDI 诊断修复版</title>
+    <style>
+        :root { --bg: #0d0d0d; --text: #e0e0e0; --primary: #ff3366; --accent: #00e5ff; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        
+        .box { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333; width: 90%; max-width: 600px; text-align: center; }
+        h1 { margin-top: 0; color: var(--accent); }
+        
+        .status-box { margin: 20px 0; padding: 15px; background: #222; border-radius: 6px; border-left: 4px solid #555; text-align: left; font-family: monospace; font-size: 0.9rem; min-height: 80px; }
+        .log-ok { color: #00ff88; }
+        .log-err { color: #ff3366; }
+        .log-warn { color: #ffaa00; }
+
+        .btn { padding: 12px 24px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 5px; opacity: 0.6; pointer-events: none; }
+        .btn.active { opacity: 1; pointer-events: all; }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-test { background: #333; color: #fff; opacity: 1; pointer-events: all; border: 1px solid #555; }
+
+        .progress-bar { width: 100%; height: 6px; background: #333; margin-top: 10px; border-radius: 3px; overflow: hidden; }
+        .fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.3s; }
+
+        .note { font-size: 0.8rem; color: #777; margin-top: 20px; line-height: 1.5; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h1>AI MIDI 诊断修复版</h1>
+    
+    <button class="btn btn-test" onclick="checkNetwork()">🛠️ 第一步：点击测试网络连接</button>
+
+    <div class="status-box" id="console">
+        <div>> 系统就绪。请先点击上方按钮测试网络...</div>
+    </div>
+
+    <div style="text-align: left; font-size: 0.8rem; margin-top: 10px;">
+        下载进度: <span id="dlText">等待开始...</span>
+    </div>
+    <div class="progress-bar"><div class="fill" id="dlBar"></div></div>
+
+    <div style="margin-top: 20px; border: 2px dashed #444; padding: 20px; cursor: pointer;" onclick="document.getElementById('f').click()">
+        📄 点击上传音频文件
+        <input type="file" id="f" accept="audio/*" style="display:none">
+    </div>
+
+    <button id="startBtn" class="btn btn-primary">等待引擎加载...</button>
+
+    <div class="note">
+        <strong>⚠️ 无法加载的常见原因：</strong><br>
+        1. <strong>网络屏蔽 (GFW)：</strong> AI 模型存储在谷歌服务器 (googleapis.com)。在中国大陆，你必须开启 VPN/代理，并确保浏览器走了代理流量。<br>
+        2. <strong>浏览器拦截：</strong> 请检查浏览器是否安装了广告拦截插件阻断了 Worker 脚本。
+    </div>
+</div>
+
+<script>
+    const ui = {
+        log: (msg, color='') => {
+            const el = document.getElementById('console');
+            el.innerHTML += `<div class="${color}">> ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+        },
+        bar: document.getElementById('dlBar'),
+        txt: document.getElementById('dlText'),
+        btn: document.getElementById('startBtn')
+    };
+
+    // --- 1. 网络连通性测试 ---
+    async function checkNetwork() {
+        ui.log("正在尝试连接 Google 模型服务器...", "log-warn");
+        try {
+            // 尝试请求一个很小的 meta 文件
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 5000); // 5秒超时
+            
+            const res = await fetch('https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni/manifest.json', {
+                method: 'HEAD',
+                signal: controller.signal,
+                mode: 'no-cors' // 关键：跨域探测
+            });
+            clearTimeout(id);
+            ui.log("✅ 网络连接成功！Google 服务器可达。", "log-ok");
+            ui.log("正在启动后台引擎...", "log-warn");
+            initWorker();
+        } catch (e) {
+            ui.log("❌ 连接失败！无法访问 Google 服务器。", "log-err");
+            ui.log("请开启 VPN (全局模式) 后刷新页面重试。", "log-err");
+            alert("错误：无法连接到 AI 模型服务器。\n\n这通常是因为网络被墙。请开启代理/VPN 并重试。");
+        }
+    }
+
+    // --- 2. Worker 逻辑 ---
+    let worker = null;
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let currentAudio = null;
+    let isReady = false;
+
+    const workerCode = `
+        // 捕获脚本加载错误
+        try {
+            importScripts('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js');
+        } catch(e) {
+            self.postMessage({t:'err', msg: 'Failed to load Magenta.js library. CDN blocked?'});
+        }
+
+        let model = null;
+        const MODEL_URL = 'https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni';
+
+        // 拦截 Fetch 以显示进度
+        const _fetch = self.fetch;
+        let totalLoaded = 0;
+        self.fetch = async (u, o) => {
+            try {
+                const r = await _fetch(u, o);
+                if(u.toString().includes('googleapis')) {
+                    const reader = r.clone().body.getReader();
+                    (async()=>{
+                        while(true){
+                            const {done, value} = await reader.read();
+                            if(done) break;
+                            totalLoaded += value.byteLength;
+                            self.postMessage({t:'prog', loaded: totalLoaded});
+                        }
+                    })();
+                }
+                return r;
+            } catch(e) {
+                // 网络层面的 fetch 失败
+                throw e;
+            }
+        };
+
+        async function init() {
+            try {
+                model = new mm.OnsetsAndFrames(MODEL_URL);
+                await model.initialize();
+                self.postMessage({t:'ready'});
+            } catch(e) {
+                self.postMessage({t:'err', msg: e.message});
+            }
+        }
+        init();
+
+        // 伪造 AudioBuffer
+        class MB { constructor(d,s){this.d=d;this.sampleRate=s;this.length=d.length;this.duration=d.length/s;this.numberOfChannels=1} getChannelData(){return this.d} }
+
+        self.onmessage = async (e) => {
+            if(e.data.t === 'run') {
+                if(!model) { self.postMessage({t:'err', msg:'Model not ready'}); return; }
+                try {
+                    const buf = new MB(e.data.d, e.data.s);
+                    // 强制简单切片处理以防内存溢出
+                    const ns = await model.transcribeFromAudioBuffer(buf);
+                    const midi = mm.sequenceProtoToMidi(ns);
+                    self.postMessage({t:'done', midi: midi});
+                } catch(err) {
+                    self.postMessage({t:'err', msg: err.message});
+                }
+            }
+        }
+    `;
+
+    function initWorker() {
+        if(worker) worker.terminate();
+        const blob = new Blob([workerCode], {type:'text/javascript'});
+        worker = new Worker(URL.createObjectURL(blob));
+
+        // 核心：设置一个超时计时器
+        const timeoutId = setTimeout(() => {
+            if(!isReady) {
+                ui.log("⚠️ 警告：加载超过 30 秒，可能卡住了。", "log-warn");
+                ui.log("请检查是否允许了 'storage.googleapis.com' 的流量。", "log-warn");
+            }
+        }, 30000);
+
+        worker.onmessage = (e) => {
+            const d = e.data;
+            if(d.t === 'prog') {
+                const mb = (d.loaded / 1048576).toFixed(1);
+                ui.txt.innerText = `${mb} MB (正在下载...)`;
+                // 估算进度 (35MB)
+                const pct = Math.min((d.loaded / 36000000)*100, 99);
+                ui.bar.style.width = pct + '%';
+            }
+            else if(d.t === 'ready') {
+                clearTimeout(timeoutId);
+                isReady = true;
+                ui.bar.style.width = '100%';
+                ui.txt.innerText = "下载完成";
+                ui.log("✅ 引擎加载成功！", "log-ok");
+                updateBtn();
+            }
+            else if(d.t === 'err') {
+                clearTimeout(timeoutId);
+                ui.log("❌ 错误: " + d.msg, "log-err");
+                if(d.msg.includes('fetch') || d.msg.includes('Network')) {
+                    alert("网络错误：无法下载 AI 模型。\n请确认 VPN 已连接。");
+                }
+            }
+            else if(d.t === 'done') {
+                ui.btn.innerText = "⬇️ 下载 MIDI";
+                ui.btn.classList.add('active');
+                ui.btn.onclick = () => {
+                    const b = new Blob([d.midi], {type:'audio/midi'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(b);
+                    a.download = "result.mid";
+                    a.click();
+                };
+                ui.log("✅ 转换完成！点击按钮下载。", "log-ok");
+            }
+        };
+        
+        // 捕获 Worker 级错误 (如 jsdelivr 挂了)
+        worker.onerror = (e) => {
+            clearTimeout(timeoutId);
+            ui.log("❌ Worker 启动失败 (脚本加载错误)", "log-err");
+            console.error(e);
+        };
+    }
+
+    // 文件处理
+    document.getElementById('f').addEventListener('change', async (e) => {
+        if(!e.target.files[0]) return;
+        ui.log(`已选择文件: ${e.target.files[0].name}`);
+        ui.btn.innerText = "解码中...";
+        try {
+            const buf = await e.target.files[0].arrayBuffer();
+            currentAudio = await audioCtx.decodeAudioData(buf);
+            ui.log(`解码成功 (${currentAudio.duration.toFixed(1)}s)`, "log-ok");
+            updateBtn();
+        } catch(err) {
+            ui.log("❌ 音频解码失败", "log-err");
+        }
+    });
+
+    function updateBtn() {
+        if(isReady && currentAudio) {
+            ui.btn.innerText = "🚀 开始 AI 转换";
+            ui.btn.classList.add('active');
+            ui.btn.onclick = () => {
+                ui.btn.classList.remove('active');
+                ui.btn.innerText = "处理中...";
+                ui.log("正在进行神经网络计算...", "log-warn");
+                const d = currentAudio.getChannelData(0);
+                worker.postMessage({t:'run', d:d, s:currentAudio.sampleRate}, [d.buffer]);
+            };
+        } else if (isReady) {
+            ui.btn.innerText = "请选择文件";
+        }
+    }
+</script>
+</body>
+</html>
