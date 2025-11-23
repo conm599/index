@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MIDI Pro | 多线程防卡死版</title>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js"></script>
+    <style>
+        :root {
+            --bg: #09090b;
+            --surface: #18181b;
+            --primary: #8b5cf6; /* 紫色 */
+            --cyan: #06b6d4;    /* 青色 */
+            --text: #f4f4f5;
+            --muted: #71717a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .app-shell {
+            width: 90%;
+            max-width: 600px;
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        h1 { margin: 0; font-size: 1.8rem; background: linear-gradient(to right, var(--cyan), var(--primary)); -webkit-background-clip: text; color: transparent; }
+        .tag { font-size: 0.75rem; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 4px; margin-left: 10px; color: var(--muted); vertical-align: middle; }
+        
+        /* 状态指示器 */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px 0;
+            font-size: 0.9rem;
+            color: var(--muted);
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; transition: 0.3s; }
+        .dot.green { background: #10b981; box-shadow: 0 0 10px #10b981; }
+        .dot.yellow { background: #f59e0b; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* 进度条 */
+        .progress-container { margin-top: 15px; display: none; }
+        .progress-meta { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; color: var(--muted); }
+        .track { width: 100%; height: 6px; background: #27272a; border-radius: 3px; overflow: hidden; }
+        .bar { height: 100%; width: 0%; transition: width 0.2s; }
+        .bar.blue { background: var(--cyan); }
+        .bar.purple { background: var(--primary); position: relative; overflow: hidden; }
+        /* 增加一个扫描光效，证明没有卡死 */
+        .bar.purple::after {
+            content: ''; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+        /* 上传 */
+        .upload-area {
+            border: 2px dashed #3f3f46;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 20px;
+        }
+        .upload-area:hover { border-color: var(--primary); background: rgba(139, 92, 246, 0.05); }
+        .upload-area.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        input[type="file"] { display: none; }
+
+        /* 按钮 */
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 20px;
+            border-radius: 10px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            opacity: 0.5; pointer-events: none;
+        }
+        button.active { opacity: 1; pointer-events: all; }
+        button:hover { filter: brightness(1.2); }
+
+        #visualizer { margin-top: 20px; height: 120px; width: 100%; display: none; background: rgba(0,0,0,0.2); border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="app-shell">
+    <h1>AI Audio Lab <span class="tag">Worker 多线程版</span></h1>
+    <p style="color: var(--muted); font-size: 0.9rem;">界面永不卡顿 | 真实后台处理</p>
+
+    <div class="status-indicator">
+        <div id="statusDot" class="dot yellow"></div>
+        <span id="statusText">正在初始化后台线程...</span>
+    </div>
+
+    <div id="progressArea" class="progress-container">
+        <div class="progress-meta">
+            <span id="progressLabel">正在下载模型...</span>
+            <span id="progressValue">0%</span>
+        </div>
+        <div class="track">
+            <div id="progressBar" class="bar blue"></div>
+        </div>
+    </div>
+
+    <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size: 2rem; margin-bottom: 10px;">📂</div>
+        <div id="fileName">点击选择音频文件</div>
+        <input type="file" id="fileInput" accept="audio/*">
+    </div>
+
+    <div id="visualizer"></div>
+    
+    <button id="mainBtn">请先选择文件</button>
+</div>
+
+<script>
+    // ==========================================
+    // 1. 定义 Worker 代码 (作为一个字符串 Blob)
+    // ==========================================
+    const workerScript = `
+        // Worker 内部必须重新引入库
+        importScripts('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js');
+
+        // --- Mock AudioBuffer ---
+        // Worker 里没有 DOM AudioBuffer，我们伪造一个，骗过 Magenta
+        class MockAudioBuffer {
+            constructor(data, sampleRate) {
+                this._data = data; // Float32Array
+                this.sampleRate = sampleRate;
+                this.length = data.length;
+                this.duration = data.length / sampleRate;
+                this.numberOfChannels = 1;
+            }
+            getChannelData(channel) { return this._data; }
+        }
+
+        // --- 拦截 Fetch 实现下载进度监控 ---
+        let totalBytes = 0;
+        const estimatedSize = 35 * 1024 * 1024;
+        const originalFetch = self.fetch;
+
+        self.fetch = async (url, options) => {
+            const response = await originalFetch(url, options);
+            if (url.toString().includes('storage.googleapis.com') && response.ok) {
+                const clone = response.clone();
+                const reader = clone.body.getReader();
+                (async () => {
+                    while(true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        totalBytes += value.byteLength;
+                        // 向主线程发送下载进度
+                        self.postMessage({ type: 'download_progress', loaded: totalBytes, total: estimatedSize });
+                    }
+                })();
+            }
+            return response;
+        };
+
+        // --- 初始化模型 ---
+        let model = new mm.OnsetsAndFrames('https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni');
+        
+        async function initModel() {
+            try {
+                // 尝试使用 WebGL (如果浏览器支持 OffscreenCanvas，TF.js 会自动用)
+                // 否则回退到 CPU，虽然慢但不卡主线程
+                await model.initialize();
+                self.postMessage({ type: 'ready' });
+            } catch (e) {
+                self.postMessage({ type: 'error', message: e.message });
+            }
+        }
+
+        initModel();
+
+        // --- 监听主线程指令 ---
+        self.onmessage = async (e) => {
+            if (e.data.type === 'transcribe') {
+                try {
+                    const { channelData, sampleRate } = e.data;
+                    
+                    // 重建伪造的 Buffer
+                    const mockBuffer = new MockAudioBuffer(channelData, sampleRate);
+                    
+                    // 开始推理
+                    // 注意: 虽然这里 await 了，但因为是在 Worker 里，主线程 UI 依然流畅
+                    const ns = await model.transcribeFromAudioBuffer(mockBuffer);
+                    
+                    // 转换 MIDI 二进制
+                    const midiData = mm.sequenceProtoToMidi(ns);
+                    
+                    self.postMessage({ type: 'complete', midiData: midiData, noteSequence: ns });
+                } catch (err) {
+                    self.postMessage({ type: 'error', message: err.message });
+                }
+            }
+        };
+    `;
+
+    // ==========================================
+    // 2. 主线程逻辑 (UI 控制)
+    // ==========================================
+    
+    const ui = {
+        statusDot: document.getElementById('statusDot'),
+        statusText: document.getElementById('statusText'),
+        progressArea: document.getElementById('progressArea'),
+        progressLabel: document.getElementById('progressLabel'),
+        progressBar: document.getElementById('progressBar'),
+        progressValue: document.getElementById('progressValue'),
+        dropZone: document.getElementById('dropZone'),
+        fileName: document.getElementById('fileName'),
+        btn: document.getElementById('mainBtn'),
+        visualizer: document.getElementById('visualizer')
+    };
+
+    let worker = null;
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let selectedAudioBuffer = null;
+    let isModelReady = false;
+
+    // --- 启动 Worker ---
+    function initWorker() {
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        worker = new Worker(URL.createObjectURL(blob));
+
+        worker.onmessage = (e) => {
+            const msg = e.data;
+
+            if (msg.type === 'download_progress') {
+                ui.progressArea.style.display = 'block';
+                const pct = Math.min(100, (msg.loaded / msg.total) * 100).toFixed(0);
+                ui.progressBar.className = 'bar blue';
+                ui.progressBar.style.width = pct + '%';
+                ui.progressValue.innerText = pct + '%';
+                ui.statusText.innerText = "后台正在下载 AI 模型...";
+            } 
+            else if (msg.type === 'ready') {
+                isModelReady = true;
+                ui.statusDot.className = 'dot green';
+                ui.statusText.innerText = "AI 核心已就绪 (独立线程)";
+                ui.progressArea.style.display = 'none';
+                checkBtn();
+            }
+            else if (msg.type === 'complete') {
+                handleComplete(msg.midiData, msg.noteSequence);
+            }
+            else if (msg.type === 'error') {
+                alert("AI 线程出错: " + msg.message);
+                ui.statusDot.style.background = 'red';
+                ui.btn.innerText = "发生错误";
+                ui.progressBar.className = 'bar';
+                ui.progressBar.style.background = 'red';
+            }
+        };
+    }
+
+    // --- 文件处理 ---
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        ui.fileName.innerText = file.name;
+        ui.btn.innerText = "正在解码音频...";
+        ui.btn.classList.remove('active');
+
+        // 主线程解码音频，因为 Worker 解码音频很麻烦
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            selectedAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            ui.statusText.innerText = `音频已解码 (${selectedAudioBuffer.duration.toFixed(1)}s)`;
+            checkBtn();
+        } catch (err) {
+            alert("无法解码此音频文件");
+        }
+    });
+
+    function checkBtn() {
+        if (selectedAudioBuffer && isModelReady) {
+            ui.btn.innerText = "🚀 开始 AI 转换 (不卡顿)";
+            ui.btn.classList.add('active');
+            ui.btn.onclick = startTranscribe;
+        } else if (!isModelReady) {
+            ui.btn.innerText = "等待模型加载...";
+        }
+    }
+
+    // --- 开始任务 ---
+    function startTranscribe() {
+        if (!selectedAudioBuffer) return;
+
+        ui.btn.classList.remove('active');
+        ui.btn.disabled = true;
+        ui.btn.innerText = "AI 正在后台听写...";
+        ui.dropZone.classList.add('disabled');
+
+        // 显示紫色进度条
+        ui.progressArea.style.display = 'block';
+        ui.progressBar.className = 'bar purple';
+        ui.progressBar.style.width = '100%'; 
+        ui.progressLabel.innerText = "神经网络推理中 (您可以随意拖动窗口)...";
+        ui.progressValue.innerText = "计算中";
+
+        // 获取原始数据 (单声道)
+        const channelData = selectedAudioBuffer.getChannelData(0);
+        
+        // 发送给 Worker
+        // 使用 Transferable Objects (第二个参数) 瞬间转移内存所有权，速度极快
+        worker.postMessage({
+            type: 'transcribe',
+            channelData: channelData,
+            sampleRate: selectedAudioBuffer.sampleRate
+        }, [channelData.buffer]); 
+        
+        // 注意：channelData 在主线程此处之后将不可用，因为所有权转移了
+    }
+
+    // --- 完成处理 ---
+    function handleComplete(midiData, noteSequence) {
+        ui.progressLabel.innerText = "完成!";
+        ui.progressValue.innerText = "100%";
+        ui.progressBar.style.width = '100%';
+        
+        ui.btn.classList.add('active');
+        ui.btn.disabled = false;
+        ui.btn.innerText = "⬇️ 下载 MIDI 文件";
+        ui.dropZone.classList.remove('disabled');
+
+        // 下载逻辑
+        ui.btn.onclick = () => {
+            const blob = new Blob([midiData], { type: 'audio/midi' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "ai_output.mid";
+            a.click();
+        };
+
+        // 可视化
+        ui.visualizer.style.display = 'block';
+        ui.visualizer.innerHTML = '';
+        new mm.PianoRollCanvasVisualizer(noteSequence, ui.visualizer, {
+            noteHeight: 4,
+            pixelsPerTimeStep: 30,
+            noteRGB: '6, 182, 212', 
+            activeNoteRGB: '255, 255, 255'
+        });
+    }
+
+    // 页面加载即初始化
+    initWorker();
+
+</script>
+</body>
+</html>
