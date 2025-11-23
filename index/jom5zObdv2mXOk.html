@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Audio to MIDI | Google Magenta 内核</title>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js"></script>
+    <style>
+        :root {
+            --primary: #ff00cc;
+            --secondary: #333399;
+            --bg: #050510;
+            --surface: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at center, #1a1a2e, #000);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 700px;
+            background: var(--surface);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 0 50px rgba(255, 0, 204, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            background: linear-gradient(to right, #ff00cc, #333399);
+            -webkit-background-clip: text;
+            color: transparent;
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+        }
+
+        .badge {
+            background: #ff00cc;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+        .model-status {
+            margin: 20px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #555;
+            box-shadow: 0 0 5px #555;
+            transition: 0.3s;
+        }
+        .status-dot.active { background: #00ff00; box-shadow: 0 0 10px #00ff00; }
+        .status-dot.loading { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,0.2);
+            padding: 40px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+        }
+        .upload-area:hover { border-color: var(--primary); background: rgba(255,255,255,0.05); }
+        .upload-area input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+        /* 可视化容器 */
+        #visualizer {
+            width: 100%;
+            height: 200px;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Magenta Visualizer svg style overrides */
+        #visualizer svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .rect { fill: var(--primary) !important; stroke: none; }
+
+        .btn {
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .btn.ready { opacity: 1; pointer-events: all; }
+        .btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 0, 204, 0.4); }
+
+        .loading-bar {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            margin-top: 20px;
+            border-radius: 2px;
+            overflow: hidden;
+            display: none;
+        }
+        .loading-progress {
+            width: 0%;
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.2s;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AI Audio to MIDI <span class="badge">TensorFlow.js</span></h1>
+    <p style="color:#bbb;">基于 Google Magenta "Onsets & Frames" 模型 | 支持多音/和弦 | 精度极高</p>
+
+    <div class="model-status">
+        <div id="statusDot" class="status-dot"></div>
+        <span id="statusText">正在初始化 AI 模型 (约 30MB)... 请稍候</span>
+    </div>
+
+    <div class="upload-area" id="dropZone">
+        <h3 id="fileName">📁 点击或拖拽 MP3/WAV 文件</h3>
+        <p style="font-size: 0.8rem; color: #666;">建议时长 < 3分钟，文件过大会导致浏览器崩溃</p>
+        <input type="file" id="fileInput" accept="audio/*">
+    </div>
+
+    <div class="loading-bar" id="progressBar">
+        <div class="loading-progress" id="progressFill"></div>
+    </div>
+
+    <div id="visualizer" class="hidden"></div>
+
+    <button id="convertBtn" class="btn">开始 AI 转换</button>
+    <a id="downloadBtn" class="btn hidden" style="background: #333; text-decoration: none; display:none; margin-top: 10px;">⬇️ 下载 MIDI</a>
+</div>
+
+<script>
+    // --- 变量初始化 ---
+    const modelUrl = 'https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni';
+    let model = null;
+    let audioBuffer = null;
+    let isModelLoaded = false;
+
+    // --- UI 元素 ---
+    const ui = {
+        statusDot: document.getElementById('statusDot'),
+        statusText: document.getElementById('statusText'),
+        fileInput: document.getElementById('fileInput'),
+        fileName: document.getElementById('fileName'),
+        convertBtn: document.getElementById('convertBtn'),
+        downloadBtn: document.getElementById('downloadBtn'),
+        visualizer: document.getElementById('visualizer'),
+        progressBar: document.getElementById('progressBar'),
+        progressFill: document.getElementById('progressFill')
+    };
+
+    // --- 1. 加载模型 ---
+    async function initModel() {
+        ui.statusDot.classList.add('loading');
+        
+        try {
+            // 使用 OnsetsAndFrames 模型 (最适合钢琴和多乐器转录)
+            model = new mm.OnsetsAndFrames(modelUrl);
+            
+            // 初始化模型
+            await model.initialize();
+            
+            isModelLoaded = true;
+            ui.statusDot.classList.remove('loading');
+            ui.statusDot.classList.add('active');
+            ui.statusText.innerText = "AI 模型已就绪 (可以使用 GPU 加速)";
+            checkReady();
+        } catch (error) {
+            console.error(error);
+            ui.statusText.innerText = "模型加载失败，请检查网络 (需要访问 Google CDN)";
+            ui.statusDot.style.background = 'red';
+        }
+    }
+
+    // --- 2. 文件处理 ---
+    ui.fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        ui.fileName.innerText = `🎵 ${file.name}`;
+        ui.downloadBtn.style.display = 'none';
+        ui.visualizer.classList.add('hidden');
+        
+        // 我们不需要自己解码 AudioBuffer，Magenta 库可以直接处理 Blob
+        // 但为了检查时长，我们还是手动解一下比较安全
+        ui.statusText.innerText = "正在检查文件...";
+        
+        // 简单创建一个 AudioContext 检查时长
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const arrayBuffer = await file.arrayBuffer();
+        audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        
+        if (audioBuffer.duration > 180) {
+            alert("警告：文件时长超过 3 分钟，可能导致浏览器内存溢出崩溃。建议截取片段后上传。");
+        }
+
+        ui.statusText.innerText = `文件已加载 (${audioBuffer.duration.toFixed(1)}秒)`;
+        checkReady();
+    });
+
+    function checkReady() {
+        if (isModelLoaded && ui.fileInput.files.length > 0) {
+            ui.convertBtn.classList.add('ready');
+            ui.convertBtn.innerText = "开始 AI 转换";
+        }
+    }
+
+    // --- 3. 执行转换 ---
+    ui.convertBtn.addEventListener('click', async () => {
+        if (!isModelLoaded || !ui.fileInput.files[0]) return;
+
+        const file = ui.fileInput.files[0];
+        
+        // UI 更新
+        ui.convertBtn.classList.remove('ready');
+        ui.convertBtn.disabled = true;
+        ui.convertBtn.innerText = "AI 正在思考中...";
+        ui.progressBar.style.display = 'block';
+        ui.progressFill.style.width = '20%';
+        ui.statusText.innerText = "正在进行神经网络推理 (这需要几秒到一分钟)...";
+
+        try {
+            // 模拟进度条动画 (因为 transcribe 是一个 Promise，没法获取实时进度)
+            let progress = 20;
+            const progressInterval = setInterval(() => {
+                progress += (90 - progress) * 0.1;
+                ui.progressFill.style.width = `${progress}%`;
+            }, 500);
+
+            // *** 核心：调用 Magenta 转录 ***
+            // transcribeFromAudioFile 接受 Blob 对象
+            const noteSequence = await model.transcribeFromAudioFile(file);
+
+            clearInterval(progressInterval);
+            ui.progressFill.style.width = '100%';
+
+            // --- 4. 结果处理与可视化 ---
+            ui.statusText.innerText = "转换成功！";
+            ui.convertBtn.innerText = "转换完成";
+            
+            // 显示可视化 Piano Roll
+            ui.visualizer.classList.remove('hidden');
+            ui.visualizer.innerHTML = ''; // 清空
+            
+            // Magenta 提供的可视化工具
+            const viz = new mm.PianoRollCanvasVisualizer(noteSequence, ui.visualizer, {
+                noteHeight: 6,
+                pixelsPerTimeStep: 30,
+                noteRGB: '255, 0, 204', 
+                activeNoteRGB: '255, 255, 255'
+            });
+
+            // --- 5. 生成 MIDI 下载 ---
+            const midiBytes = mm.sequenceProtoToMidi(noteSequence);
+            const midiBlob = new Blob([midiBytes], { type: 'audio/midi' });
+            const midiUrl = URL.createObjectURL(midiBlob);
+
+            ui.downloadBtn.href = midiUrl;
+            ui.downloadBtn.download = `${file.name.replace(/\.[^/.]+$/, "")}_AI.mid`;
+            ui.downloadBtn.style.display = 'inline-block';
+            ui.downloadBtn.innerText = "⬇️ 下载 AI 生成的 MIDI";
+            ui.downloadBtn.classList.add('ready');
+
+        } catch (err) {
+            console.error(err);
+            ui.statusText.innerText = "转换出错: " + err.message;
+            alert("转换失败。可能是文件过大导致内存不足，或音频格式不受支持。");
+        } finally {
+            setTimeout(() => {
+                ui.progressBar.style.display = 'none';
+            }, 1000);
+        }
+    });
+
+    // 页面加载即初始化
+    window.addEventListener('load', initModel);
+
+</script>
+</body>
+</html>
