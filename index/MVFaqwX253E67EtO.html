@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI MIDI 终极修复版 | 注入式加载</title>
+    <style>
+        :root { --bg: #121212; --card: #1e1e1e; --primary: #00e676; --error: #ff5252; --text: #e0e0e0; }
+        body { font-family: 'Segoe UI', monospace; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        
+        .container { background: var(--card); width: 100%; max-width: 650px; border-radius: 12px; padding: 30px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        h1 { margin: 0 0 5px 0; color: var(--primary); font-size: 1.5rem; }
+        .sub { color: #888; font-size: 0.8rem; margin-bottom: 25px; }
+
+        /* 步骤条 */
+        .step { margin-bottom: 20px; opacity: 0.5; transition: 0.3s; border-left: 2px solid #333; padding-left: 15px; }
+        .step.active { opacity: 1; border-color: var(--primary); }
+        .step-title { font-weight: bold; margin-bottom: 5px; display: block; }
+        
+        /* 终端日志 */
+        .console { background: #000; color: #ccc; font-family: 'Consolas', monospace; font-size: 0.8rem; padding: 15px; border-radius: 6px; height: 120px; overflow-y: auto; border: 1px solid #333; margin-top: 10px; }
+        .log-sys { color: #888; }
+        .log-ok { color: var(--primary); }
+        .log-err { color: var(--error); }
+        .log-warn { color: #ffab40; }
+
+        /* 进度条 */
+        .progress-wrap { height: 4px; background: #333; margin-top: 8px; border-radius: 2px; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
+
+        /* 按钮 */
+        button { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold; width: 100%; }
+        button:hover { background: #444; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.primary { background: var(--primary); color: #000; }
+        button.primary:hover { filter: brightness(1.1); }
+
+        input[type="file"] { display: none; }
+        .file-label { display: block; border: 2px dashed #444; padding: 20px; text-align: center; cursor: pointer; margin-top: 10px; border-radius: 6px; }
+        .file-label:hover { border-color: var(--primary); background: rgba(0,230,118,0.05); }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AI MIDI Converter <span style="font-size:0.8rem; border:1px solid var(--primary); padding:2px 6px; border-radius:4px; vertical-align:middle;">FIXED</span></h1>
+    <p class="sub">注入式加载架构 | 彻底解决脚本跨域错误</p>
+
+    <div id="step1" class="step active">
+        <span class="step-title">1. 初始化引擎核心 (JS Library)</span>
+        <div id="libStatus">等待开始...</div>
+        <div class="progress-wrap" id="libProgress" style="display:block"><div class="progress-fill" id="libBar"></div></div>
+    </div>
+
+    <div id="step2" class="step">
+        <span class="step-title">2. 下载神经网络模型 (Model Weights)</span>
+        <div style="font-size:0.8rem; color:#888; margin-bottom:5px;">需要连接 Google 服务器 (约35MB)</div>
+        <div class="progress-wrap" id="modelProgress"><div class="progress-fill" id="modelBar"></div></div>
+        <div id="modelText" style="font-size: 0.8rem; margin-top:5px; color:#aaa;">等待引擎...</div>
+    </div>
+
+    <div id="step3" class="step">
+        <span class="step-title">3. 选择音频并转换</span>
+        <label class="file-label" id="dropArea">
+            🎵 点击选择 MP3 / WAV 文件
+            <input type="file" id="fileInput" accept="audio/*" disabled>
+        </label>
+        <button id="convertBtn" class="primary" style="margin-top:15px; display:none;">开始 AI 转换</button>
+    </div>
+
+    <div class="console" id="terminal">
+        <div class="log-sys">> System initialized.</div>
+        <div class="log-sys">> Ready to inject scripts.</div>
+    </div>
+</div>
+
+<script>
+    // --- UI 工具 ---
+    const ui = {
+        log: (msg, type='log-sys') => {
+            const t = document.getElementById('terminal');
+            t.innerHTML += `<div class="${type}">> ${msg}</div>`;
+            t.scrollTop = t.scrollHeight;
+        },
+        setStep: (n) => {
+            [1,2,3].forEach(i => document.getElementById(`step${i}`).classList.toggle('active', i===n));
+        },
+        els: {
+            libBar: document.getElementById('libBar'),
+            modelBar: document.getElementById('modelBar'),
+            modelProg: document.getElementById('modelProgress'),
+            modelTxt: document.getElementById('modelText'),
+            fileInput: document.getElementById('fileInput'),
+            convertBtn: document.getElementById('convertBtn'),
+            dropArea: document.getElementById('dropArea')
+        }
+    };
+
+    let worker = null;
+    let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let selectedBuffer = null;
+
+    // --- 阶段 1: 主线程下载库文件 (解决 Worker 加载错误) ---
+    const LIB_URL_PRIMARY = 'https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js';
+    const LIB_URL_BACKUP = 'https://unpkg.com/@magenta/music@1.23.1/dist/magentamusic.min.js';
+
+    async function loadLibrary() {
+        ui.log("正在下载核心库文件 (Main Thread)...");
+        ui.els.libBar.style.width = '20%';
+        
+        let libCode = null;
+
+        try {
+            // 尝试首选 CDN
+            ui.log(`尝试连接: jsdelivr...`);
+            const res = await fetch(LIB_URL_PRIMARY);
+            if(!res.ok) throw new Error("Primary CDN failed");
+            libCode = await res.text();
+            ui.log("✅ jsdelivr 下载成功!", "log-ok");
+        } catch (e) {
+            ui.log("⚠️ jsdelivr 失败，切换备用源: unpkg...", "log-warn");
+            try {
+                const res2 = await fetch(LIB_URL_BACKUP);
+                if(!res2.ok) throw new Error("Backup CDN failed");
+                libCode = await res2.text();
+                ui.log("✅ unpkg 下载成功!", "log-ok");
+            } catch (e2) {
+                ui.log("❌ 核心库下载失败！请检查网络或开启代理。", "log-err");
+                ui.els.libBar.style.background = '#ff5252';
+                return;
+            }
+        }
+
+        ui.els.libBar.style.width = '100%';
+        initWorker(libCode);
+    }
+
+    // --- 阶段 2: 构建 Worker (注入代码) ---
+    function initWorker(libraryCode) {
+        ui.log("正在构建 Worker 环境...");
+        
+        // Worker 逻辑代码
+        const workerLogic = `
+            // --- 注入的库代码结束 ---
+            
+            // --- Worker 业务逻辑 ---
+            self.postMessage({t: 'log', msg: 'Worker 线程已启动 (注入模式)'});
+
+            // 拦截 Fetch 实现下载进度
+            let totalDL = 0;
+            const _fetch = self.fetch;
+            self.fetch = async (u, o) => {
+                const res = await _fetch(u, o);
+                if(u.toString().includes('googleapis') && res.ok) {
+                    const reader = res.clone().body.getReader();
+                    (async()=>{
+                        while(true){
+                            const {done, val} = await reader.read();
+                            if(done) break;
+                            totalDL += val ? val.byteLength : 0;
+                            self.postMessage({t:'dl_prog', loaded: totalDL});
+                        }
+                    })();
+                }
+                return res;
+            };
+
+            let model = new mm.OnsetsAndFrames('https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni');
+
+            async function initModel() {
+                try {
+                    self.postMessage({t: 'log', msg: '开始下载 AI 模型 (需翻墙)...'});
+                    await model.initialize();
+                    self.postMessage({t: 'ready'});
+                } catch(e) {
+                    self.postMessage({t: 'err', msg: e.message});
+                }
+            }
+            // 启动初始化
+            initModel();
+
+            // 伪造 Buffer 类
+            class MB { constructor(d,s){this.d=d;this.sr=s;this.length=d.length;this.duration=d.length/s;this.numberOfChannels=1} getChannelData(){return this.d} }
+
+            self.onmessage = async (e) => {
+                if(e.data.t === 'run') {
+                    try {
+                        const buf = new MB(e.data.d, e.data.s);
+                        // 切片处理，每次处理 30 秒，防止内存炸裂
+                        const ns = await model.transcribeFromAudioBuffer(buf);
+                        const midi = mm.sequenceProtoToMidi(ns);
+                        self.postMessage({t: 'done', midi: midi});
+                    } catch(err) {
+                        self.postMessage({t: 'err', msg: err.message});
+                    }
+                }
+            };
+        `;
+
+        // 拼接：库代码 + 逻辑代码
+        const blobContent = libraryCode + "\n" + workerLogic;
+        const blob = new Blob([blobContent], {type: 'application/javascript'});
+        
+        worker = new Worker(URL.createObjectURL(blob));
+
+        // 监听 Worker 消息
+        worker.onmessage = (e) => {
+            const d = e.data;
+            if(d.t === 'log') ui.log(d.msg);
+            else if(d.t === 'dl_prog') {
+                ui.setStep(2);
+                ui.els.modelProg.style.display = 'block';
+                const mb = (d.loaded / 1048576).toFixed(1);
+                // 估算进度 (35MB)
+                const pct = Math.min((d.loaded / 36000000)*100, 99);
+                ui.els.modelBar.style.width = `${pct}%`;
+                ui.els.modelTxt.innerText = `正在下载模型: ${mb} MB`;
+            }
+            else if(d.t === 'ready') {
+                ui.els.modelBar.style.width = '100%';
+                ui.els.modelTxt.innerText = "✅ 模型加载完成";
+                ui.log("系统就绪，可以上传文件了。", "log-ok");
+                ui.setStep(3);
+                ui.els.fileInput.disabled = false;
+                ui.els.dropArea.style.borderColor = 'var(--primary)';
+            }
+            else if(d.t === 'err') {
+                ui.log("❌ 错误: " + d.msg, "log-err");
+                if(d.msg.includes('fetch') || d.msg.includes('Network')) {
+                    alert("无法连接 Google 服务器。\n请确保你的 VPN 是【全局模式】。");
+                }
+            }
+            else if(d.t === 'done') {
+                ui.log("✅ 转换成功！", "log-ok");
+                ui.els.convertBtn.innerText = "⬇️ 下载 MIDI 文件";
+                ui.els.convertBtn.disabled = false;
+                ui.els.convertBtn.onclick = () => {
+                    const b = new Blob([d.midi], {type: 'audio/midi'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(b);
+                    a.download = "ai_transcription.mid";
+                    a.click();
+                };
+            }
+        };
+    }
+
+    // --- 启动流程 ---
+    window.onload = loadLibrary;
+
+    // --- 文件交互 ---
+    ui.els.fileInput.addEventListener('change', async (e) => {
+        const f = e.target.files[0];
+        if(!f) return;
+        
+        ui.els.dropArea.innerHTML = `📄 ${f.name}`;
+        ui.log(`正在解码音频: ${f.name}...`);
+        
+        try {
+            const ab = await f.arrayBuffer();
+            selectedBuffer = await audioCtx.decodeAudioData(ab);
+            ui.log(`解码成功 (${selectedBuffer.duration.toFixed(1)}s)`, "log-ok");
+            ui.els.convertBtn.style.display = 'block';
+        } catch(err) {
+            ui.log("❌ 音频解码失败，文件可能损坏。", "log-err");
+        }
+    });
+
+    ui.els.convertBtn.addEventListener('click', () => {
+        if(!selectedBuffer) return;
+        ui.els.convertBtn.disabled = true;
+        ui.els.convertBtn.innerText = "AI 正在思考中...";
+        ui.log("发送音频数据到 Worker...", "log-warn");
+        
+        const data = selectedBuffer.getChannelData(0);
+        worker.postMessage({t: 'run', d: data, s: selectedBuffer.sampleRate}, [data.buffer]);
+    });
+
+</script>
+</body>
+</html>
