@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🃏 斗小主 - 本地双人对战</title>
+    <style>
+        /* CSS 样式 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #388e3c; /* 扑克桌绿色 */
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #game-board {
+            width: 90%;
+            max-width: 1000px;
+            background-color: #1b5e20;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* UI 区域 */
+        #status-area {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #00000030;
+            border-radius: 8px;
+        }
+        
+        #current-play-area {
+            height: 100px;
+            border: 2px dashed #a5d6a7;
+            margin: 15px 0;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2em;
+            background-color: #00000050;
+        }
+
+        .player-area {
+            margin-top: 30px;
+            padding: 10px;
+            border-top: 1px solid #a5d6a7;
+        }
+        
+        .hand-container {
+            min-height: 80px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+        }
+        
+        .card {
+            width: 50px;
+            height: 75px;
+            border: 1px solid #000;
+            border-radius: 5px;
+            background-color: #fff;
+            color: #212121;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        
+        .card.selected {
+            transform: translateY(-15px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.5);
+            border: 2px solid #ffeb3b; /* 选中颜色 */
+        }
+        
+        .card.is-landlord {
+            box-shadow: 0 0 10px 3px gold;
+        }
+
+        .red-suit { color: red; }
+        .black-suit { color: black; }
+
+        .controls {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        
+        #play-btn {
+            background-color: #4caf50; /* 绿色 */
+            color: white;
+        }
+        
+        #pass-btn {
+            background-color: #ff9800; /* 橙色 */
+            color: white;
+        }
+        
+        #restart-btn {
+            background-color: #f44336; /* 红色 */
+            color: white;
+        }
+
+        #play-btn:disabled, #pass-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 浮动提示 */
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            color: #333;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            font-size: 1.5em;
+            display: none; /* 初始隐藏 */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-board">
+        <div id="status-area">
+            <h2>🃏 斗小主 (本地双人对战)</h2>
+            <p id="game-status">点击 **开始新游戏** 开始</p>
+            <button id="restart-btn" class="btn" onclick="initGame()">开始新游戏</button>
+        </div>
+
+        <div id="current-play-area">
+            <p id="current-play-status">上家出牌区</p>
+        </div>
+        
+        <div id="player1-area" class="player-area">
+            <h3 id="player1-info">玩家1 (农民) - 剩余: 27张</h3>
+            <div id="player1-hand" class="hand-container">
+                </div>
+            <div class="controls">
+                </div>
+        </div>
+
+        <div id="player2-area" class="player-area">
+            <h3 id="player2-info">玩家2 (地主) - 剩余: 27张</h3>
+            <div id="player2-hand" class="hand-container">
+                </div>
+            <div class="controls">
+                <button id="play-btn" class="btn" disabled>出牌</button>
+                <button id="pass-btn" class="btn" disabled>不要</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="message-box"></div>
+
+    <script>
+        // JavaScript 逻辑
+
+        // --- 核心数据结构 ---
+        const CARDS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2', 'S', 'B']; // S: 小王, B: 大王
+        const CARD_VALUES = {
+            '3': 1, '4': 2, '5': 3, '6': 4, '7': 5, '8': 6, '9': 7, '10': 8,
+            'J': 9, 'Q': 10, 'K': 11, 'A': 12, '2': 13, 'S': 14, 'B': 15
+        };
+        const CARD_SUITS = ['♠', '♥', '♣', '♦']; // 仅用于UI显示，不参与比较
+        
+        let gameActive = false;
+        let players = [
+            { id: 1, hand: [], role: '农民', isLandlord: false, handElement: document.getElementById('player1-hand'), infoElement: document.getElementById('player1-info') },
+            { id: 2, hand: [], role: '农民', isLandlord: false, handElement: document.getElementById('player2-hand'), infoElement: document.getElementById('player2-info') }
+        ];
+        let currentPlayerIndex = 0; // 当前行动玩家索引 (0或1)
+        let lastPlayedCards = [];   // 上家出的牌
+        let lastPlayerIndex = -1;  // 最后出牌的玩家索引
+        let turnsSinceLastPlay = 0; // 连续“不要”的次数
+
+        // --- 工具函数 ---
+
+        /**
+         * 洗牌函数 (Fisher-Yates)
+         * @returns {string[]} 54张牌的数组
+         */
+        function createAndShuffleDeck() {
+            let deck = [];
+            // 52张主牌
+            for (let value of CARDS.slice(0, 13)) {
+                for (let suit of CARD_SUITS) {
+                    deck.push(value); // 简化，牌值相同，花色只用于显示
+                }
+            }
+            // 大小王 (S: 小王, B: 大王)
+            deck.push('S', 'B');
+            
+            // 洗牌
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+            return deck;
+        }
+
+        /**
+         * 牌值排序函数
+         * @param {string[]} hand 
+         * @returns {string[]} 
+         */
+        function sortHand(hand) {
+            return hand.slice().sort((a, b) => CARD_VALUES[a] - CARD_VALUES[b]);
+        }
+
+        /**
+         * 获取牌的文字和颜色
+         * @param {string} cardValue 
+         * @returns {{text: string, color: string}}
+         */
+        function getCardDisplay(cardValue) {
+            let text = cardValue;
+            let color = 'black-suit';
+            let suit = CARD_SUITS[Math.floor(Math.random() * 4)]; // 随机花色，仅为美观
+
+            if (cardValue === 'S') {
+                text = '小王';
+                color = 'red-suit';
+            } else if (cardValue === 'B') {
+                text = '大王';
+                color = 'red-suit';
+            } else if (['A', '2', 'K', 'Q', 'J', '10'].includes(cardValue)) {
+                // 只是为了让部分牌变红，模拟花色
+                if (Math.random() > 0.5) {
+                    color = 'red-suit';
+                    suit = '♥'; // 强制红心或方块
+                } else {
+                    suit = '♠';
+                }
+            }
+            
+            return {
+                text: `${text}<br><span style="font-size:0.5em">${suit}</span>`,
+                color: color
+            };
+        }
+
+        // --- 游戏逻辑核心 ---
+
+        /**
+         * 牌型验证和比较函数
+         * @param {string[]} cards 
+         * @returns {{type: string, value: number, count: number}|null} 牌型对象或null
+         */
+        function analyzeCards(cards) {
+            const count = cards.length;
+            if (count === 0) return null;
+
+            // 1. 王炸 (2张: S, B)
+            if (count === 2 && cards.includes('S') && cards.includes('B')) {
+                return { type: 'WangZha', value: 100, count: 2 }; // 最高值
+            }
+
+            // 对牌进行计数统计
+            const valueCounts = {};
+            for (const card of cards) {
+                valueCounts[card] = (valueCounts[card] || 0) + 1;
+            }
+            const uniqueValues = Object.keys(valueCounts);
+            
+            // 2. 炸弹 (4张: 四张相同)
+            if (count === 4 && uniqueValues.length === 1) {
+                const value = CARD_VALUES[uniqueValues[0]];
+                return { type: 'ZhaDan', value: value + 50, count: 4 }; // 比单牌高50
+            }
+
+            // 3. 单张, 对子, 三张 (1, 2, 3张相同)
+            if (uniqueValues.length === 1) {
+                const value = CARD_VALUES[uniqueValues[0]];
+                if (count === 1) return { type: 'Single', value: value, count: 1 };
+                if (count === 2) return { type: 'Pair', value: value, count: 2 };
+                if (count === 3) return { type: 'Triple', value: value, count: 3 };
+            }
+
+            // 不支持的牌型
+            return { type: 'Invalid', value: 0, count: count };
+        }
+
+        /**
+         * 比较两组牌的大小 (简化逻辑)
+         * @param {string[]} newCards 
+         * @param {string[]} lastCards 
+         * @returns {boolean} true: newCards更大, false: newCards不能压制
+         */
+        function canPlay(newCards, lastCards) {
+            if (lastCards.length === 0) return true; // 自由出牌
+
+            const newType = analyzeCards(newCards);
+            const lastType = analyzeCards(lastCards);
+
+            if (!newType || newType.type === 'Invalid') return false; // 新牌无效
+            if (!lastType || lastType.type === 'Invalid') { // 上家牌无效，理论上不该发生
+                 showPopupMessage("系统错误: 上家牌型无效");
+                 return true;
+            }
+
+            // 1. 王炸无敌
+            if (newType.type === 'WangZha') return true;
+
+            // 2. 炸弹压非炸弹
+            if (newType.type === 'ZhaDan' && lastType.type !== 'ZhaDan' && lastType.type !== 'WangZha') return true;
+
+            // 3. 同类型比较
+            if (newType.type === lastType.type) {
+                if (newType.count === lastType.count) {
+                    // 同牌型，比大小
+                    return newType.value > lastType.value;
+                }
+            }
+            
+            // 4. 炸弹压炸弹 (比值)
+            if (newType.type === 'ZhaDan' && lastType.type === 'ZhaDan') {
+                return newType.value > lastType.value;
+            }
+
+            // 5. 任何非炸弹/王炸不能压制炸弹/王炸
+            if (lastType.type === 'ZhaDan' || lastType.type === 'WangZha') {
+                return false;
+            }
+
+            // 6. 牌型不匹配，且不是炸弹/王炸
+            return false;
+        }
+
+        // --- UI 和事件处理 ---
+
+        /**
+         * 渲染手牌
+         * @param {object} player 
+         */
+        function renderHand(player) {
+            player.handElement.innerHTML = '';
+            const sortedHand = sortHand(player.hand);
+            
+            sortedHand.forEach((cardValue) => {
+                const cardDiv = document.createElement('div');
+                const display = getCardDisplay(cardValue);
+                cardDiv.className = `card ${display.color} ${player.isLandlord ? 'is-landlord' : ''}`;
+                cardDiv.innerHTML = display.text;
+                cardDiv.dataset.value = cardValue;
+                cardDiv.onclick = () => selectCard(player.id, cardDiv);
+                
+                player.handElement.appendChild(cardDiv);
+            });
+            
+            // 更新信息
+            player.infoElement.textContent = `玩家${player.id} (${player.role}) - 剩余: ${player.hand.length}张`;
+        }
+        
+        /**
+         * 选择/取消选择一张手牌
+         * @param {number} playerId 
+         * @param {HTMLElement} cardElement 
+         */
+        function selectCard(playerId, cardElement) {
+            if (!gameActive || playerId !== players[currentPlayerIndex].id) return; // 只能操作当前玩家的手牌
+
+            cardElement.classList.toggle('selected');
+            updateControlButtons();
+        }
+
+        /**
+         * 更新控制按钮状态
+         */
+        function updateControlButtons() {
+            const currentPlayer = players[currentPlayerIndex];
+            const selectedCards = Array.from(currentPlayer.handElement.querySelectorAll('.card.selected')).map(c => c.dataset.value);
+            const playButton = document.getElementById('play-btn');
+            const passButton = document.getElementById('pass-btn');
+            
+            const isFirstPlay = lastPlayedCards.length === 0 || lastPlayerIndex === currentPlayerIndex;
+            const isValidSelection = analyzeCards(selectedCards) && analyzeCards(selectedCards).type !== 'Invalid';
+            
+            // 按钮启用/禁用逻辑
+            if (isFirstPlay) {
+                // 自由出牌，只要选中牌型有效就可以出
+                playButton.disabled = !isValidSelection;
+                passButton.disabled = true; // 自由出牌不能“不要”
+            } else {
+                // 压牌，只要选中牌型有效就可以尝试出
+                playButton.disabled = !isValidSelection;
+                passButton.disabled = false;
+            }
+        }
+
+        /**
+         * 执行出牌操作
+         */
+        function playCards() {
+            const currentPlayer = players[currentPlayerIndex];
+            const selectedElements = Array.from(currentPlayer.handElement.querySelectorAll('.card.selected'));
+            const cardsToPlay = selectedElements.map(c => c.dataset.value);
+            
+            const isFirstPlay = lastPlayedCards.length === 0 || lastPlayerIndex === currentPlayerIndex;
+
+            if (!isFirstPlay && !canPlay(cardsToPlay, lastPlayedCards)) {
+                showPopupMessage("牌型不能压制上家，请重新选择！", 'warning');
+                return;
+            }
+
+            if (analyzeCards(cardsToPlay).type === 'Invalid') {
+                 showPopupMessage("请选择有效的牌型！", 'warning');
+                 return;
+            }
+
+            // 1. 从手牌中移除
+            for (const card of cardsToPlay) {
+                const index = currentPlayer.hand.indexOf(card);
+                if (index > -1) {
+                    currentPlayer.hand.splice(index, 1);
+                }
+            }
+
+            // 2. 更新上家出牌信息
+            lastPlayedCards = cardsToPlay;
+            lastPlayerIndex = currentPlayerIndex;
+            turnsSinceLastPlay = 0;
+            updateCurrentPlayArea();
+            
+            // 3. 检查胜利
+            if (currentPlayer.hand.length === 0) {
+                endGame(currentPlayer);
+                return;
+            }
+
+            // 4. 渲染UI
+            renderHand(currentPlayer);
+            
+            // 5. 切换到下一玩家
+            switchTurn();
+        }
+
+        /**
+         * 执行“不要”操作
+         */
+        function passTurn() {
+            const isFirstPlay = lastPlayedCards.length === 0 || lastPlayerIndex === currentPlayerIndex;
+            if (isFirstPlay) {
+                showPopupMessage("第一手或接回出牌权时不能“不要”！", 'warning');
+                return;
+            }
+
+            turnsSinceLastPlay++;
+            
+            updateGameStatus(`玩家${players[currentPlayerIndex].id} 选择不要`);
+
+            // 如果连续两人都不要，则出牌权归最后出牌的玩家
+            if (turnsSinceLastPlay >= 2) {
+                turnsSinceLastPlay = 0;
+                lastPlayedCards = []; // 清空上家牌
+                
+                // 出牌权归上家 (lastPlayerIndex)
+                currentPlayerIndex = lastPlayerIndex;
+                updateCurrentPlayArea(); // 清空上家牌的显示
+                
+                showPopupMessage(`一轮结束！出牌权回到玩家${players[currentPlayerIndex].id}`);
+            } else {
+                // 否则切换到下一玩家
+                switchTurn(false);
+            }
+        }
+
+        /**
+         * 切换到下一玩家的回合
+         * @param {boolean} changeLastPlayer 是否重置上家出牌信息（默认true，出牌后重置）
+         */
+        function switchTurn(resetLastPlay = true) {
+            currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+            
+            // 如果是新的一轮 (两人都不要)，则不重置lastPlayedCards
+            if (resetLastPlay) {
+                 // 必须先清空选择状态
+                 document.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
+            }
+
+            updateGameStatus(`轮到 玩家${players[currentPlayerIndex].id} (${players[currentPlayerIndex].role})`);
+            updateControlButtons();
+            
+            // 禁用不属于当前玩家区域的按钮，激活当前玩家区域的按钮
+            document.getElementById('play-btn').parentNode.innerHTML = '';
+            
+            const currentControls = document.createElement('div');
+            currentControls.className = 'controls';
+            currentControls.innerHTML = `
+                <button id="play-btn" class="btn" onclick="playCards()" disabled>出牌</button>
+                <button id="pass-btn" class="btn" onclick="passTurn()" disabled>不要</button>
+            `;
+            players[currentPlayerIndex].handElement.parentNode.querySelector('.controls').appendChild(currentControls);
+            updateControlButtons();
+        }
+
+        /**
+         * 更新游戏状态信息
+         * @param {string} message 
+         */
+        function updateGameStatus(message) {
+            document.getElementById('game-status').textContent = message;
+        }
+
+        /**
+         * 更新上家出牌区域显示
+         */
+        function updateCurrentPlayArea() {
+            const area = document.getElementById('current-play-area');
+            if (lastPlayedCards.length === 0) {
+                area.innerHTML = '<p id="current-play-status">自由出牌</p>';
+                area.style.border = '2px dashed #ffeb3b';
+                return;
+            }
+
+            const player = players[lastPlayerIndex];
+            const info = `上家 (玩家${player.id} - ${player.role}) 出牌:`;
+            
+            area.innerHTML = `<p>${info}</p><div class="hand-container"></div>`;
+            const handContainer = area.querySelector('.hand-container');
+            
+            lastPlayedCards.forEach(cardValue => {
+                const cardDiv = document.createElement('div');
+                const display = getCardDisplay(cardValue);
+                cardDiv.className = `card small ${display.color}`;
+                cardDiv.innerHTML = display.text;
+                cardDiv.style.width = '40px';
+                cardDiv.style.height = '60px';
+                cardDiv.style.fontSize = '0.8em';
+                handContainer.appendChild(cardDiv);
+            });
+            area.style.border = '2px solid #a5d6a7';
+        }
+
+        /**
+         * 弹出消息提示
+         * @param {string} message 
+         * @param {string} type 
+         */
+        function showPopupMessage(message, type = 'info') {
+            const box = document.getElementById('message-box');
+            box.textContent = message;
+            box.style.backgroundColor = type === 'warning' ? '#f44336' : '#fff';
+            box.style.color = type === 'warning' ? '#fff' : '#333';
+            box.style.display = 'block';
+            setTimeout(() => {
+                box.style.display = 'none';
+            }, 1500);
+        }
+
+
+        // --- 初始化和结束 ---
+
+        /**
+         * 游戏初始化函数
+         */
+        function initGame() {
+            gameActive = true;
+            const deck = createAndShuffleDeck();
+            
+            // 1. 发牌 (27张/人)
+            players[0].hand = deck.slice(0, 27);
+            players[1].hand = deck.slice(27, 54);
+
+            // 2. 随机确定地主
+            const landlordIndex = Math.floor(Math.random() * 2);
+            players[landlordIndex].role = '地主';
+            players[landlordIndex].isLandlord = true;
+            players[1 - landlordIndex].role = '农民';
+            players[1 - landlordIndex].isLandlord = false;
+            
+            // 3. 确定先手 (地主先出)
+            currentPlayerIndex = landlordIndex;
+            lastPlayedCards = [];
+            lastPlayerIndex = -1;
+            turnsSinceLastPlay = 0;
+            
+            // 4. 渲染UI
+            renderHand(players[0]);
+            renderHand(players[1]);
+            updateCurrentPlayArea();
+            
+            // 5. 设置初始状态和回合
+            updateGameStatus(`游戏开始！玩家${players[landlordIndex].id} (地主) 先出牌`);
+            switchTurn(true);
+            
+            showPopupMessage(`玩家${players[landlordIndex].id} 是地主，请开始游戏！`);
+        }
+
+        /**
+         * 游戏结束
+         * @param {object} winner 
+         */
+        function endGame(winner) {
+            gameActive = false;
+            updateGameStatus(`🎉 游戏结束！${winner.role} 玩家${winner.id} 获胜！`);
+            showPopupMessage(`${winner.role} 玩家${winner.id} 获胜！`, 'info');
+            
+            // 禁用按钮
+            document.getElementById('play-btn').disabled = true;
+            document.getElementById('pass-btn').disabled = true;
+            
+            // 重新渲染UI，高亮赢家
+            players.forEach(p => {
+                p.handElement.querySelectorAll('.card').forEach(c => c.onclick = null);
+            });
+        }
+        
+        // 绑定事件监听器 (初始按钮的绑定在HTML中)
+        document.addEventListener('DOMContentLoaded', () => {
+             // 初始时不执行 initGame，等待用户点击
+        });
+    </script>
+
+</body>
+</html>
