@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高精度MP3转MIDI工具</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .input-group { margin: 15px 0; }
+        input, button { padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        #progress { margin: 10px 0; height: 20px; background: #eee; border-radius: 10px; display: none; }
+
+        #progress-bar { height: 100%; background: #028a74; border-radius: 10px; width: 0; }
+
+        #result { margin-top: 20px; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MP3转MIDI工具（高精度版）</h1>
+        
+        <div class="input-group">
+            <label>选择MP3文件：</label>
+            <input type="file" id="mp3File" accept=".mp3" required>
+        </div>
+
+        <div class="input-group">
+            <label>检测灵敏度：</label>
+            <input type="range" id="sensitivity" min="0.1" max="0.9" step="0.1" value="0.5">
+            <span id="sensitivityVal">0.5</span>
+        </div>
+
+        <button id="convertBtn" disabled>开始转换</button>
+        <div id="progress">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="result"></div>
+    </div>
+
+    <!-- 引入依赖库 -->
+    <script src="https://cdn.jsdelivr.net/npm/aubiojs@1.0.3/dist/aubio.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/midi-writer-js@1.1.4/dist/midi-writer.min.js"></script>
+
+    <script>
+        const mp3File = document.getElementById('mp3File');
+        const convertBtn = document.getElementById('convertBtn');
+        const progress = document.getElementById('progress');
+        const progressBar = document.getElementById('progress-bar');
+        const sensitivityInput = document.getElementById('sensitivity');
+        const sensitivityVal = document.getElementById('sensitivityVal');
+
+        // 初始化参数显示
+        sensitivityInput.addEventListener('input', (e) => {
+            sensitivityVal.textContent = e.target.value;
+        });
+
+        // 当文件选择后启用转换按钮
+        mp3File.addEventListener('change', () => {
+            convertBtn.disabled = !mp3File.files.length;
+        });
+
+        // 转换主逻辑
+        convertBtn.addEventListener('click', async () => {
+            try {
+                const file = mp3File.files[0];
+                if (!file) throw new Error("请选择MP3文件");
+
+                // 显示进度条
+                progress.style.display = 'block';
+                progressBar.style.width = '0%';
+                convertBtn.disabled = true;
+
+                // 步骤1：读取并解码MP3音频
+                const audioContext = new AudioContext();
+                const audioBuffer = await decodeAudio(file, audioContext);
+                const sampleRate = audioBuffer.sampleRate;
+                const channelData = audioBuffer.getChannelData(0); // 取左声道（单声道）
+
+                // 步骤2：初始化Aubio音频分析器（音高检测+ onset检测）
+                const aubio = await Aubio(); // 加载WebAssembly模块
+                const pitchDetector = new aubio.Pitch(
+                    'yin',       // 音高检测算法（YIN精度较高）
+                    1024,        // 窗口大小（影响时间分辨率）
+                    512,         // hop大小（每512采样处理一次）
+                    sampleRate,
+                    60,          // 最小音高（C3）
+                    100          // 最大音高（C6）
+                );
+                const onsetDetector = new aubio.Onset(
+                    'energy',    // onset检测算法（基于能量变化）
+                    1024, 
+                    512, 
+                    sampleRate
+                );
+                onsetDetector.setThreshold(parseFloat(sensitivityInput.value)); // 灵敏度参数
+
+                // 步骤3：逐帧分析音频，提取音符事件
+                const notes = [];
+                const totalFrames = Math.ceil(channelData.length / 512);
+                let lastOnsetTime = -Infinity;
+                let currentNote = null;
+
+                for (let i = 0; i < totalFrames; i++) {
+                    // 更新进度
+                    progressBar.style.width = `${(i / totalFrames) * 100}%`;
+                    
+                    // 提取当前帧音频数据
+                    const frame = channelData.slice(i*512, (i+1)*512);
+                    const aubioFrame = new aubio.Float32Array(frame);
+
+                    // 检测onset（音符起始）
+                    const onset = onsetDetector.do(aubioFrame);
+                    if (onset > 0) {
+                        const onsetTime = (i * 512) / sampleRate;
+                        if (onsetTime - lastOnsetTime > 0.05) { // 避免连续触发（50ms间隔）
+                            lastOnsetTime = onsetTime;
+                            if (currentNote) {
+                                // 结束上一个音符
+                                currentNote.endTime = onsetTime;
+                                notes.push(currentNote);
+                            }
+                            // 开始新音符（需检测音高）
+                            const pitch = pitchDetector.do(aubioFrame)[0];
+                            if (pitch > 0) { // 有效音高
+                                currentNote = {
+                                    midiNote: Math.round(12 * (Math.log2(pitch / 440) + 4.75)), // 频率转MIDI编号（A4=440Hz=69）
+                                    startTime: onsetTime,
+                                    velocity: Math.min(127, Math.round(onset * 100)) // 力度（基于onset强度）
+                                };
+                            }
+                        }
+                    }
+                }
+
+                // 处理最后一个未结束的音符
+                if (currentNote) {
+                    currentNote.endTime = (channelData.length / sampleRate);
+                    notes.push(currentNote);
+                }
+
+                // 步骤4：生成MIDI文件
+                const track = new MIDIWriter.Track();
+                notes.forEach(note => {
+                    track.addEvent(new MIDIWriter.NoteOn({
+                        pitch: [MIDIWriter.NoteNumberToNoteName(note.midiNote)],
+                        velocity: note.velocity,
+                        ticks: Math.round(note.startTime * 480) // MIDI的PPQ=480（每四分音符480tick）
+                    }));
+                    track.addEvent(new MIDIWriter.NoteOff({
+                        pitch: [MIDIWriter.NoteNumberToNoteName(note.midiNote)],
+                        ticks: Math.round((note.endTime - note.startTime) * 480)
+                    }));
+                });
+
+                const writer = new MIDIWriter.Writer([track]);
+                const midiBlob = new Blob([writer.buildFile()], { type: 'audio/midi' });
+                const downloadUrl = URL.createObjectURL(midiBlob);
+
+                // 显示下载链接
+                const resultHtml = `
+                    <p>转换完成!检测到 ${notes.length} 个音符</p>
+                    <a href="${downloadUrl}" download="converted.midi" class="btn">下载MIDI文件</a>
+                `;
+                document.getElementById('result').innerHTML = resultHtml;
+
+            } catch (error) {
+                alert(`转换失败：${error.message}`);
+                console.error(error);
+            } finally {
+                convertBtn.disabled = false;
+                progress.style.display = 'none';
+            }
+        });
+
+        // 辅助函数：解码MP3文件为AudioBuffer
+        async function decodeAudio(file, audioContext) {
+            const arrayBuffer = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsArrayBuffer(file);
+            });
+            return await audioContext.decodeAudioData(arrayBuffer);
+        }
+    </script>
+</body>
+</html>
