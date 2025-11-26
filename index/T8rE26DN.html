@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GPU 极限算力测试 - 毁灭级 v3.0</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Microsoft YaHei', sans-serif; color: white; user-select: none; }
+        canvas { display: block; }
+        
+        /* UI Overlay */
+        #ui-layer, #result-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 10;
+            transition: opacity 0.5s;
+            backdrop-filter: blur(10px);
+        }
+
+        #result-layer { display: none; }
+        
+        h1 { 
+            font-size: 3rem; margin: 0 0 10px 0; text-transform: uppercase; text-align: center;
+            background: linear-gradient(135deg, #ff0055, #ffcc00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 50px rgba(255, 0, 85, 0.4);
+            letter-spacing: 2px;
+        }
+        
+        .subtitle { color: #888; margin-bottom: 40px; font-size: 1rem; text-align: center; max-width: 600px; line-height: 1.6; }
+        
+        .control-group { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .control-row { display: flex; gap: 20px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; justify-content: center; }
+        
+        label { color: #aaa; font-size: 0.85rem; display: block; margin-bottom: 8px; font-weight: bold; }
+
+        select {
+            padding: 12px 20px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            font-size: 1rem;
+            border-radius: 6px;
+            outline: none;
+            width: 260px; /* 加宽以容纳更长的文字 */
+            transition: 0.3s;
+        }
+        select:hover { border-color: #ff0055; }
+
+        .btn-start {
+            padding: 18px 80px;
+            font-size: 1.5rem;
+            background: linear-gradient(90deg, #ff0055, #ff5500);
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 800;
+            letter-spacing: 2px;
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+        .btn-start:active { transform: scale(0.95); }
+        
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 20px; left: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #333;
+            border-radius: 8px;
+            pointer-events: none;
+            display: none;
+            font-family: 'Courier New', monospace;
+            min-width: 200px;
+        }
+        .hud-row { display: flex; justify-content: space-between; margin: 5px 0; color: #ccc; font-size: 0.9rem; }
+        .hud-val { color: #fff; font-weight: bold; }
+        .highlight { color: #ff0055; }
+        .warning-text { color: #ff3333; font-weight: bold; animation: blink 1s infinite; }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* Progress Bar */
+        #progress-container {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 6px; background: #222; display: none;
+        }
+        #progress-bar { width: 0%; height: 100%; background: #ff0055; transition: width 0.1s linear; }
+
+        /* Results */
+        .score-big { font-size: 5rem; font-weight: 900; color: #ff0055; text-shadow: 0 0 40px rgba(255,0,85,0.5); margin: 20px 0; }
+        .score-detail { display: flex; gap: 40px; margin-bottom: 30px; }
+        .detail-item { text-align: center; }
+        .detail-label { color: #888; font-size: 0.9rem; }
+        .detail-val { font-size: 1.5rem; font-weight: bold; margin-top: 5px; }
+        .btn-restart { padding: 12px 40px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        .btn-restart:hover { background: #444; }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .control-row { flex-direction: column; gap: 10px; }
+            select { width: 100%; }
+        }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>GPU 算力毁灭测试</h1>
+        <p class="subtitle">警告：【毁灭级】模式可能会导致显卡驱动重置、浏览器崩溃或系统严重卡顿。请确保已保存其他工作。</p>
+        
+        <div class="control-group">
+            <div class="control-row">
+                <div>
+                    <label>测试核心</label>
+                    <select id="test-mode">
+                        <option value="raster">多边形吞吐 (Vertex/Raster)</option>
+                        <option value="raytracing">光线追踪 (Compute/ALU)</option>
+                    </select>
+                </div>
+                
+                <div id="stress-options">
+                    <label>压力负载</label>
+                    <select id="stress-level">
+                        <option value="1">困难 (100万 实例, 简单几何)</option>
+                        <option value="2">极高 (250万 实例, 简单几何)</option>
+                        <option value="3" selected>地狱 (200万 实例, 高面数球体)</option>
+                        <option value="4">☢️ 毁灭 (400万 实例, 高面数球体)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <button id="start-btn" class="btn-start">开始 15秒 测试</button>
+            </div>
+        </div>
+        <p style="color: #444; margin-top: 20px; font-size: 0.8rem;">Build v3.0 - Super Heavy Stress</p>
+    </div>
+
+    <div id="result-layer">
+        <h1>测试完成</h1>
+        <div class="score-big" id="final-score">0</div>
+        <div class="score-detail">
+            <div class="detail-item">
+                <div class="detail-label">平均 FPS</div>
+                <div class="detail-val" id="res-fps">0</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">最低 FPS (1%)</div>
+                <div class="detail-val" id="res-min">0</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">总帧数</div>
+                <div class="detail-val" id="res-frames">0</div>
+            </div>
+        </div>
+        <div style="color:#aaa; margin-bottom:20px;" id="res-gpu">GPU Model</div>
+        <button class="btn-restart" onclick="location.reload()">重新测试</button>
+    </div>
+
+    <div id="hud">
+        <div class="hud-row"><span>FPS</span> <span id="fps-val" class="hud-val highlight">0</span></div>
+        <div class="hud-row"><span>Time</span> <span id="time-val" class="hud-val">0s</span></div>
+        <div class="hud-row"><span>Obj/Samp</span> <span id="load-val" class="hud-val">--</span></div>
+        <div class="hud-row" style="margin-top:10px; border-top:1px solid #444; padding-top:5px;">
+            <span id="gpu-name" style="font-size:0.7rem; color:#888;">Detecting...</span>
+        </div>
+        <div id="warning-msg" class="hud-row warning-text" style="display:none; justify-content:center; margin-top:10px;">
+            GPU 负载过载
+        </div>
+    </div>
+
+    <div id="progress-container"><div id="progress-bar"></div></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- Configuration ---
+        const TEST_DURATION_MS = 15000;
+        
+        // --- State ---
+        let camera, scene, renderer;
+        let isRunning = false;
+        let startTime = 0;
+        let frameCount = 0;
+        let framesArray = []; 
+        let mode = 'raster';
+        let difficultyIndex = 1; // 1, 2, 3, 4
+        
+        // Stress Objects
+        let meshGroup; 
+        let rtMaterial; 
+
+        // UI Refs
+        const ui = document.getElementById('ui-layer');
+        const resultUi = document.getElementById('result-layer');
+        const hud = document.getElementById('hud');
+        const fpsElem = document.getElementById('fps-val');
+        const timeElem = document.getElementById('time-val');
+        const loadElem = document.getElementById('load-val');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const startBtn = document.getElementById('start-btn');
+        const modeSel = document.getElementById('test-mode');
+        const stressSel = document.getElementById('stress-level');
+        const warningMsg = document.getElementById('warning-msg');
+
+        let lastFpsUpdate = 0;
+        let fpsFrameCount = 0;
+
+        // Dynamic Options
+        const rasterOptions = `
+            <option value="1">困难 (100万 实例, 简单)</option>
+            <option value="2">极高 (250万 实例, 简单)</option>
+            <option value="3" selected>地狱 (200万 实例, 高面数)</option>
+            <option value="4">☢️ 毁灭 (450万 实例, 高面数)</option>
+        `;
+        
+        const rtOptions = `
+            <option value="1">困难 (HD, 60 Samples)</option>
+            <option value="2">极高 (HD, 120 Samples)</option>
+            <option value="3" selected>地狱 (2K, 200 Samples)</option>
+            <option value="4">☢️ 奇点 (4K, 400 Samples)</option>
+        `;
+
+        modeSel.addEventListener('change', (e) => {
+            stressSel.innerHTML = e.target.value === 'raytracing' ? rtOptions : rasterOptions;
+        });
+
+        startBtn.addEventListener('click', () => {
+            mode = modeSel.value;
+            difficultyIndex = parseInt(stressSel.value);
+            
+            ui.style.opacity = '0';
+            setTimeout(() => { 
+                ui.style.display = 'none'; 
+                hud.style.display = 'block'; 
+                progressContainer.style.display = 'block';
+            }, 500);
+            
+            // Give browser a moment to render UI change before freezing
+            requestAnimationFrame(() => {
+                setTimeout(() => init(mode, difficultyIndex), 100);
+            });
+        });
+
+        function init(testMode, level) {
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: false, 
+                powerPreference: "high-performance",
+                precision: "highp",
+                depth: testMode === 'raster' // RT doesn't need depth buffer
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.autoClear = false; // Manual clear for control
+            document.body.appendChild(renderer.domElement);
+
+            scene = new THREE.Scene();
+
+            // Info
+            const gl = renderer.getContext();
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const rendererName = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "Unknown GPU";
+            const cleanName = rendererName.replace(/\[.*?\]/g, '').replace('ANGLE (', '').replace(')', '');
+            document.getElementById('gpu-name').innerText = cleanName;
+            document.getElementById('res-gpu').innerText = cleanName;
+
+            if (testMode === 'raster') {
+                initRaster(level);
+            } else {
+                initRayTracing(level);
+            }
+
+            isRunning = true;
+            startTime = performance.now();
+            lastFpsUpdate = startTime;
+            animate();
+        }
+
+        // ==========================================
+        // 模式 1: 光栅化 (Rasterization) - 毁灭级增强
+        // ==========================================
+        function initRaster(level) {
+            scene.background = new THREE.Color(0x020202);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.z = 250;
+
+            // 难度配置
+            // Level 1: 1M Tetra (4 verts)
+            // Level 2: 2.5M Tetra (4 verts)
+            // Level 3: 2M Icosahedron(detail=1) (42 verts!) -> Vertex Heavy
+            // Level 4: 4.5M Icosahedron(detail=1) -> God Killer
+            
+            let geometry;
+            let instanceCount;
+            let label;
+
+            if (level === 1) {
+                geometry = new THREE.TetrahedronGeometry(1, 0);
+                instanceCount = 1000000;
+                label = "1M Low-Poly";
+            } else if (level === 2) {
+                geometry = new THREE.TetrahedronGeometry(1, 0);
+                instanceCount = 2500000;
+                label = "2.5M Low-Poly";
+            } else if (level === 3) {
+                // Icosahedron with detail 1 has much more faces than Tetrahedron
+                geometry = new THREE.IcosahedronGeometry(0.8, 0); // 12 vertices, 20 faces
+                instanceCount = 2000000;
+                label = "2M High-Poly";
+            } else {
+                // Level 4: Extreme
+                geometry = new THREE.IcosahedronGeometry(0.8, 0); 
+                instanceCount = 4500000; // 4.5M * 20 faces = 90 Million Triangles potential
+                label = "4.5M High-Poly";
+            }
+
+            loadElem.innerText = label;
+
+            // 极其复杂的顶点着色器，强制 GPU 进行大量数学运算
+            // 之前的版本 math 太简单，现代 GPU SIMD 吞吐量大，需要增加 dependencies
+            const material = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    color: { value: new THREE.Color(0xff0055) }
+                },
+                vertexShader: `
+                    uniform float time;
+                    varying vec3 vNormal;
+                    varying vec3 vColor;
+                    
+                    void main() {
+                        vNormal = normal;
+                        vec3 pos = position;
+                        
+                        // 从矩阵中提取实例位置
+                        vec3 iPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+                        
+                        // === 增加数学负载 (Busy Work) ===
+                        // 强制 GPU 为每个顶点计算复杂的三角函数
+                        float dist = length(iPos);
+                        
+                        // 复合正弦波扭曲
+                        float wave1 = sin(dist * 0.05 - time * 1.5);
+                        float wave2 = cos(iPos.x * 0.1 + time);
+                        float wave3 = sin(iPos.y * 0.1 + iPos.z * 0.1);
+                        
+                        // 顶点位移 (Vertex Displacement)
+                        pos *= 1.0 + (wave1 * 0.5 + wave2 * 0.3) * 0.5;
+                        
+                        // 旋转变形 (即使是静态物体也要算)
+                        float ang = time * 0.5 + dist * 0.001;
+                        float s = sin(ang);
+                        float c = cos(ang);
+                        mat2 rot = mat2(c, -s, s, c);
+                        pos.xy = rot * pos.xy;
+                        
+                        // 应用实例矩阵
+                        vec4 worldPos = instanceMatrix * vec4(pos, 1.0);
+                        
+                        // 世界空间下的二次扭曲 (Post-transform distortion)
+                        worldPos.y += sin(worldPos.x * 0.05 + time) * 5.0;
+                        worldPos.z += cos(worldPos.y * 0.05 + time) * 5.0;
+
+                        // 颜色计算
+                        vColor = vec3(
+                            0.5 + 0.5 * sin(iPos.x * 0.01 + time + wave1), 
+                            0.5 + 0.5 * cos(iPos.y * 0.01 + time + wave2), 
+                            0.5 + 0.5 * sin(iPos.z * 0.01 + wave3)
+                        );
+
+                        gl_Position = projectionMatrix * viewMatrix * worldPos;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    varying vec3 vColor;
+                    void main() {
+                        // 简单的光照，保持压力在顶点端
+                        float light = dot(vNormal, normalize(vec3(1.0, 1.0, 1.0))) * 0.5 + 0.5;
+                        gl_FragColor = vec4(vColor * light, 1.0);
+                    }
+                `,
+                side: THREE.DoubleSide
+            });
+
+            try {
+                meshGroup = new THREE.InstancedMesh(geometry, material, instanceCount);
+            } catch (e) {
+                alert("显存不足，无法创建这么多实例，请降低难度。");
+                location.reload();
+                return;
+            }
+            
+            const dummy = new THREE.Object3D();
+            const spread = level === 4 ? 400 : 300; 
+
+            // 分布逻辑
+            for (let i = 0; i < instanceCount; i++) {
+                dummy.position.set(
+                    (Math.random() - 0.5) * spread,
+                    (Math.random() - 0.5) * spread,
+                    (Math.random() - 0.5) * spread
+                );
+                dummy.rotation.set(Math.random() * 3.14, Math.random() * 3.14, 0);
+                // 稍微放大一点让它们更容易重叠（增加 Overdraw 压力）
+                const s = Math.random() * 1.0 + 0.5;
+                dummy.scale.set(s,s,s);
+                dummy.updateMatrix();
+                meshGroup.setMatrixAt(i, dummy.matrix);
+            }
+            
+            meshGroup.instanceMatrix.needsUpdate = true;
+            meshGroup.frustumCulled = false; // 关键：禁用视锥剔除，让 GPU 必须处理所有数据
+            scene.add(meshGroup);
+        }
+
+        // ==========================================
+        // 模式 2: 光线追踪 (Compute) - 奇点模式
+        // ==========================================
+        function initRayTracing(level) {
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            
+            let samplesPerFrame = 60;
+            let label = "60 Samples";
+            
+            if (level === 2) { samplesPerFrame = 120; label = "120 Samples"; }
+            if (level === 3) { samplesPerFrame = 200; label = "200 Samples"; }
+            if (level === 4) { samplesPerFrame = 400; label = "400 Samples (Crazy)"; } // GPU Killer
+
+            loadElem.innerText = `${label}/frame`;
+
+            // 我们将在 Shader 中执行硬循环
+            const fragmentShader = `
+                precision highp float;
+                uniform float time;
+                uniform vec2 resolution;
+                uniform float stressLoops; 
+                
+                #define MAX_BOUNCES 6 
+                #define NUM_SPHERES 16
+                
+                // 更复杂的场景数据
+                vec4 spheres[NUM_SPHERES];
+                
+                void initScene() {
+                    spheres[0] = vec4(0.0, -1000.5, -1.0, 1000.0); // 地面
+                    spheres[1] = vec4(0.0, 0.0, -3.0, 1.2);        // 主球
+                    
+                    // 动态球体
+                    for(int i=2; i<NUM_SPHERES; i++) {
+                        float fi = float(i);
+                        float t = time * 0.5;
+                        // 复杂的运动轨迹计算
+                        float x = cos(t + fi) * (2.5 + sin(t*0.5)*1.0);
+                        float z = -3.0 + sin(t + fi) * (2.0 + cos(t*0.3)*1.0);
+                        float y = 0.5 + sin(t * 2.0 + fi * 13.0) * 0.4;
+                        spheres[i] = vec4(x, y, z, 0.25 + sin(fi)*0.1);
+                    }
+                }
+
+                // 随机数生成器 (Hash)
+                float seed;
+                float random() { 
+                    return fract(sin(seed++) * 43758.5453); 
+                }
+
+                // 射线求交
+                float intersect(vec3 ro, vec3 rd, out int id, out vec3 n) {
+                    float d = 1e30;
+                    id = -1;
+                    for(int i=0; i<NUM_SPHERES; i++) {
+                        vec3 oc = ro - spheres[i].xyz;
+                        float b = dot(oc, rd);
+                        float c = dot(oc, oc) - spheres[i].w * spheres[i].w;
+                        float h = b*b - c;
+                        if(h > 0.0) {
+                            float t = -b - sqrt(h);
+                            if(t > 0.001 && t < d) {
+                                d = t;
+                                id = i;
+                                n = (ro + t*rd - spheres[i].xyz) / spheres[i].w;
+                            }
+                        }
+                    }
+                    return d;
+                }
+
+                // 路径追踪核心
+                vec3 trace(vec3 ro, vec3 rd) {
+                    vec3 col = vec3(0.0);
+                    vec3 atten = vec3(1.0);
+                    
+                    for(int b=0; b<MAX_BOUNCES; b++) {
+                        int id;
+                        vec3 n;
+                        float t = intersect(ro, rd, id, n);
+                        
+                        if(id == -1) {
+                            // 天空环境光
+                            float sun = pow(max(0.0, dot(rd, normalize(vec3(0.5, 0.8, 0.5)))), 32.0);
+                            col += atten * (vec3(0.05, 0.08, 0.15) + vec3(1.0, 0.9, 0.7)*sun);
+                            break;
+                        }
+                        
+                        vec3 p = ro + t * rd;
+                        
+                        // 材质计算
+                        vec3 albedo = vec3(0.7);
+                        if(id == 0) { // 地板棋盘格
+                            float chk = mod(floor(p.x)+floor(p.z), 2.0);
+                            albedo = vec3(0.1 + 0.1*chk);
+                            // 增加一些计算量：反射
+                            if(chk > 0.5) albedo += 0.1;
+                        } else if(id == 1) {
+                            albedo = vec3(0.9, 0.95, 1.0); // 镜面
+                        } else {
+                            // 随机颜色
+                            albedo = vec3(0.5 + 0.5*sin(float(id)*2.0), 
+                                          0.5 + 0.5*cos(float(id)*3.0), 
+                                          0.6);
+                        }
+                        
+                        // 自发光
+                        if(id > 10) {
+                             col += atten * vec3(2.0, 1.0, 0.5);
+                             break;
+                        }
+
+                        // 散射/反射逻辑
+                        if(id == 1 || (id == 0 && mod(floor(p.x)+floor(p.z), 2.0) > 0.5)) {
+                            // 镜面反射
+                            rd = reflect(rd, n);
+                            // 模糊反射 (增加随机计算)
+                            vec3 randDir = normalize(vec3(random()-0.5, random()-0.5, random()-0.5));
+                            rd = normalize(rd + randDir * 0.05);
+                        } else {
+                            // 漫反射
+                            vec3 randDir = normalize(vec3(random()-0.5, random()-0.5, random()-0.5));
+                            if(dot(randDir, n) < 0.0) randDir = -randDir;
+                            rd = normalize(n + randDir);
+                        }
+                        ro = p;
+                        atten *= albedo;
+                    }
+                    return col;
+                }
+
+                void main() {
+                    // 初始化随机种子
+                    seed = gl_FragCoord.x * 123.45 + gl_FragCoord.y * 678.91 + time;
+                    initScene();
+                    
+                    vec2 uv = (gl_FragCoord.xy - 0.5 * resolution.xy) / resolution.y;
+                    vec3 tot = vec3(0.0);
+                    
+                    float loops = stressLoops;
+                    
+                    // === 显卡杀手循环 ===
+                    // 这里的循环次数直接决定 ALU 占用率
+                    for(float i=0.0; i<500.0; i++) { 
+                        if(i >= loops) break;
+                        
+                        // 抗锯齿抖动
+                        vec2 off = vec2(random()-0.5, random()-0.5) / resolution.y;
+                        
+                        vec3 ro = vec3(0.0, 2.0, 4.0);
+                        vec3 rd = normalize(vec3(uv + off, -1.5));
+                        
+                        // 摄像机微旋转
+                        float a = time * 0.1;
+                        float sa = sin(a); float ca = cos(a);
+                        mat3 rot = mat3(ca, 0, sa, 0, 1, 0, -sa, 0, ca);
+                        ro = rot * ro;
+                        rd = rot * rd;
+                        
+                        tot += trace(ro, rd);
+                    }
+                    
+                    tot /= loops;
+                    
+                    // ACES Tone Mapping (增加一点点算力)
+                    const float A = 2.51;
+                    const float B = 0.03;
+                    const float C = 2.43;
+                    const float D = 0.59;
+                    const float E = 0.14;
+                    tot = clamp((tot * (A * tot + B)) / (tot * (C * tot + D) + E), 0.0, 1.0);
+                    
+                    tot = pow(tot, vec3(0.4545)); // Gamma correction
+                    
+                    gl_FragColor = vec4(tot, 1.0);
+                }
+            `;
+
+            rtMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    resolution: { value: new THREE.Vector2(window.innerWidth * window.devicePixelRatio, window.innerHeight * window.devicePixelRatio) },
+                    stressLoops: { value: samplesPerFrame }
+                },
+                vertexShader: `void main() { gl_Position = vec4( position, 1.0 ); }`,
+                fragmentShader: fragmentShader
+            });
+
+            const plane = new THREE.PlaneGeometry(2, 2);
+            const mesh = new THREE.Mesh(plane, rtMaterial);
+            scene.add(mesh);
+        }
+
+        // ==========================================
+        // 主循环与逻辑
+        // ==========================================
+        let lastTime = 0;
+        
+        function animate() {
+            if(!isRunning) return;
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const elapsed = now - startTime;
+            
+            // Progress Bar
+            const progress = Math.min((elapsed / TEST_DURATION_MS) * 100, 100);
+            progressBar.style.width = `${progress}%`;
+            timeElem.innerText = `${((TEST_DURATION_MS - elapsed)/1000).toFixed(1)}s`;
+
+            if (elapsed >= TEST_DURATION_MS) {
+                finishTest();
+                return;
+            }
+
+            const dt = (now - lastTime) * 0.001;
+            lastTime = now;
+
+            if(mode === 'raster') {
+                renderer.clear(); // 手动清除
+                if(meshGroup) {
+                    meshGroup.material.uniforms.time.value = now * 0.001;
+                    meshGroup.rotation.y = now * 0.0001; // 缓慢旋转
+                }
+            } else {
+                if(rtMaterial) {
+                    rtMaterial.uniforms.time.value = now * 0.001;
+                }
+            }
+
+            renderer.render(scene, camera);
+
+            // FPS Calculation
+            frameCount++;
+            fpsFrameCount++;
+            
+            if (now - lastFpsUpdate >= 500) {
+                const currentFPS = Math.round((fpsFrameCount * 1000) / (now - lastFpsUpdate));
+                fpsElem.innerText = currentFPS;
+                
+                if(currentFPS < 15) {
+                    fpsElem.style.color = "#ff0000";
+                    warningMsg.style.display = 'flex';
+                } else {
+                    if(currentFPS < 30) fpsElem.style.color = "#ffaa00";
+                    else fpsElem.style.color = "#00ff55";
+                    warningMsg.style.display = 'none';
+                }
+                
+                framesArray.push(currentFPS);
+                fpsFrameCount = 0;
+                lastFpsUpdate = now;
+            }
+        }
+
+        function finishTest() {
+            isRunning = false;
+            hud.style.display = 'none';
+            progressContainer.style.display = 'none';
+            resultUi.style.display = 'flex';
+
+            const avgFps = framesArray.length > 0 ? (framesArray.reduce((a, b) => a + b, 0) / framesArray.length) : 0;
+            
+            framesArray.sort((a, b) => a - b);
+            const low1PercentIndex = Math.floor(framesArray.length * 0.01);
+            const low1Fps = framesArray[low1PercentIndex] || 0;
+
+            // 分数计算公式调整
+            const pixelCount = renderer.domElement.width * renderer.domElement.height;
+            const hdPixels = 1920 * 1080;
+            const resFactor = pixelCount / hdPixels; 
+            
+            // 难度系数 (非线性增加，奖励挑战高难度)
+            let diffMult = 1;
+            if (mode === 'raster') {
+                if (difficultyIndex === 1) diffMult = 1.0;
+                if (difficultyIndex === 2) diffMult = 2.5;
+                if (difficultyIndex === 3) diffMult = 5.0; // High Poly
+                if (difficultyIndex === 4) diffMult = 10.0; // God Mode
+            } else {
+                if (difficultyIndex === 1) diffMult = 1.0;
+                if (difficultyIndex === 2) diffMult = 2.2;
+                if (difficultyIndex === 3) diffMult = 4.5;
+                if (difficultyIndex === 4) diffMult = 9.0;
+            }
+
+            // 如果FPS太低，惩罚分数防止作弊般的低帧率得分
+            const performancePenalty = avgFps < 5 ? 0.8 : 1.0;
+
+            const baseScore = avgFps * resFactor * diffMult * 100 * performancePenalty;
+            
+            animateScore(Math.round(baseScore));
+            document.getElementById('res-fps').innerText = avgFps.toFixed(1);
+            document.getElementById('res-min').innerText = low1Fps.toFixed(1);
+            document.getElementById('res-frames').innerText = framesArray.length;
+        }
+
+        function animateScore(target) {
+            const el = document.getElementById('final-score');
+            let current = 0;
+            // 动画速度取决于分数大小
+            const step = Math.max(1, target / 60); 
+            const timer = setInterval(() => {
+                current += step;
+                if(current >= target) {
+                    current = target;
+                    clearInterval(timer);
+                }
+                el.innerText = Math.round(current);
+            }, 16);
+        }
+        
+        window.addEventListener('resize', () => {
+            if (!renderer) return;
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if(mode === 'raster') {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+            } else {
+                if(rtMaterial) rtMaterial.uniforms.resolution.value.set(
+                    window.innerWidth * window.devicePixelRatio, 
+                    window.innerHeight * window.devicePixelRatio
+                );
+            }
+        });
+
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"255700c0dafc4ce2a59849a3d94dd9b7","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
