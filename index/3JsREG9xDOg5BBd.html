@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网易云音乐API测试 - noja.naxid.top</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #d43c33 0%, #c62c2c 100%);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .api-url {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 15px;
+            word-break: break-all;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f8f8f8;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: #d43c33;
+            border-bottom-color: #d43c33;
+            background: white;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            color: #d43c33;
+        }
+        
+        .search-box {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px 0 0 8px;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .search-input:focus {
+            border-color: #d43c33;
+        }
+        
+        .search-btn {
+            background: #d43c33;
+            color: white;
+            border: none;
+            padding: 0 25px;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        
+        .search-btn:hover {
+            background: #c62c2c;
+        }
+        
+        .hot-types {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .type-btn {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .type-btn.active {
+            background: #d43c33;
+            color: white;
+        }
+        
+        .results {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .song-list, .playlist-grid, .album-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .song-item, .playlist-item, .album-item {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.3s;
+            border: 1px solid #eee;
+        }
+        
+        .song-item:hover, .playlist-item:hover, .album-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .song-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .song-main {
+            flex: 1;
+        }
+        
+        .song-name {
+            font-weight: 500;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .song-artist, .song-album {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .song-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 6px 12px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+        
+        .action-btn.primary {
+            background: #d43c33;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            background: #d0d0d0;
+        }
+        
+        .action-btn.primary:hover {
+            background: #c62c2c;
+        }
+        
+        .playlist-grid {
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        }
+        
+        .playlist-item {
+            text-align: center;
+        }
+        
+        .playlist-cover {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            object-fit: cover;
+        }
+        
+        .playlist-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+            font-size: 14px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .playlist-count {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .album-list {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+        
+        .album-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .album-cover {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+        
+        .album-info {
+            flex: 1;
+        }
+        
+        .album-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .album-artist {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .lyric-container {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-line;
+            line-height: 1.8;
+            font-size: 14px;
+            border: 1px solid #eee;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .error {
+            background: #ffeaea;
+            color: #d43c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .status-info {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .debug-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .playlist-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+            
+            .album-list {
+                grid-template-columns: 1fr;
+            }
+            
+            header {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                padding: 12px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>网易云音乐API测试</h1>
+            <div class="subtitle">测试 noja.naxid.top 部署的网易云音乐API接口</div>
+            <div class="api-url">API地址: https://noja.naxid.top</div>
+        </header>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="search">搜索测试</div>
+            <div class="tab" data-tab="hot">热门歌曲</div>
+            <div class="tab" data-tab="playlists">推荐歌单</div>
+            <div class="tab" data-tab="lyrics">歌词测试</div>
+            <div class="tab" data-tab="debug">调试信息</div>
+        </div>
+        
+        <div class="tab-content active" id="search-tab">
+            <div class="section">
+                <h2 class="section-title">搜索歌曲</h2>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="search-input" placeholder="输入歌曲名、歌手或专辑...">
+                    <button class="search-btn" id="search-btn">搜索</button>
+                </div>
+                <div class="status">
+                    <div class="status-info" id="search-status">输入关键词搜索歌曲</div>
+                </div>
+                <div class="results" id="search-results"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="hot-tab">
+            <div class="section">
+                <h2 class="section-title">热门歌曲</h2>
+                <div class="hot-types">
+                    <button class="type-btn active" data-type="new">新歌榜</button>
+                    <button class="type-btn" data-type="hot">热歌榜</button>
+                    <button class="type-btn" data-type="soar">飙升榜</button>
+                    <button class="type-btn" data-type="original">原创榜</button>
+                </div>
+                <div class="status">
+                    <div class="status-info" id="hot-status">选择榜单类型查看热门歌曲</div>
+                </div>
+                <div class="results">
+                    <div class="song-list" id="hot-results"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="playlists-tab">
+            <div class="section">
+                <h2 class="section-title">推荐歌单</h2>
+                <div class="status">
+                    <div class="status-info" id="playlists-status">加载中...</div>
+                </div>
+                <div class="results">
+                    <div class="playlist-grid" id="playlists-results"></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">歌单详情</h2>
+                <div class="status">
+                    <div class="status-info" id="playlist-detail-status">点击上方歌单查看详情</div>
+                </div>
+                <div class="results">
+                    <div class="song-list" id="playlist-detail-results"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="lyrics-tab">
+            <div class="section">
+                <h2 class="section-title">歌词测试</h2>
+                <div class="status">
+                    <div class="status-info" id="lyrics-status">搜索歌曲或点击歌曲的"查看歌词"按钮</div>
+                </div>
+                <div class="lyric-container" id="lyrics-results">
+                    歌词将显示在这里...
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="debug-tab">
+            <div class="section">
+                <h2 class="section-title">调试信息</h2>
+                <div class="status">
+                    <div class="status-info" id="debug-status">API调用日志和错误信息</div>
+                </div>
+                <div class="debug-info" id="debug-results">
+                    调试信息将显示在这里...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API基础URL
+        const API_BASE = 'https://noja.naxid.top';
+        
+        // 全局状态
+        const state = {
+            currentTab: 'search',
+            currentHotType: 'new',
+            currentPlaylistId: null,
+            debugLog: []
+        };
+        
+        // DOM元素
+        const elements = {
+            tabs: document.querySelectorAll('.tab'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            searchInput: document.getElementById('search-input'),
+            searchBtn: document.getElementById('search-btn'),
+            searchResults: document.getElementById('search-results'),
+            searchStatus: document.getElementById('search-status'),
+            hotTypes: document.querySelectorAll('.type-btn'),
+            hotResults: document.getElementById('hot-results'),
+            hotStatus: document.getElementById('hot-status'),
+            playlistsResults: document.getElementById('playlists-results'),
+            playlistsStatus: document.getElementById('playlists-status'),
+            playlistDetailResults: document.getElementById('playlist-detail-results'),
+            playlistDetailStatus: document.getElementById('playlist-detail-status'),
+            lyricsResults: document.getElementById('lyrics-results'),
+            lyricsStatus: document.getElementById('lyrics-status'),
+            debugResults: document.getElementById('debug-results'),
+            debugStatus: document.getElementById('debug-status')
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initEventListeners();
+            loadTopPlaylists();
+            addDebugLog('页面初始化完成');
+        });
+        
+        // 初始化事件监听
+        function initEventListeners() {
+            // 标签页切换
+            elements.tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                    
+                    // 如果是热门歌曲标签，加载默认榜单
+                    if (tabId === 'hot') {
+                        loadHotSongs(state.currentHotType);
+                    }
+                });
+            });
+            
+            // 热门榜单类型切换
+            elements.hotTypes.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const type = this.getAttribute('data-type');
+                    switchHotType(type);
+                    loadHotSongs(type);
+                });
+            });
+            
+            // 搜索功能
+            elements.searchBtn.addEventListener('click', performSearch);
+            elements.searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+        
+        // 切换标签页
+        function switchTab(tabId) {
+            // 更新活动标签
+            elements.tabs.forEach(tab => {
+                if (tab.getAttribute('data-tab') === tabId) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            // 更新活动内容
+            elements.tabContents.forEach(content => {
+                if (content.id === `${tabId}-tab`) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+            
+            state.currentTab = tabId;
+            addDebugLog(`切换到标签: ${tabId}`);
+        }
+        
+        // 切换热门榜单类型
+        function switchHotType(type) {
+            elements.hotTypes.forEach(btn => {
+                if (btn.getAttribute('data-type') === type) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            state.currentHotType = type;
+            addDebugLog(`切换到热门榜单类型: ${type}`);
+        }
+        
+        // 执行搜索
+        function performSearch() {
+            const keyword = elements.searchInput.value.trim();
+            if (!keyword) {
+                elements.searchStatus.textContent = '请输入搜索关键词';
+                addDebugLog('搜索失败: 关键词为空');
+                return;
+            }
+            
+            elements.searchStatus.textContent = '搜索中...';
+            elements.searchResults.innerHTML = '<div class="loading">搜索中...</div>';
+            
+            addDebugLog(`开始搜索: "${keyword}"`);
+            
+            // 直接调用网易云API进行搜索
+            searchNeteaseDirect(keyword);
+        }
+        
+        // 直接调用网易云API搜索
+        function searchNeteaseDirect(keyword) {
+            // 使用代理绕过CORS限制
+            const proxyUrl = 'https://api.allorigins.win/raw?url=';
+            const neteaseUrl = `https://music.163.com/api/search/get?s=${encodeURIComponent(keyword)}&type=1&limit=20&offset=0`;
+            
+            fetch(proxyUrl + encodeURIComponent(neteaseUrl))
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addDebugLog(`搜索API响应: ${JSON.stringify(data).substring(0, 500)}...`);
+                    
+                    if (data.code === 200 && data.result && data.result.songs) {
+                        displaySearchResults(data.result.songs);
+                        elements.searchStatus.textContent = `找到 ${data.result.songCount || data.result.songs.length} 首歌曲`;
+                        addDebugLog(`搜索成功: 找到 ${data.result.songs.length} 首歌曲`);
+                    } else {
+                        elements.searchResults.innerHTML = '<div class="empty">未找到相关歌曲</div>';
+                        elements.searchStatus.textContent = '未找到相关歌曲';
+                        addDebugLog(`搜索失败: API返回异常数据，code=${data.code}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('搜索出错:', error);
+                    elements.searchResults.innerHTML = `<div class="error">搜索失败: ${error.message}</div>`;
+                    elements.searchStatus.textContent = '搜索失败';
+                    addDebugLog(`搜索错误: ${error.message}`);
+                    
+                    // 尝试备用方案：使用你的API
+                    addDebugLog('尝试备用搜索方案...');
+                    searchUsingYourAPI(keyword);
+                });
+        }
+        
+        // 使用你的API进行搜索
+        function searchUsingYourAPI(keyword) {
+            fetch(`${API_BASE}/api/search?keyword=${encodeURIComponent(keyword)}&limit=20`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addDebugLog(`你的搜索API响应: ${JSON.stringify(data).substring(0, 500)}...`);
+                    
+                    if (data.success && data.result && data.result.songs) {
+                        displaySearchResults(data.result.songs);
+                        elements.searchStatus.textContent = `找到 ${data.result.songCount || data.result.songs.length} 首歌曲`;
+                        addDebugLog(`你的API搜索成功: 找到 ${data.result.songs.length} 首歌曲`);
+                    } else {
+                        elements.searchResults.innerHTML = '<div class="empty">未找到相关歌曲</div>';
+                        elements.searchStatus.textContent = '未找到相关歌曲';
+                        addDebugLog(`你的API搜索失败: 返回数据异常`);
+                    }
+                })
+                .catch(error => {
+                    console.error('你的API搜索出错:', error);
+                    elements.searchResults.innerHTML = `<div class="error">搜索失败: ${error.message}</div>`;
+                    elements.searchStatus.textContent = '搜索失败';
+                    addDebugLog(`你的API搜索错误: ${error.message}`);
+                });
+        }
+        
+        // 显示搜索结果
+        function displaySearchResults(songs) {
+            if (songs.length === 0) {
+                elements.searchResults.innerHTML = '<div class="empty">未找到相关歌曲</div>';
+                return;
+            }
+            
+            let html = '';
+            songs.forEach(song => {
+                html += `
+                    <div class="song-item">
+                        <div class="song-info">
+                            <div class="song-main">
+                                <div class="song-name">${song.name}</div>
+                                <div class="song-artist">${song.artists ? song.artists.map(artist => artist.name).join(' / ') : '未知歌手'}</div>
+                                <div class="song-album">专辑: ${song.album ? song.album.name : '未知专辑'}</div>
+                            </div>
+                            <div class="song-actions">
+                                <button class="action-btn" onclick="viewSongDetail(${song.id})">详情</button>
+                                <button class="action-btn primary" onclick="viewLyrics(${song.id}, '${song.name}', '${song.artists ? song.artists[0].name : '未知歌手'}')">查看歌词</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            elements.searchResults.innerHTML = html;
+        }
+        
+        // 加载热门歌曲
+        function loadHotSongs(type) {
+            elements.hotStatus.textContent = '加载中...';
+            elements.hotResults.innerHTML = '<div class="loading">加载中...</div>';
+            
+            addDebugLog(`开始加载热门歌曲: ${type}`);
+            
+            fetch(`${API_BASE}/api/hot-songs?type=${type}&limit=20`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addDebugLog(`热门歌曲API响应: ${JSON.stringify(data).substring(0, 500)}...`);
+                    
+                    if (data.success && data.songs) {
+                        displayHotSongs(data.songs);
+                        elements.hotStatus.textContent = `已加载 ${data.songs.length} 首热门歌曲`;
+                        addDebugLog(`热门歌曲加载成功: ${data.songs.length} 首歌曲`);
+                    } else {
+                        elements.hotResults.innerHTML = '<div class="empty">加载热门歌曲失败</div>';
+                        elements.hotStatus.textContent = '加载热门歌曲失败';
+                        addDebugLog(`热门歌曲加载失败: 返回数据异常`);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载热门歌曲出错:', error);
+                    elements.hotResults.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+                    elements.hotStatus.textContent = '加载失败';
+                    addDebugLog(`热门歌曲加载错误: ${error.message}`);
+                });
+        }
+        
+        // 显示热门歌曲
+        function displayHotSongs(songs) {
+            if (songs.length === 0) {
+                elements.hotResults.innerHTML = '<div class="empty">暂无热门歌曲数据</div>';
+                return;
+            }
+            
+            let html = '';
+            songs.forEach((song, index) => {
+                html += `
+                    <div class="song-item">
+                        <div class="song-info">
+                            <div class="song-main">
+                                <div class="song-name">
+                                    <span style="color: #d43c33; margin-right: 8px;">${index + 1}</span>
+                                    ${song.name}
+                                </div>
+                                <div class="song-artist">${song.artists.map(artist => artist.name).join(' / ')}</div>
+                                <div class="song-album">专辑: ${song.album.name}</div>
+                            </div>
+                            <div class="song-actions">
+                                <button class="action-btn" onclick="viewSongDetail(${song.id})">详情</button>
+                                <button class="action-btn primary" onclick="viewLyrics(${song.id}, '${song.name}', '${song.artists[0].name}')">查看歌词</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            elements.hotResults.innerHTML = html;
+        }
+        
+        // 加载推荐歌单
+        function loadTopPlaylists() {
+            elements.playlistsStatus.textContent = '加载中...';
+            elements.playlistsResults.innerHTML = '<div class="loading">加载中...</div>';
+            
+            addDebugLog('开始加载推荐歌单');
+            
+            fetch(`${API_BASE}/api/top-playlists?limit=12`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addDebugLog(`推荐歌单API响应: ${JSON.stringify(data).substring(0, 500)}...`);
+                    
+                    if (data.success && data.playlists) {
+                        displayTopPlaylists(data.playlists);
+                        elements.playlistsStatus.textContent = `已加载 ${data.playlists.length} 个推荐歌单`;
+                        addDebugLog(`推荐歌单加载成功: ${data.playlists.length} 个歌单`);
+                    } else {
+                        elements.playlistsResults.innerHTML = '<div class="empty">加载推荐歌单失败</div>';
+                        elements.playlistsStatus.textContent = '加载推荐歌单失败';
+                        addDebugLog(`推荐歌单加载失败: 返回数据异常`);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载推荐歌单出错:', error);
+                    elements.playlistsResults.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+                    elements.playlistsStatus.textContent = '加载失败';
+                    addDebugLog(`推荐歌单加载错误: ${error.message}`);
+                });
+        }
+        
+        // 显示推荐歌单
+        function displayTopPlaylists(playlists) {
+            if (playlists.length === 0) {
+                elements.playlistsResults.innerHTML = '<div class="empty">暂无推荐歌单数据</div>';
+                return;
+            }
+            
+            let html = '';
+            playlists.forEach(playlist => {
+                html += `
+                    <div class="playlist-item" onclick="loadPlaylistDetail(${playlist.id})">
+                        <img src="${playlist.coverImgUrl}" alt="${playlist.name}" class="playlist-cover">
+                        <div class="playlist-name">${playlist.name}</div>
+                        <div class="playlist-count">${playlist.trackCount}首 • 播放${formatPlayCount(playlist.playCount)}次</div>
+                    </div>
+                `;
+            });
+            
+            elements.playlistsResults.innerHTML = html;
+        }
+        
+        // 加载歌单详情
+        function loadPlaylistDetail(playlistId) {
+            elements.playlistDetailStatus.textContent = '加载中...';
+            elements.playlistDetailResults.innerHTML = '<div class="loading">加载中...</div>';
+            
+            addDebugLog(`开始加载歌单详情: ID=${playlistId}`);
+            
+            fetch(`${API_BASE}/api/playlist-detail?id=${playlistId}&limit=50`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addDebugLog(`歌单详情API响应: ${JSON.stringify(data).substring(0, 500)}...`);
+                    
+                    if (data.success && data.songs) {
+                        displayPlaylistDetail(data.songs);
+                        elements.playlistDetailStatus.textContent = `已加载 ${data.songs.length} 首歌曲`;
+                        addDebugLog(`歌单详情加载成功: ${data.songs.length} 首歌曲`);
+                    } else {
+                        elements.playlistDetailResults.innerHTML = '<div class="empty">加载歌单详情失败</div>';
+                        elements.playlistDetailStatus.textContent = '加载歌单详情失败';
+                        addDebugLog(`歌单详情加载失败: 返回数据异常`);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载歌单详情出错:', error);
+                    elements.playlistDetailResults.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+                    elements.playlistDetailStatus.textContent = '加载失败';
+                    addDebugLog(`歌单详情加载错误: ${error.message}`);
+                });
+        }
+        
+        // 显示歌单详情
+        function displayPlaylistDetail(songs) {
+            if (songs.length === 0) {
+                elements.playlistDetailResults.innerHTML = '<div class="empty">此歌单暂无歌曲</div>';
+                return;
+            }
+            
+            let html = '';
+            songs.forEach((song, index) => {
+                html += `
+                    <div class="song-item">
+                        <div class="song-info">
+                            <div class="song-main">
+                                <div class="song-name">
+                                    <span style="color: #666; margin-right: 8px;">${index + 1}</span>
+                                    ${song.name}
+                                </div>
+                                <div class="song-artist">${song.artists.map(artist => artist.name).join(' / ')}</div>
+                                <div class="song-album">专辑: ${song.album.name}</div>
+                            </div>
+                            <div class="song-actions">
+                                <button class="action-btn" onclick="viewSongDetail(${song.id})">详情</button>
+                                <button class="action-btn primary" onclick="viewLyrics(${song.id}, '${song.name}', '${song.artists[0].name}')">查看歌词</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            elements.playlistDetailResults.innerHTML = html;
+        }
+        
+        // 查看歌曲详情
+        function viewSongDetail(songId) {
+            addDebugLog(`查看歌曲详情: ID=${songId}`);
+            alert(`查看歌曲详情: ID ${songId}\n\n此功能需要调用 /api/song-detail 接口，你可以自行实现。`);
+        }
+        
+        // 查看歌词
+        function viewLyrics(songId, songName, artistName) {
+            switchTab('lyrics');
+            elements.lyricsStatus.textContent = `正在加载 "${songName} - ${artistName}" 的歌词...`;
+            elements.lyricsResults.textContent = '加载中...';
+            
+            addDebugLog(`开始加载歌词: ID=${songId}, 歌曲="${songName} - ${artistName}"`);
+            
+            fetch(`${API_BASE}/api/lyric?id=${songId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    addDebugLog(`歌词API响应: ${JSON.stringify(data).substring(0, 500)}...`);
+                    
+                    if (data.success && data.lyrics) {
+                        // 清理歌词中的时间标签
+                        const cleanLyrics = data.lyrics.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '');
+                        elements.lyricsResults.textContent = cleanLyrics || '暂无歌词';
+                        elements.lyricsStatus.textContent = `"${songName} - ${artistName}" 的歌词`;
+                        addDebugLog(`歌词加载成功: ${cleanLyrics.length} 字符`);
+                    } else {
+                        elements.lyricsResults.textContent = '暂无歌词';
+                        elements.lyricsStatus.textContent = `"${songName} - ${artistName}" 暂无歌词`;
+                        addDebugLog(`歌词加载失败: 返回数据异常或无歌词`);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载歌词出错:', error);
+                    elements.lyricsResults.textContent = `加载歌词失败: ${error.message}`;
+                    elements.lyricsStatus.textContent = '加载歌词失败';
+                    addDebugLog(`歌词加载错误: ${error.message}`);
+                });
+        }
+        
+        // 格式化播放次数
+        function formatPlayCount(count) {
+            if (count > 100000000) {
+                return (count / 100000000).toFixed(1) + '亿';
+            } else if (count > 10000) {
+                return (count / 10000).toFixed(1) + '万';
+            }
+            return count;
+        }
+        
+        // 添加调试日志
+        function addDebugLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            state.debugLog.push(logEntry);
+            
+            // 保持日志数量在合理范围内
+            if (state.debugLog.length > 50) {
+                state.debugLog = state.debugLog.slice(-50);
+            }
+            
+            // 更新调试显示
+            elements.debugResults.textContent = state.debugLog.join('\n');
+            elements.debugResults.scrollTop = elements.debugResults.scrollHeight;
+        }
+        
+        // 暴露函数到全局作用域，以便HTML中的onclick调用
+        window.viewSongDetail = viewSongDetail;
+        window.viewLyrics = viewLyrics;
+        window.loadPlaylistDetail = loadPlaylistDetail;
+    </script>
+</body>
+</html>
