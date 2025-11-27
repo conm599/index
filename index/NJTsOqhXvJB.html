@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Web MMD Viewer & Editor Tool</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #333; color: white; font-family: sans-serif; }
+        #info { position: absolute; top: 10px; left: 10px; z-index: 100; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; }
+        #controls-ui { position: absolute; bottom: 20px; left: 20px; right: 20px; z-index: 100; display: flex; flex-direction: column; gap: 10px; }
+        .btn { background: #444; border: 1px solid #666; color: white; padding: 5px 10px; cursor: pointer; }
+        .btn:hover { background: #666; }
+        input[type="range"] { width: 100%; }
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 8px; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/jsm/libs/ammo.wasm.js"></script>
+</head>
+<body>
+
+    <div id="info">
+        <h3>纯前端 MMD 查看器</h3>
+        <p>1. 上传包含 .pmx 和贴图的 ZIP 文件</p>
+        <p>2. (可选) Zip 内可包含 .vmd 动作文件</p>
+        <input type="file" id="fileInput" accept=".zip,.pmx,.vmd" />
+        <div id="status">等待文件...</div>
+    </div>
+
+    <div id="loading">正在处理模型与贴图...</div>
+
+    <div id="controls-ui">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+            <button id="playBtn" class="btn">暂停</button>
+            <span id="timeDisplay">0.00s</span>
+        </div>
+        <input type="range" id="timeline" min="0" max="100" step="0.01" value="0" disabled>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
+        import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
+        import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
+        import { MMDPhysics } from 'three/addons/animation/MMDPhysics.js';
+
+        let scene, camera, renderer, controls;
+        let helper, ikSolver, physics;
+        let clock = new THREE.Clock();
+        let ready = false;
+        
+        // Resource Map for Blob URLs
+        const fileMap = new Map(); 
+
+        // Animation Global Variables
+        let mixer; 
+        let animationAction;
+        let duration = 0;
+        let isPlaying = true;
+
+        // Init Ammo.js first
+        Ammo().then(function (AmmoLib) {
+            init();
+            animate();
+        });
+
+        function init() {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x2a2a2a);
+            
+            // Grid
+            const gridHelper = new THREE.PolarGridHelper(30, 10);
+            scene.add(gridHelper);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+            camera.position.set(0, 20, 50);
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0x666666);
+            scene.add(ambient);
+            const directionalLight = new THREE.DirectionalLight(0x887766);
+            directionalLight.position.set(-1, 1, 1).normalize();
+            scene.add(directionalLight);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.minDistance = 10;
+            controls.maxDistance = 500;
+            controls.target.set(0, 10, 0);
+
+            // Initialize MMD Helper
+            helper = new MMDAnimationHelper({
+                afterglow: 2.0
+            });
+
+            // UI Listeners
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('fileInput').addEventListener('change', handleUpload);
+            
+            const timeline = document.getElementById('timeline');
+            const playBtn = document.getElementById('playBtn');
+
+            // Timeline Scrubbing (Manual Keyframe Adjustment simulation)
+            timeline.addEventListener('input', (e) => {
+                if(mixer) {
+                    isPlaying = false;
+                    playBtn.textContent = "播放";
+                    const time = parseFloat(e.target.value);
+                    mixer.setTime(time);
+                    updateTimeDisplay(time);
+                }
+            });
+
+            playBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                playBtn.textContent = isPlaying ? "暂停" : "播放";
+            });
+        }
+
+        async function handleUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('status').innerText = "正在解压...";
+
+            // Clean up previous scene
+            if(helper.meshes.length > 0) {
+                // Simplified cleanup for demo
+                scene.remove(helper.meshes[0]);
+                helper = new MMDAnimationHelper(); 
+            }
+
+            try {
+                if (file.name.endsWith('.zip')) {
+                    await processZip(file);
+                } else {
+                    alert("请上传 ZIP 文件以确保贴图能正确加载。");
+                    document.getElementById('loading').style.display = 'none';
+                }
+            } catch (err) {
+                console.error(err);
+                alert("加载失败: " + err.message);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function processZip(file) {
+            const zip = new JSZip();
+            const contents = await zip.loadAsync(file);
+            
+            fileMap.clear();
+            let pmxFile = null;
+            let vmdFile = null;
+
+            // 1. Extract all files to Blob URLs
+            const promises = [];
+            
+            zip.forEach((relativePath, zipEntry) => {
+                promises.push(new Promise(async (resolve) => {
+                    if (zipEntry.dir) { resolve(); return; }
+                    
+                    const blob = await zipEntry.async("blob");
+                    const fileUrl = URL.createObjectURL(blob);
+                    
+                    // Normalize filename for matching (remove folders for flat search)
+                    const fileName = relativePath.split('/').pop().toLowerCase();
+                    fileMap.set(fileName, fileUrl);
+                    fileMap.set(relativePath, fileUrl); // Store full path too just in case
+
+                    if (fileName.endsWith('.pmx')) pmxFile = fileUrl;
+                    if (fileName.endsWith('.vmd')) vmdFile = fileUrl; // Auto-detect animation
+                    
+                    resolve();
+                }));
+            });
+
+            await Promise.all(promises);
+
+            if (!pmxFile) throw new Error("ZIP 中未找到 .pmx 文件");
+            
+            loadMMD(pmxFile, vmdFile);
+        }
+
+        function loadMMD(pmxUrl, vmdUrl) {
+            document.getElementById('status').innerText = "正在构建 3D 模型...";
+            
+            // Custom Loading Manager to intercept texture requests
+            const manager = new THREE.LoadingManager();
+            manager.setURLModifier((url) => {
+                // If Three.js requests "textures/face.png", we look up "face.png" in our map
+                const fileName = url.split('/').pop().toLowerCase();
+                if (fileMap.has(fileName)) {
+                    return fileMap.get(fileName);
+                }
+                return url;
+            });
+
+            const loader = new MMDLoader(manager);
+
+            loader.load(pmxUrl, function (mesh) {
+                
+                // If we have an animation, load it too
+                if (vmdUrl) {
+                    document.getElementById('status').innerText = "加载动作数据...";
+                    loader.loadAnimation(vmdUrl, mesh, function (m) {
+                        setupScene(m);
+                    });
+                } else {
+                    setupScene(mesh);
+                }
+
+            }, 
+            (xhr) => { 
+                if (xhr.lengthComputable) {
+                    const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                    document.getElementById('status').innerText = `加载中: ${percent}%`;
+                }
+            },
+            (err) => { throw err; });
+        }
+
+        function setupScene(mesh) {
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            scene.add(mesh);
+
+            // Add Physics and Animation to Helper
+            helper.add(mesh, {
+                animation: mesh.animation,
+                physics: true 
+            });
+
+            // Setup Mixer for timeline control
+            if (mesh.animation) {
+                mixer = helper.objects.get(mesh).mixer;
+                animationAction = mixer.clipAction(mesh.animation); // Access the action
+                duration = mesh.geometry.animations[0].duration;
+                
+                // Update Timeline UI
+                const timeline = document.getElementById('timeline');
+                timeline.disabled = false;
+                timeline.max = duration;
+            }
+
+            // Clean up UI
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('status').innerText = "加载完成";
+            ready = true;
+        }
+
+        function updateTimeDisplay(time) {
+            document.getElementById('timeDisplay').innerText = time.toFixed(2) + "s";
+            document.getElementById('timeline').value = time;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (ready) {
+                // Manual timeline handling
+                if (mixer && isPlaying) {
+                    const delta = clock.getDelta();
+                    helper.update(delta);
+                    updateTimeDisplay(mixer.time);
+                    
+                    // Loop check (optional)
+                    if (mixer.time >= duration) mixer.setTime(0);
+                } else if (mixer && !isPlaying) {
+                     // If paused, we still update physics to prevent glitches but don't advance animation time
+                     // However, pure timeline scrubbing is handled in the input event
+                     helper.update(0); 
+                }
+                
+                // Keep physics rendering anyway
+                // renderer.render(scene, camera); // helper renders? No, helper.update does physics
+            }
+            
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
