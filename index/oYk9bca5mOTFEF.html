@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web MMD Viewer (V3 - Fix Extension)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: #eee; font-family: "Segoe UI", sans-serif; }
+        
+        #top-bar {
+            position: absolute; top: 0; left: 0; right: 0;
+            background: rgba(30, 30, 30, 0.9); padding: 12px;
+            display: flex; align-items: center; gap: 15px; z-index: 100;
+            border-bottom: 1px solid #444;
+        }
+        
+        #bottom-bar {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(30, 30, 30, 0.9); padding: 20px; z-index: 100;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        .btn {
+            background: #3a3a3a; border: 1px solid #555; color: white; 
+            padding: 6px 16px; cursor: pointer; border-radius: 4px; font-size: 14px; transition: 0.2s;
+        }
+        .btn:hover { background: #505050; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .upload-label {
+            background: #007bff; color: white; padding: 6px 16px; 
+            border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;
+        }
+        .upload-label:hover { background: #0056b3; }
+
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        /* 日志面板 - 关键修复调试用 */
+        #console-log {
+            position: absolute; top: 60px; left: 10px; 
+            background: rgba(0,0,0,0.8); color: #00ff9d; 
+            font-family: "Consolas", monospace; font-size: 11px;
+            padding: 10px; border-radius: 4px; pointer-events: none;
+            width: 400px; max-height: calc(100vh - 200px); overflow-y: auto;
+            white-space: pre-wrap; word-break: break-all;
+            border: 1px solid #333;
+            z-index: 50;
+        }
+
+        #loading-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; 
+            justify-content: center; align-items: center; z-index: 200;
+            display: none; flex-direction: column;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 4px solid #f3f3f3; 
+            border-top: 4px solid #007bff; border-radius: 50%; 
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/jsm/libs/ammo.wasm.js"></script>
+</head>
+<body>
+
+    <div id="top-bar">
+        <label for="fileInput" class="upload-label">📂 上传 ZIP / PMX</label>
+        <input type="file" id="fileInput" accept=".zip,.pmx,.vmd" style="display:none">
+        <span id="model-info" style="font-size: 12px; color: #aaa;">未加载</span>
+        <div style="flex-grow:1"></div>
+        <button class="btn" onclick="location.reload()">重置</button>
+    </div>
+
+    <div id="console-log">正在初始化系统...</div>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loading-text" style="margin-top: 15px; color:white;">处理中...</div>
+    </div>
+
+    <div id="bottom-bar">
+        <div style="display:flex; justify-content: space-between; align-items: center;">
+            <div style="display:flex; align-items: center; gap: 10px;">
+                <button id="playBtn" class="btn" disabled>播放 / 暂停</button>
+                <span id="timeDisplay" style="font-family: monospace;">0.00s</span>
+            </div>
+            <label style="font-size: 12px; color: #aaa;">
+                <input type="checkbox" id="physicsToggle" checked> 启用物理(如卡顿可关闭)
+            </label>
+        </div>
+        <input type="range" id="timeline" min="0" max="100" step="0.01" value="0" disabled>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
+        import { MMDAnimationHelper } from 'three/addons/animation/MMDAnimationHelper.js';
+
+        // === 全局变量 ===
+        let scene, camera, renderer, controls, helper;
+        let mixer, clock = new THREE.Clock();
+        let ready = false;
+        let totalDuration = 0;
+        let isPlaying = true;
+        
+        // 资源映射 { "文件名": "BlobURL" }
+        const resourceMap = new Map();
+
+        // === 日志系统 ===
+        function log(msg, type='info') {
+            const el = document.getElementById('console-log');
+            const color = type === 'error' ? '#ff4444' : (type === 'success' ? '#00ff00' : '#ddd');
+            const time = new Date().toLocaleTimeString();
+            el.innerHTML += `<div style="color:${color}; margin-bottom:2px;">[${time}] ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${msg}`);
+        }
+
+        function showLoading(show, text="处理中...") {
+            const el = document.getElementById('loading-overlay');
+            if(text) document.getElementById('loading-text').innerText = text;
+            el.style.display = show ? 'flex' : 'none';
+        }
+
+        // === 1. 初始化物理引擎 ===
+        log("步骤 1/3: 启动 Ammo.js 物理引擎...");
+        Ammo().then(function() {
+            log("Ammo.js 启动成功。", 'success');
+            initThree();
+        }).catch(err => {
+            log("致命错误: 物理引擎启动失败。\n" + err.message, 'error');
+        });
+
+        // === 2. 初始化 Three.js ===
+        function initThree() {
+            log("步骤 2/3: 初始化 3D 场景...");
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a1a);
+            
+            // 灯光
+            const ambient = new THREE.AmbientLight(0x888888);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(-10, 15, 20);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            // 相机
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 15, 30);
+
+            // 渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // 控制器
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 10, 0);
+            controls.update();
+
+            // MMD 助手
+            helper = new MMDAnimationHelper();
+
+            // 网格
+            const grid = new THREE.PolarGridHelper(30, 10, 0x444444, 0x222222);
+            scene.add(grid);
+
+            // 事件
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            setupUI();
+
+            log("步骤 3/3: 就绪。等待用户上传。", 'success');
+            animate();
+        }
+
+        // === 3. 文件处理 (核心修复部分) ===
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 重置场景
+            if (helper.meshes.length > 0) {
+                // 简单的清理逻辑
+                location.reload(); 
+                return;
+            }
+
+            showLoading(true, "正在读取文件...");
+            log("--------------------------------");
+            log(`开始处理文件: ${file.name}`);
+
+            try {
+                let pmxUrl = null;
+                let vmdUrl = null;
+
+                if (file.name.endsWith('.zip')) {
+                    const zip = new JSZip();
+                    log("正在解压 ZIP...", 'info');
+                    const contents = await zip.loadAsync(file);
+                    
+                    const promises = [];
+                    let fileCount = 0;
+
+                    zip.forEach((relativePath, zipEntry) => {
+                        if (zipEntry.dir) return;
+                        fileCount++;
+                        promises.push(new Promise(async (resolve) => {
+                            const blob = await zipEntry.async("blob");
+                            const blobUrl = URL.createObjectURL(blob);
+                            
+                            // 存储完整路径和文件名
+                            const cleanPath = relativePath.replace(/\\/g, '/').toLowerCase();
+                            const fileName = cleanPath.split('/').pop();
+                            
+                            resourceMap.set(cleanPath, blobUrl); // 全路径匹配
+                            if(!resourceMap.has(fileName)) resourceMap.set(fileName, blobUrl); // 文件名模糊匹配
+
+                            // 寻找 PMX 和 VMD
+                            if (fileName.endsWith('.pmx')) {
+                                // 【重要修复】添加假的后缀参数，确保 Loader 识别为 PMX
+                                pmxUrl = blobUrl + "#.pmx";
+                                log(`找到模型: ${fileName}`, 'success');
+                            }
+                            if (fileName.endsWith('.vmd')) {
+                                vmdUrl = blobUrl + "#.vmd";
+                                log(`找到动作: ${fileName}`, 'success');
+                            }
+                            resolve();
+                        }));
+                    });
+
+                    await Promise.all(promises);
+                    log(`解压完成，共处理 ${fileCount} 个文件。`);
+
+                } else if (file.name.endsWith('.pmx')) {
+                    pmxUrl = URL.createObjectURL(file) + "#.pmx"; // 【重要修复】添加后缀
+                    log("单 PMX 模式 (无贴图)", 'warning');
+                }
+
+                if (!pmxUrl) throw new Error("ZIP 中未找到 .pmx 文件！");
+
+                loadMMD(pmxUrl, vmdUrl);
+
+            } catch (err) {
+                console.error(err);
+                log(`文件处理错误: ${err.message}`, 'error');
+                showLoading(false);
+                alert("读取失败: " + err.message);
+            }
+        }
+
+        // === 4. MMD 加载逻辑 ===
+        function loadMMD(pmxUrl, vmdUrl) {
+            log("启动 MMDLoader...", 'info');
+
+            const manager = new THREE.LoadingManager();
+            
+            // 贴图路径拦截器
+            manager.setURLModifier((url) => {
+                // 如果已经是 blob 或 data，直接通过
+                if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+                
+                // 清理路径
+                const cleanUrl = url.replace(/\\/g, '/').toLowerCase();
+                const fileName = cleanUrl.split('/').pop();
+
+                if (resourceMap.has(fileName)) {
+                    return resourceMap.get(fileName);
+                }
+                
+                // 仅记录不报错，防止阻塞
+                console.warn(`贴图未找到: ${fileName}`);
+                return url;
+            });
+
+            // 错误捕获器
+            manager.onError = (url) => {
+                log(`资源加载错误: ${url}`, 'error');
+            };
+
+            const loader = new MMDLoader(manager);
+
+            // 开始加载
+            loader.load(pmxUrl, 
+                (mesh) => {
+                    log("模型几何体解析成功！", 'success');
+                    
+                    if (vmdUrl) {
+                        log("正在加载动作数据...", 'info');
+                        loader.loadAnimation(vmdUrl, mesh, (m) => {
+                            setupScene(m);
+                        }, onProgress, onError);
+                    } else {
+                        setupScene(mesh);
+                    }
+                },
+                onProgress,
+                onError
+            );
+        }
+
+        function onProgress(xhr) {
+            if (xhr.lengthComputable) {
+                const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
+                document.getElementById('loading-text').innerText = `加载中: ${percent}%`;
+            }
+        }
+
+        // 【关键】详细的错误输出
+        function onError(err) {
+            showLoading(false);
+            console.error(err);
+            // 尝试提取详细信息
+            let msg = "未知错误";
+            if (err.target && err.target.status) msg = `HTTP ${err.target.status}`;
+            else if (err.message) msg = err.message;
+            else if (err.stack) msg = err.stack;
+            
+            log(`❌ 加载失败: ${msg}`, 'error');
+            alert(`加载失败。\n详情请看左侧日志。\n错误: ${msg}`);
+        }
+
+        function setupScene(mesh) {
+            log("正在构建场景...", 'info');
+            scene.add(mesh);
+
+            // 物理
+            const enablePhysics = document.getElementById('physicsToggle').checked;
+            try {
+                helper.add(mesh, {
+                    animation: mesh.animation,
+                    physics: enablePhysics
+                });
+                log(`物理引擎: ${enablePhysics ? '已启用' : '已禁用'}`, 'info');
+            } catch (e) {
+                log("物理绑定警告: " + e.message, 'warning');
+            }
+
+            // 调整视角
+            const box = new THREE.Box3().setFromObject(mesh);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            controls.target.copy(center);
+            controls.target.y = center.y + size.y * 0.1; 
+            camera.position.set(center.x, center.y + size.y * 0.6, center.z + size.y * 2.0);
+            controls.update();
+
+            // 动画控制
+            if (mesh.animation) {
+                mixer = helper.objects.get(mesh).mixer;
+                totalDuration = mesh.geometry.animations[0].duration;
+                
+                const timeline = document.getElementById('timeline');
+                timeline.max = totalDuration;
+                timeline.disabled = false;
+                document.getElementById('playBtn').disabled = false;
+                document.getElementById('model-info').innerText = `时长: ${totalDuration.toFixed(2)}s`;
+            }
+
+            showLoading(false);
+            log("✅ 所有步骤完成！", 'success');
+            ready = true;
+        }
+
+        // === 5. UI 与 动画循环 ===
+        function setupUI() {
+            const timeline = document.getElementById('timeline');
+            const playBtn = document.getElementById('playBtn');
+            
+            timeline.addEventListener('input', (e) => {
+                if(mixer) {
+                    isPlaying = false;
+                    mixer.setTime(parseFloat(e.target.value));
+                    updateTimeDisplay();
+                }
+            });
+
+            playBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                if(isPlaying && mixer.time >= totalDuration) mixer.setTime(0);
+            });
+        }
+
+        function updateTimeDisplay() {
+            if(mixer) {
+                const t = mixer.time;
+                document.getElementById('timeDisplay').innerText = t.toFixed(2) + "s";
+                document.getElementById('timeline').value = t;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (ready) {
+                const delta = clock.getDelta();
+                if (mixer && isPlaying) {
+                    helper.update(delta);
+                    updateTimeDisplay();
+                    if(mixer.time >= totalDuration) mixer.setTime(0); // Loop
+                } else {
+                    helper.update(0); // 暂停时仅更新物理
+                }
+            }
+            
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
