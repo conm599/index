@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>网易云音乐搜索测试</title>
+    <style>
+        body {
+            font-family: "Microsoft Yahei", sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+        button {
+            padding: 8px 15px;
+            background: #00c2ff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .result {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .song-item {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #eee;
+        }
+        h3 {
+            margin: 0 0 8px 0;
+        }
+        p {
+            margin: 5px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h2>网易云音乐搜索测试</h2>
+    <button id="searchBtn">搜索“昔涟”</button>
+    <div class="result" id="resultContainer" style="display: none;">
+        <h3>搜索结果：</h3>
+        <div id="songList"></div>
+    </div>
+
+    <script>
+        document.getElementById('searchBtn').addEventListener('click', function() {
+            const proxyUrl = 'http://localhost:3000/api/search/get/web?s=昔涟&type=1&limit=10';
+            
+            fetch(proxyUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code === 200 && data.result.songs.length > 0) {
+                        const songListEl = document.getElementById('songList');
+                        songListEl.innerHTML = '';
+                        
+                        data.result.songs.forEach(song => {
+                            const songItem = document.createElement('div');
+                            songItem.className = 'song-item';
+                            songItem.innerHTML = `
+                                <h4>${song.name}</h4>
+                                <p>歌手：${song.artists.map(artist => artist.name).join(' / ')}</p>
+                                <p>专辑：${song.album.name}</p>
+                                <p>时长：${formatDuration(song.duration)}</p>
+                            `;
+                            songListEl.appendChild(songItem);
+                        });
+                        
+                        document.getElementById('resultContainer').style.display = 'block';
+                    } else {
+                        alert('搜索失败或无结果');
+                    }
+                })
+                .catch(error => {
+                    console.error('请求失败：', error);
+                    alert('请求失败，请检查本地代理服务是否运行');
+                });
+        });
+
+        // 格式化时长（毫秒转分:秒）
+        function formatDuration(ms) {
+            const minutes = Math.floor(ms / 60000);
+            const seconds = Math.floor((ms % 60000) / 1000);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
