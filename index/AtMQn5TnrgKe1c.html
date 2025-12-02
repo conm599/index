@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>前端 MP3 转 MIDI 工具</title>
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #fileInput {
+            padding: 10px;
+            margin: 20px 0;
+            border: 2px solid #4285f4;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #status {
+            margin: 20px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        #convertBtn {
+            padding: 12px 24px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: none;
+        }
+        #convertBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #downloadBtn {
+            padding: 12px 24px;
+            background: #34a853;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+    <!-- 引入核心依赖库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/onsets_frames_transcription.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>MP3 转 MIDI 工具（前端版）</h1>
+        <p>上传 MP3 文件，自动转换为 MIDI 格式</p>
+        
+        <!-- 文件上传控件 -->
+        <input type="file" id="fileInput" accept="audio/mp3">
+        
+        <!-- 状态显示 -->
+        <div id="status">等待上传 MP3 文件...</div>
+        
+        <!-- 转换按钮 -->
+        <button id="convertBtn">开始转换</button>
+        
+        <!-- MIDI 下载按钮 -->
+        <a id="downloadBtn" download="converted.mid">下载 MIDI 文件</a>
+    </div>
+
+    <script>
+        // 初始化变量
+        let audioFile = null;
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+        const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        let transcriptionModel = null;
+
+        // 1. 加载预训练的音频转MIDI模型
+        async function loadModel() {
+            status.textContent = "正在加载转换模型（约20MB，耐心等待...）";
+            try {
+                // 加载Magenta的OnsetsFramesTranscription模型（浏览器端机器学习模型）
+                transcriptionModel = await magenta.music.OnsetsFramesTranscription.create({
+                    checkpointUrl: "https://storage.googleapis.com/magentadata/models/onsets_frames_transcription/v1/onsets_frames_transcription_checkpoint"
+                });
+                status.textContent = "模型加载完成，可上传MP3文件";
+            } catch (err) {
+                status.textContent = `模型加载失败：${err.message}`;
+                console.error(err);
+            }
+        }
+
+        // 2. 监听文件上传
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 验证文件格式（仅MP3）
+            if (file.type !== 'audio/mp3') {
+                status.textContent = "错误：请上传 MP3 格式的音频文件";
+                audioFile = null;
+                convertBtn.style.display = 'none';
+                return;
+            }
+            
+            audioFile = file;
+            status.textContent = `已选择文件：${file.name}（大小：${(file.size/1024/1024).toFixed(2)}MB）`;
+            convertBtn.style.display = 'inline-block'; // 显示转换按钮
+        });
+
+        // 3. 转换逻辑：MP3 → 音频数据 → MIDI
+        convertBtn.addEventListener('click', async () => {
+            if (!audioFile || !transcriptionModel) {
+                status.textContent = "请先确保模型加载完成且已上传MP3文件";
+                return;
+            }
+
+            convertBtn.disabled = true;
+            status.textContent = "正在读取MP3文件并转换...（耗时取决于音频长度）";
+
+            try {
+                // 步骤1：读取MP3文件并转换为模型所需的音频张量
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const arrayBuffer = await readFileAsArrayBuffer(audioFile);
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                // 步骤2：将音频数据转换为单声道（模型要求）
+                const inputTensor = magenta.music.toTensor(audioBuffer, true);
+                
+                // 步骤3：用模型转录音频为MIDI序列
+                const midiSequence = await transcriptionModel.transcribe(inputTensor);
+                
+                // 步骤4：将MIDI序列转换为可下载的MIDI文件（Base64格式）
+                const midiBytes = await magenta.music.sequenceProtoToMidi(midiSequence);
+                const midiBlob = new Blob([midiBytes], { type: 'audio/midi' });
+                const midiUrl = URL.createObjectURL(midiBlob);
+                
+                // 显示下载按钮
+                downloadBtn.href = midiUrl;
+                downloadBtn.style.display = 'inline-block';
+                status.textContent = "转换成功！点击下方按钮下载MIDI文件";
+
+            } catch (err) {
+                status.textContent = `转换失败：${err.message}`;
+                console.error(err);
+            } finally {
+                convertBtn.disabled = false;
+            }
+        });
+
+        // 辅助函数：读取文件为ArrayBuffer
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (err) => reject(err);
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // 页面加载时自动加载模型
+        window.onload = loadModel;
+    </script>
+</body>
+</html>
