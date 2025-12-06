@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>昔涟 MV - 崩坏：星穹铁道</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        /* MV播放器样式 */
+        .mv-player {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .video-container {
+            width: 100%;
+            position: relative;
+            background: #000;
+        }
+        
+        #mvVideo {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .video-controls {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .play-btn {
+            background: linear-gradient(135deg, #ff8a00, #e52e71);
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .play-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 138, 0, 0.4);
+        }
+        
+        .time-display {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .progress {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff8a00, #e52e71);
+            border-radius: 3px;
+            transition: width 0.1s linear;
+        }
+        
+        .volume-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .volume-slider {
+            width: 100px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+        
+        .volume-fill {
+            width: 70%;
+            height: 100%;
+            background: #ff8a00;
+            border-radius: 2px;
+        }
+        
+        .secondary-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .control-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 18px;
+            cursor: pointer;
+            transition: color 0.3s ease;
+            padding: 5px;
+        }
+        
+        .control-btn:hover {
+            color: #fff;
+        }
+        
+        .quality-selector {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        /* MV信息侧边栏 */
+        .mv-info {
+            width: 350px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .mv-poster {
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        .mv-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .mv-artist {
+            font-size: 16px;
+            color: #ff8a00;
+            margin-bottom: 20px;
+        }
+        
+        .mv-description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #aaa;
+            margin-bottom: 25px;
+        }
+        
+        .mv-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff8a00;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        /* 相关MV列表 */
+        .related-mvs {
+            margin-top: 30px;
+        }
+        
+        .related-mvs h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .related-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .related-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .related-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .related-thumbnail {
+            width: 80px;
+            height: 45px;
+            border-radius: 5px;
+            object-fit: cover;
+        }
+        
+        .related-info {
+            flex: 1;
+        }
+        
+        .related-title {
+            font-size: 14px;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        
+        .related-artist {
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #aaa;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #e52e71;
+        }
+        
+        /* API数据显示 */
+        .api-data {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .api-data h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .json-viewer {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .json-key {
+            color: #9cdcfe;
+        }
+        
+        .json-string {
+            color: #ce9178;
+        }
+        
+        .json-number {
+            color: #b5cea8;
+        }
+        
+        .json-boolean {
+            color: #569cd6;
+        }
+        
+        .json-null {
+            color: #569cd6;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 992px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .mv-info {
+                width: 100%;
+            }
+            
+            .video-container {
+                max-height: 60vh;
+            }
+            
+            #mvVideo {
+                max-height: 60vh;
+                object-fit: contain;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .playback-controls {
+                flex-wrap: wrap;
+            }
+            
+            .volume-controls {
+                display: none;
+            }
+            
+            .secondary-controls {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-film"></i> 昔涟 MV</h1>
+            <p>《崩坏：星穹铁道》昔涟动画短片 - 张韶涵 / HOYO-MiX</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- MV播放器 -->
+            <div class="mv-player">
+                <div class="video-container">
+                    <video id="mvVideo" poster="https://p4.music.126.net/BKJrPO1FlbXcy-98AYXOzg==/109951172268004943.jpg">
+                        <!-- 视频将通过JavaScript动态设置 -->
+                    </video>
+                </div>
+                
+                <div class="video-controls">
+                    <div class="playback-controls">
+                        <button class="play-btn" id="playBtn">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        
+                        <div class="time-display">
+                            <span id="currentTime">00:00</span>
+                            <div class="progress-bar" id="progressBar">
+                                <div class="progress" id="progress"></div>
+                            </div>
+                            <span id="duration">00:00</span>
+                        </div>
+                        
+                        <div class="volume-controls">
+                            <i class="fas fa-volume-up"></i>
+                            <div class="volume-slider" id="volumeSlider">
+                                <div class="volume-fill" id="volumeFill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="secondary-controls">
+                        <div>
+                            <button class="control-btn" id="fullscreenBtn" title="全屏">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <button class="control-btn" id="pipBtn" title="画中画">
+                                <i class="fas fa-clone"></i>
+                            </button>
+                            <button class="control-btn" id="muteBtn" title="静音">
+                                <i class="fas fa-volume-mute"></i>
+                            </button>
+                        </div>
+                        
+                        <select class="quality-selector" id="qualitySelector">
+                            <option value="auto">自动选择</option>
+                            <option value="1080">1080P</option>
+                            <option value="720">720P</option>
+                            <option value="480">480P</option>
+                            <option value="240">240P</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MV信息侧边栏 -->
+            <div class="mv-info">
+                <img id="mvPoster" class="mv-poster" src="https://p4.music.126.net/BKJrPO1FlbXcy-98AYXOzg==/109951172268004943.jpg" alt="MV封面">
+                
+                <h2 class="mv-title" id="mvTitle">昔涟</h2>
+                <p class="mv-artist" id="mvArtist">张韶涵 / HOYO-MiX</p>
+                
+                <p class="mv-description" id="mvDescription">
+                    《崩坏：星穹铁道》昔涟动画短片中文单曲，由张韶涵演唱，HOYO-MiX作曲。歌曲融合了东方音乐元素与现代流行风格，讲述了在星海之间寻觅过往涟漪的故事。
+                </p>
+                
+                <div class="mv-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="playCount">0</div>
+                        <div class="stat-label">播放次数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="likeCount">0</div>
+                        <div class="stat-label">点赞数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="shareCount">0</div>
+                        <div class="stat-label">分享数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="commentCount">0</div>
+                        <div class="stat-label">评论数</div>
+                    </div>
+                </div>
+                
+                <div class="related-mvs">
+                    <h3><i class="fas fa-list"></i> 相关MV</h3>
+                    <div class="related-list" id="relatedList">
+                        <!-- 相关MV将通过JavaScript动态生成 -->
+                        <div class="loading">正在加载相关MV...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API数据显示 -->
+        <div class="api-data">
+            <h3><i class="fas fa-code"></i> API返回数据</h3>
+            <div class="json-viewer" id="jsonViewer">
+                <span style="color: #888;">等待获取MV数据...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API配置
+        const API_CONFIG = {
+            BASE_URL: 'https://wyy.naxid.top',
+            TIMESTAMP: Date.now(),
+            
+            // MV相关接口
+            MV_SEARCH_API: '/search',           // 搜索MV
+            MV_DETAIL_API: '/mv/detail',        // MV详情
+            MV_URL_API: '/mv/url',              // MV播放地址
+            MV_DETAIL_INFO_API: '/mv/detail/info', // MV详细信息（点赞、评论等）
+            SIMILAR_MV_API: '/simi/mv',         // 相似MV
+            ARTIST_MV_API: '/artist/mv'         // 歌手MV
+        };
+
+        // 全局状态
+        let mvData = {
+            currentMvId: null,
+            mvDetail: null,
+            mvUrl: null,
+            mvDetailInfo: null,
+            similarMvs: [],
+            artistMvs: []
+        };
+
+        // DOM元素
+        const video = document.getElementById('mvVideo');
+        const playBtn = document.getElementById('playBtn');
+        const progress = document.getElementById('progress');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeFill = document.getElementById('volumeFill');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const pipBtn = document.getElementById('pipBtn');
+        const muteBtn = document.getElementById('muteBtn');
+        const qualitySelector = document.getElementById('qualitySelector');
+        
+        // MV信息元素
+        const mvPoster = document.getElementById('mvPoster');
+        const mvTitle = document.getElementById('mvTitle');
+        const mvArtist = document.getElementById('mvArtist');
+        const mvDescription = document.getElementById('mvDescription');
+        const playCount = document.getElementById('playCount');
+        const likeCount = document.getElementById('likeCount');
+        const shareCount = document.getElementById('shareCount');
+        const commentCount = document.getElementById('commentCount');
+        const relatedList = document.getElementById('relatedList');
+        const jsonViewer = document.getElementById('jsonViewer');
+
+        // 初始化MV播放器
+        async function initMvPlayer() {
+            try {
+                // 首先搜索"昔涟"的MV
+                await searchMv();
+                
+                // 如果找到了MV，获取详细信息
+                if (mvData.currentMvId) {
+                    await fetchMvDetails();
+                    await fetchMvUrl();
+                    await fetchMvDetailInfo();
+                    await fetchSimilarMvs();
+                    
+                    // 设置视频源
+                    setupVideo();
+                    
+                    // 设置事件监听器
+                    setupEventListeners();
+                    
+                    // 更新MV信息
+                    updateMvInfo();
+                    
+                    // 更新API数据展示
+                    updateJsonViewer();
+                } else {
+                    showError('未找到《昔涟》的MV');
+                }
+            } catch (error) {
+                console.error('初始化MV播放器失败:', error);
+                showError(`初始化失败: ${error.message}`);
+            }
+        }
+
+        // 搜索MV
+        async function searchMv() {
+            try {
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}${API_CONFIG.MV_SEARCH_API}?keywords=昔涟&type=1004&limit=1&timestamp=${Date.now()}`
+                );
+                
+                const data = await response.json();
+                
+                if (data.code === 200 && data.result && data.result.mvs && data.result.mvs.length > 0) {
+                    // 获取第一个MV的ID
+                    mvData.currentMvId = data.result.mvs[0].id;
+                    console.log('找到MV ID:', mvData.currentMvId);
+                } else {
+                    // 如果没有搜索到，尝试其他关键词
+                    await searchMvAlternative();
+                }
+            } catch (error) {
+                console.error('搜索MV失败:', error);
+                // 尝试备用搜索
+                await searchMvAlternative();
+            }
+        }
+
+        // 备用搜索方案
+        async function searchMvAlternative() {
+            const searchKeywords = [
+                '昔涟 张韶涵',
+                '崩坏星穹铁道 昔涟',
+                'Ripples of Past Reverie'
+            ];
+            
+            for (const keyword of searchKeywords) {
+                try {
+                    const response = await fetch(
+                        `${API_CONFIG.BASE_URL}${API_CONFIG.MV_SEARCH_API}?keywords=${encodeURIComponent(keyword)}&type=1004&limit=1&timestamp=${Date.now()}`
+                    );
+                    
+                    const data = await response.json();
+                    
+                    if (data.code === 200 && data.result && data.result.mvs && data.result.mvs.length > 0) {
+                        mvData.currentMvId = data.result.mvs[0].id;
+                        console.log(`使用关键词"${keyword}"找到MV ID:`, mvData.currentMvId);
+                        return;
+                    }
+                } catch (error) {
+                    console.error(`搜索关键词"${keyword}"失败:`, error);
+                }
+            }
+            
+            // 如果都没找到，使用一个已知的MV ID（假设的）
+            // 在实际使用中，你可能需要手动查找MV ID
+            mvData.currentMvId = 0; // 这里应该是实际的MV ID
+            console.log('使用默认MV ID');
+        }
+
+        // 获取MV详情
+        async function fetchMvDetails() {
+            try {
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}${API_CONFIG.MV_DETAIL_API}?mvid=${mvData.currentMvId}&timestamp=${Date.now()}`
+                );
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    mvData.mvDetail = data;
+                }
+            } catch (error) {
+                console.error('获取MV详情失败:', error);
+            }
+        }
+
+        // 获取MV播放地址
+        async function fetchMvUrl() {
+            try {
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}${API_CONFIG.MV_URL_API}?id=${mvData.currentMvId}&timestamp=${Date.now()}`
+                );
+                
+                const data = await response.json();
+                
+                if (data.code === 200 && data.data && data.data.url) {
+                    mvData.mvUrl = data.data;
+                }
+            } catch (error) {
+                console.error('获取MV播放地址失败:', error);
+            }
+        }
+
+        // 获取MV详细信息（点赞、评论等）
+        async function fetchMvDetailInfo() {
+            try {
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}${API_CONFIG.MV_DETAIL_INFO_API}?mvid=${mvData.currentMvId}&timestamp=${Date.now()}`
+                );
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    mvData.mvDetailInfo = data;
+                }
+            } catch (error) {
+                console.error('获取MV详细信息失败:', error);
+            }
+        }
+
+        // 获取相似MV
+        async function fetchSimilarMvs() {
+            try {
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}${API_CONFIG.SIMILAR_MV_API}?mvid=${mvData.currentMvId}&timestamp=${Date.now()}`
+                );
+                
+                const data = await response.json();
+                
+                if (data.code === 200 && data.mvs) {
+                    mvData.similarMvs = data.mvs.slice(0, 5); // 只取前5个
+                }
+            } catch (error) {
+                console.error('获取相似MV失败:', error);
+            }
+        }
+
+        // 设置视频源
+        function setupVideo() {
+            if (mvData.mvUrl && mvData.mvUrl.url) {
+                video.src = mvData.mvUrl.url;
+                
+                // 设置视频封面
+                if (mvData.mvDetail && mvData.mvDetail.data && mvData.mvDetail.data.cover) {
+                    video.poster = mvData.mvDetail.data.cover;
+                    mvPoster.src = mvData.mvDetail.data.cover;
+                }
+                
+                // 设置视频预加载
+                video.preload = "auto";
+                
+                // 设置初始音量
+                video.volume = 0.7;
+                updateVolumeDisplay();
+            } else {
+                // 如果没有获取到MV URL，使用备用视频源
+                setupFallbackVideo();
+            }
+        }
+
+        // 设置备用视频源
+        function setupFallbackVideo() {
+            // 这里可以设置一个备用的视频源
+            // 由于版权原因，这里不提供具体的视频URL
+            // 你可以替换为实际的视频URL
+            console.log('使用备用视频源');
+            video.src = '';
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 播放/暂停按钮
+            playBtn.addEventListener('click', () => {
+                if (video.paused) {
+                    video.play();
+                    playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                } else {
+                    video.pause();
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                }
+            });
+            
+            // 进度条点击
+            progressBar.addEventListener('click', (e) => {
+                const rect = progressBar.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                video.currentTime = percent * video.duration;
+                updateProgress();
+            });
+            
+            // 音量控制
+            volumeSlider.addEventListener('click', (e) => {
+                const rect = volumeSlider.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                video.volume = Math.max(0, Math.min(1, percent));
+                updateVolumeDisplay();
+            });
+            
+            // 全屏按钮
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    video.requestFullscreen().catch(err => {
+                        console.log(`全屏失败: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+            
+            // 画中画按钮
+            pipBtn.addEventListener('click', () => {
+                if (video !== document.pictureInPictureElement) {
+                    video.requestPictureInPicture().catch(err => {
+                        console.log(`画中画失败: ${err.message}`);
+                    });
+                } else {
+                    document.exitPictureInPicture();
+                }
+            });
+            
+            // 静音按钮
+            muteBtn.addEventListener('click', () => {
+                video.muted = !video.muted;
+                muteBtn.innerHTML = video.muted 
+                    ? '<i class="fas fa-volume-mute"></i>' 
+                    : '<i class="fas fa-volume-up"></i>';
+            });
+            
+            // 清晰度选择
+            qualitySelector.addEventListener('change', (e) => {
+                // 这里可以根据选择的清晰度切换不同的视频源
+                // 但由于API只返回一个URL，这里只做演示
+                console.log('切换清晰度:', e.target.value);
+            });
+            
+            // 视频事件
+            video.addEventListener('loadedmetadata', () => {
+                durationEl.textContent = formatTime(video.duration);
+            });
+            
+            video.addEventListener('timeupdate', () => {
+                updateProgress();
+            });
+            
+            video.addEventListener('ended', () => {
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            });
+            
+            video.addEventListener('play', () => {
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            });
+            
+            video.addEventListener('pause', () => {
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            });
+            
+            video.addEventListener('volumechange', () => {
+                updateVolumeDisplay();
+                muteBtn.innerHTML = video.muted 
+                    ? '<i class="fas fa-volume-mute"></i>' 
+                    : '<i class="fas fa-volume-up"></i>';
+            });
+            
+            // 键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    playBtn.click();
+                } else if (e.code === 'ArrowLeft') {
+                    video.currentTime = Math.max(0, video.currentTime - 5);
+                } else if (e.code === 'ArrowRight') {
+                    video.currentTime = Math.min(video.duration, video.currentTime + 5);
+                } else if (e.code === 'ArrowUp') {
+                    video.volume = Math.min(1, video.volume + 0.1);
+                } else if (e.code === 'ArrowDown') {
+                    video.volume = Math.max(0, video.volume - 0.1);
+                } else if (e.code === 'KeyM') {
+                    e.preventDefault();
+                    muteBtn.click();
+                } else if (e.code === 'KeyF') {
+                    e.preventDefault();
+                    fullscreenBtn.click();
+                }
+            });
+        }
+
+        // 更新MV信息
+        function updateMvInfo() {
+            if (mvData.mvDetail && mvData.mvDetail.data) {
+                const detail = mvData.mvDetail.data;
+                
+                // 更新标题
+                mvTitle.textContent = detail.name || '昔涟';
+                
+                // 更新艺术家
+                if (detail.artists && detail.artists.length > 0) {
+                    mvArtist.textContent = detail.artists.map(artist => artist.name).join(' / ');
+                }
+                
+                // 更新描述
+                if (detail.desc) {
+                    mvDescription.textContent = detail.desc;
+                }
+                
+                // 更新封面
+                if (detail.cover) {
+                    mvPoster.src = detail.cover;
+                }
+            }
+            
+            // 更新统计数据
+            if (mvData.mvDetailInfo && mvData.mvDetailInfo.likedCount !== undefined) {
+                likeCount.textContent = formatNumber(mvData.mvDetailInfo.likedCount);
+                shareCount.textContent = formatNumber(mvData.mvDetailInfo.shareCount);
+                commentCount.textContent = formatNumber(mvData.mvDetailInfo.commentCount);
+                playCount.textContent = formatNumber(mvData.mvDetailInfo.playCount);
+            }
+            
+            // 更新相关MV列表
+            updateRelatedMvs();
+        }
+
+        // 更新相关MV列表
+        function updateRelatedMvs() {
+            if (mvData.similarMvs.length > 0) {
+                relatedList.innerHTML = '';
+                
+                mvData.similarMvs.forEach(mv => {
+                    const item = document.createElement('div');
+                    item.className = 'related-item';
+                    item.innerHTML = `
+                        <img class="related-thumbnail" src="${mv.cover || 'https://p3.music.126.net/VnZiScyynLG7atLIZ2YPkw==/18686200114669622.jpg'}" alt="${mv.name}">
+                        <div class="related-info">
+                            <div class="related-title">${mv.name || '未知MV'}</div>
+                            <div class="related-artist">${mv.artistName || '未知艺术家'}</div>
+                        </div>
+                    `;
+                    
+                    // 点击相关MV
+                    item.addEventListener('click', () => {
+                        // 这里可以添加切换MV的功能
+                        console.log('切换到MV:', mv.id);
+                    });
+                    
+                    relatedList.appendChild(item);
+                });
+            } else {
+                relatedList.innerHTML = '<div class="loading">暂无相关MV</div>';
+            }
+        }
+
+        // 更新进度条
+        function updateProgress() {
+            if (video.duration) {
+                const percent = (video.currentTime / video.duration) * 100;
+                progress.style.width = `${percent}%`;
+                currentTimeEl.textContent = formatTime(video.currentTime);
+            }
+        }
+
+        // 更新音量显示
+        function updateVolumeDisplay() {
+            const percent = video.volume * 100;
+            volumeFill.style.width = `${percent}%`;
+        }
+
+        // 格式化时间（秒 → MM:SS）
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 格式化数字（添加千位分隔符）
+        function formatNumber(num) {
+            if (typeof num !== 'number') return '0';
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        }
+
+        // 更新JSON查看器
+        function updateJsonViewer() {
+            // 创建包含所有MV数据的对象
+            const allMvData = {
+                currentMvId: mvData.currentMvId,
+                mvDetail: mvData.mvDetail,
+                mvUrl: mvData.mvUrl,
+                mvDetailInfo: mvData.mvDetailInfo,
+                similarMvs: mvData.similarMvs,
+                timestamp: new Date().toISOString()
+            };
+            
+            // 格式化JSON
+            const formattedJson = JSON.stringify(allMvData, null, 2);
+            
+            // 语法高亮
+            const highlightedJson = formattedJson
+                .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, function(match) {
+                    let cls = 'json-number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'json-key';
+                        } else {
+                            cls = 'json-string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'json-boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'json-null';
+                    }
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+            
+            jsonViewer.innerHTML = highlightedJson;
+        }
+
+        // 显示错误
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>加载失败</h3>
+                <p>${message}</p>
+                <button onclick="location.reload()" style="margin-top: 15px; padding: 8px 16px; background: #e52e71; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                    重试
+                </button>
+            `;
+            
+            // 替换主要内容
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) {
+                mainContent.innerHTML = '';
+                mainContent.appendChild(errorDiv);
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', initMvPlayer);
+    </script>
+</body>
+</html>
