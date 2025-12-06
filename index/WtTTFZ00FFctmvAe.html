@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>网易云音乐MV API测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #0a0e17;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #00b4ff;
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.8;
+        }
+        
+        .test-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .api-test {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .api-title {
+            font-size: 20px;
+            color: #00b4ff;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .api-endpoint {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 180, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .api-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .api-input {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .api-btn {
+            padding: 10px 20px;
+            background: #00b4ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        
+        .api-btn:hover {
+            background: #0088cc;
+        }
+        
+        .api-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .api-status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .api-status.loading {
+            background: rgba(0, 180, 255, 0.1);
+            border: 1px solid #00b4ff;
+            color: #00b4ff;
+            display: block;
+        }
+        
+        .api-status.success {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid #4caf50;
+            color: #4caf50;
+            display: block;
+        }
+        
+        .api-status.error {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid #f44336;
+            color: #f44336;
+            display: block;
+        }
+        
+        .data-display {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .raw-data {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .json-key {
+            color: #9cdcfe;
+        }
+        
+        .json-string {
+            color: #ce9178;
+        }
+        
+        .json-number {
+            color: #b5cea8;
+        }
+        
+        .json-boolean {
+            color: #569cd6;
+        }
+        
+        .json-null {
+            color: #569cd6;
+        }
+        
+        .video-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .video-section h2 {
+            color: #00b4ff;
+            margin-bottom: 15px;
+        }
+        
+        .video-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #000;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        #testVideo {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .video-info {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .video-url {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #aaa;
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+        
+        .video-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .video-btn {
+            padding: 8px 15px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .video-btn:hover {
+            background: #555;
+        }
+        
+        .video-btn.primary {
+            background: #00b4ff;
+        }
+        
+        .video-btn.primary:hover {
+            background: #0088cc;
+        }
+        
+        .help-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .help-section h2 {
+            color: #00b4ff;
+            margin-bottom: 15px;
+        }
+        
+        .help-content {
+            color: #aaa;
+            line-height: 1.6;
+        }
+        
+        .help-content ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .help-content li {
+            margin-bottom: 8px;
+        }
+        
+        .help-content code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .api-controls {
+                flex-direction: column;
+            }
+            
+            .api-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-video"></i> 网易云音乐MV API测试</h1>
+            <p>测试 wyy.naxid.top API 中的MV相关接口</p>
+        </div>
+        
+        <div class="test-area">
+            <!-- 搜索MV -->
+            <div class="api-test">
+                <div class="api-title">
+                    <span>1. 搜索MV</span>
+                    <span class="api-endpoint">/search</span>
+                </div>
+                
+                <div class="api-controls">
+                    <input type="text" id="searchInput" class="api-input" placeholder="输入关键词搜索MV（如：昔涟）" value="昔涟">
+                    <button id="searchBtn" class="api-btn">搜索MV</button>
+                </div>
+                
+                <div id="searchStatus" class="api-status"></div>
+                <div class="data-display">
+                    <pre id="searchData" class="raw-data">点击"搜索MV"按钮开始测试</pre>
+                </div>
+            </div>
+            
+            <!-- 获取MV详情 -->
+            <div class="api-test">
+                <div class="api-title">
+                    <span>2. 获取MV详情</span>
+                    <span class="api-endpoint">/mv/detail</span>
+                </div>
+                
+                <div class="api-controls">
+                    <input type="text" id="mvIdInput" class="api-input" placeholder="输入MV ID">
+                    <button id="detailBtn" class="api-btn">获取MV详情</button>
+                </div>
+                
+                <div id="detailStatus" class="api-status"></div>
+                <div class="data-display">
+                    <pre id="detailData" class="raw-data">先搜索MV获取ID，然后测试</pre>
+                </div>
+            </div>
+            
+            <!-- 获取MV播放地址 -->
+            <div class="api-test">
+                <div class="api-title">
+                    <span>3. 获取MV播放地址</span>
+                    <span class="api-endpoint">/mv/url</span>
+                </div>
+                
+                <div class="api-controls">
+                    <input type="text" id="mvUrlInput" class="api-input" placeholder="输入MV ID获取播放地址">
+                    <button id="urlBtn" class="api-btn">获取播放地址</button>
+                </div>
+                
+                <div id="urlStatus" class="api-status"></div>
+                <div class="data-display">
+                    <pre id="urlData" class="raw-data">获取播放地址进行测试</pre>
+                </div>
+            </div>
+            
+            <!-- 获取MV详细信息（点赞、评论等） -->
+            <div class="api-test">
+                <div class="api-title">
+                    <span>4. 获取MV详细信息</span>
+                    <span class="api-endpoint">/mv/detail/info</span>
+                </div>
+                
+                <div class="api-controls">
+                    <input type="text" id="mvInfoInput" class="api-input" placeholder="输入MV ID获取详细信息">
+                    <button id="infoBtn" class="api-btn">获取MV信息</button>
+                </div>
+                
+                <div id="infoStatus" class="api-status"></div>
+                <div class="data-display">
+                    <pre id="infoData" class="raw-data">获取MV的点赞、评论、分享等数据</pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 视频测试区域 -->
+        <div class="video-section">
+            <h2>视频播放测试</h2>
+            <div class="video-container">
+                <video id="testVideo" controls>
+                    <!-- 视频源将通过JavaScript设置 -->
+                </video>
+                <div class="video-info">
+                    <div id="videoUrl" class="video-url">等待获取视频地址...</div>
+                    <div class="video-controls">
+                        <button id="playVideoBtn" class="video-btn primary">播放视频</button>
+                        <button id="copyUrlBtn" class="video-btn">复制URL</button>
+                        <button id="openUrlBtn" class="video-btn">在新窗口打开</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 帮助信息 -->
+        <div class="help-section">
+            <h2>使用说明</h2>
+            <div class="help-content">
+                <p>这个页面用于测试网易云音乐MV相关的API接口，你可以：</p>
+                <ul>
+                    <li>1. 使用<strong>搜索MV</strong>功能查找《昔涟》的MV，获取MV ID</li>
+                    <li>2. 使用<strong>获取MV详情</strong>查看MV的详细信息（封面、标题、艺术家等）</li>
+                    <li>3. 使用<strong>获取MV播放地址</strong>获取视频的URL</li>
+                    <li>4. 使用<strong>获取MV详细信息</strong>查看MV的统计数据（播放量、点赞数等）</li>
+                    <li>5. 在<strong>视频播放测试</strong>区域尝试播放获取到的视频</li>
+                </ul>
+                <p><strong>常见问题：</strong></p>
+                <ul>
+                    <li>如果视频无法播放，可能是API返回的视频URL有防盗链限制</li>
+                    <li>尝试点击"在新窗口打开"按钮，有时直接在新窗口可以播放</li>
+                    <li>某些MV可能需要登录或VIP权限才能观看</li>
+                    <li>如果API返回错误，请检查API服务是否正常运行</li>
+                </ul>
+                <p><strong>API接口说明：</strong></p>
+                <ul>
+                    <li><code>/search</code> - 搜索MV，type参数为1004表示MV类型</li>
+                    <li><code>/mv/detail</code> - 获取MV详情，需要mvid参数</li>
+                    <li><code>/mv/url</code> - 获取MV播放地址，需要id参数</li>
+                    <li><code>/mv/detail/info</code> - 获取MV详细信息（点赞、评论、分享等）</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API配置
+        const API_CONFIG = {
+            BASE_URL: 'https://wyy.naxid.top',
+            TIMESTAMP: Date.now()
+        };
+
+        // 全局状态
+        let currentMvId = null;
+        let currentVideoUrl = null;
+        let apiData = {
+            search: null,
+            detail: null,
+            url: null,
+            info: null
+        };
+
+        // DOM元素
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchStatus = document.getElementById('searchStatus');
+        const searchData = document.getElementById('searchData');
+        
+        const mvIdInput = document.getElementById('mvIdInput');
+        const detailBtn = document.getElementById('detailBtn');
+        const detailStatus = document.getElementById('detailStatus');
+        const detailData = document.getElementById('detailData');
+        
+        const mvUrlInput = document.getElementById('mvUrlInput');
+        const urlBtn = document.getElementById('urlBtn');
+        const urlStatus = document.getElementById('urlStatus');
+        const urlData = document.getElementById('urlData');
+        
+        const mvInfoInput = document.getElementById('mvInfoInput');
+        const infoBtn = document.getElementById('infoBtn');
+        const infoStatus = document.getElementById('infoStatus');
+        const infoData = document.getElementById('infoData');
+        
+        const testVideo = document.getElementById('testVideo');
+        const videoUrl = document.getElementById('videoUrl');
+        const playVideoBtn = document.getElementById('playVideoBtn');
+        const copyUrlBtn = document.getElementById('copyUrlBtn');
+        const openUrlBtn = document.getElementById('openUrlBtn');
+
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 搜索按钮
+            searchBtn.addEventListener('click', searchMv);
+            
+            // 获取MV详情按钮
+            detailBtn.addEventListener('click', getMvDetail);
+            
+            // 获取MV播放地址按钮
+            urlBtn.addEventListener('click', getMvUrl);
+            
+            // 获取MV信息按钮
+            infoBtn.addEventListener('click', getMvInfo);
+            
+            // 视频控制按钮
+            playVideoBtn.addEventListener('click', playVideo);
+            copyUrlBtn.addEventListener('click', copyVideoUrl);
+            openUrlBtn.addEventListener('click', openVideoUrl);
+            
+            // 输入框同步
+            searchInput.addEventListener('change', function() {
+                if (this.value === '昔涟') {
+                    // 自动搜索
+                    setTimeout(searchMv, 500);
+                }
+            });
+        }
+
+        // 搜索MV
+        async function searchMv() {
+            const keyword = searchInput.value.trim();
+            if (!keyword) {
+                showStatus(searchStatus, '请输入搜索关键词', 'error');
+                return;
+            }
+            
+            showStatus(searchStatus, '正在搜索MV...', 'loading');
+            searchBtn.disabled = true;
+            
+            try {
+                const timestamp = Date.now();
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}/search?keywords=${encodeURIComponent(keyword)}&type=1004&limit=10&timestamp=${timestamp}`
+                );
+                
+                const data = await response.json();
+                apiData.search = data;
+                
+                // 显示结果
+                displayJson(searchData, data);
+                
+                if (data.code === 200 && data.result && data.result.mvs && data.result.mvs.length > 0) {
+                    showStatus(searchStatus, `找到 ${data.result.mvs.length} 个MV`, 'success');
+                    
+                    // 提取第一个MV的ID
+                    const firstMv = data.result.mvs[0];
+                    currentMvId = firstMv.id;
+                    
+                    // 自动填充其他输入框
+                    mvIdInput.value = currentMvId;
+                    mvUrlInput.value = currentMvId;
+                    mvInfoInput.value = currentMvId;
+                    
+                    // 显示MV信息
+                    showMvPreview(firstMv);
+                    
+                    // 自动获取详情
+                    setTimeout(getMvDetail, 500);
+                } else {
+                    showStatus(searchStatus, '未找到相关MV', 'error');
+                }
+            } catch (error) {
+                console.error('搜索MV失败:', error);
+                showStatus(searchStatus, `搜索失败: ${error.message}`, 'error');
+                displayJson(searchData, { error: error.message });
+            } finally {
+                searchBtn.disabled = false;
+            }
+        }
+
+        // 显示MV预览信息
+        function showMvPreview(mv) {
+            const preview = `
+找到MV: ${mv.name}
+ID: ${mv.id}
+艺术家: ${mv.artists.map(a => a.name).join(', ')}
+时长: ${Math.floor(mv.duration/1000/60)}:${String(Math.floor(mv.duration/1000%60)).padStart(2, '0')}
+播放次数: ${mv.playCount || 0}
+            `.trim();
+            
+            console.log('MV预览:', preview);
+        }
+
+        // 获取MV详情
+        async function getMvDetail() {
+            const mvid = mvIdInput.value.trim() || currentMvId;
+            if (!mvid) {
+                showStatus(detailStatus, '请输入MV ID', 'error');
+                return;
+            }
+            
+            showStatus(detailStatus, '正在获取MV详情...', 'loading');
+            detailBtn.disabled = true;
+            
+            try {
+                const timestamp = Date.now();
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}/mv/detail?mvid=${mvid}&timestamp=${timestamp}`
+                );
+                
+                const data = await response.json();
+                apiData.detail = data;
+                
+                // 显示结果
+                displayJson(detailData, data);
+                
+                if (data.code === 200) {
+                    showStatus(detailStatus, '获取MV详情成功', 'success');
+                    
+                    // 更新当前MV ID
+                    currentMvId = mvid;
+                } else {
+                    showStatus(detailStatus, `获取失败: ${data.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('获取MV详情失败:', error);
+                showStatus(detailStatus, `获取失败: ${error.message}`, 'error');
+                displayJson(detailData, { error: error.message });
+            } finally {
+                detailBtn.disabled = false;
+            }
+        }
+
+        // 获取MV播放地址
+        async function getMvUrl() {
+            const mvid = mvUrlInput.value.trim() || currentMvId;
+            if (!mvid) {
+                showStatus(urlStatus, '请输入MV ID', 'error');
+                return;
+            }
+            
+            showStatus(urlStatus, '正在获取MV播放地址...', 'loading');
+            urlBtn.disabled = true;
+            
+            try {
+                const timestamp = Date.now();
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}/mv/url?id=${mvid}&timestamp=${timestamp}`
+                );
+                
+                const data = await response.json();
+                apiData.url = data;
+                
+                // 显示结果
+                displayJson(urlData, data);
+                
+                if (data.code === 200) {
+                    showStatus(urlStatus, '获取播放地址成功', 'success');
+                    
+                    // 更新当前MV ID
+                    currentMvId = mvid;
+                    
+                    // 处理播放地址
+                    processVideoUrl(data);
+                } else {
+                    showStatus(urlStatus, `获取失败: ${data.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('获取MV播放地址失败:', error);
+                showStatus(urlStatus, `获取失败: ${error.message}`, 'error');
+                displayJson(urlData, { error: error.message });
+            } finally {
+                urlBtn.disabled = false;
+            }
+        }
+
+        // 处理视频URL
+        function processVideoUrl(data) {
+            if (data.data && data.data.url) {
+                currentVideoUrl = data.data.url;
+                videoUrl.textContent = currentVideoUrl;
+                
+                // 设置视频源
+                testVideo.src = currentVideoUrl;
+                
+                // 添加referrer策略
+                testVideo.setAttribute('referrerpolicy', 'no-referrer');
+                
+                console.log('获取到视频URL:', currentVideoUrl);
+            } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                // 如果有多个清晰度，使用第一个
+                currentVideoUrl = data.data[0].url;
+                videoUrl.textContent = currentVideoUrl;
+                testVideo.src = currentVideoUrl;
+                testVideo.setAttribute('referrerpolicy', 'no-referrer');
+                
+                console.log('获取到多个清晰度，使用第一个:', currentVideoUrl);
+            } else {
+                videoUrl.textContent = '未获取到有效的视频URL';
+                console.log('API返回的数据结构:', data);
+            }
+        }
+
+        // 获取MV详细信息
+        async function getMvInfo() {
+            const mvid = mvInfoInput.value.trim() || currentMvId;
+            if (!mvid) {
+                showStatus(infoStatus, '请输入MV ID', 'error');
+                return;
+            }
+            
+            showStatus(infoStatus, '正在获取MV详细信息...', 'loading');
+            infoBtn.disabled = true;
+            
+            try {
+                const timestamp = Date.now();
+                const response = await fetch(
+                    `${API_CONFIG.BASE_URL}/mv/detail/info?mvid=${mvid}&timestamp=${timestamp}`
+                );
+                
+                const data = await response.json();
+                apiData.info = data;
+                
+                // 显示结果
+                displayJson(infoData, data);
+                
+                if (data.code === 200) {
+                    showStatus(infoStatus, '获取MV信息成功', 'success');
+                } else {
+                    showStatus(infoStatus, `获取失败: ${data.message || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                console.error('获取MV信息失败:', error);
+                showStatus(infoStatus, `获取失败: ${error.message}`, 'error');
+                displayJson(infoData, { error: error.message });
+            } finally {
+                infoBtn.disabled = false;
+            }
+        }
+
+        // 播放视频
+        function playVideo() {
+            if (!currentVideoUrl) {
+                alert('请先获取视频地址');
+                return;
+            }
+            
+            testVideo.play().catch(error => {
+                console.error('播放失败:', error);
+                alert(`播放失败: ${error.message}\n\n尝试在新窗口打开视频。`);
+            });
+        }
+
+        // 复制视频URL
+        function copyVideoUrl() {
+            if (!currentVideoUrl) {
+                alert('没有可复制的URL');
+                return;
+            }
+            
+            navigator.clipboard.writeText(currentVideoUrl).then(() => {
+                alert('URL已复制到剪贴板');
+            }).catch(error => {
+                console.error('复制失败:', error);
+                // 备用方法
+                const textArea = document.createElement('textarea');
+                textArea.value = currentVideoUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('URL已复制到剪贴板');
+            });
+        }
+
+        // 在新窗口打开视频
+        function openVideoUrl() {
+            if (!currentVideoUrl) {
+                alert('没有可打开的URL');
+                return;
+            }
+            
+            window.open(currentVideoUrl, '_blank');
+        }
+
+        // 显示状态
+        function showStatus(element, message, type) {
+            element.textContent = message;
+            element.className = 'api-status ' + type;
+            
+            // 3秒后清除成功/错误消息
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    element.className = 'api-status';
+                    element.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // 显示JSON数据
+        function displayJson(element, data) {
+            // 格式化JSON
+            const formattedJson = JSON.stringify(data, null, 2);
+            
+            // 语法高亮
+            const highlightedJson = formattedJson
+                .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, function(match) {
+                    let cls = 'json-number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'json-key';
+                        } else {
+                            cls = 'json-string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'json-boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'json-null';
+                    }
+                    return '<span class="' + cls + '">' + match + '</span>';
+                });
+            
+            element.innerHTML = highlightedJson;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initEventListeners();
+            
+            // 自动搜索"昔涟"
+            setTimeout(searchMv, 1000);
+        });
+    </script>
+</body>
+</html>
