@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海量图片加载（10000张）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+            margin: 10px 0;
+        }
+        /* 虚拟滚动容器 */
+        .virtual-container {
+            width: 100%;
+            height: 80vh;
+            overflow: auto;
+            border: 1px solid #eee;
+            position: relative;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            padding: 10px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+        }
+        .image-item {
+            background: #fff;
+            border-radius: 6px;
+            padding: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .image-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 4px;
+            display: block;
+        }
+        .image-item p {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>海量随机图片加载（10000张）</h1>
+    <div class="status" id="loadingStatus">准备加载图片...</div>
+    <div class="virtual-container" id="scrollContainer">
+        <div class="image-grid" id="imageGrid"></div>
+    </div>
+
+    <script>
+        // 配置项
+        const apiUrl = 'https://nx.caoshen.top/';
+        const totalImages = 10000; // 总图片数
+        const concurrency = 32; // 每批并发数
+        const batchSize = 100; // 每次渲染的批次大小（减少DOM操作）
+        const container = document.getElementById('scrollContainer');
+        const grid = document.getElementById('imageGrid');
+        const statusElement = document.getElementById('loadingStatus');
+
+        // 存储所有图片数据（仅存URL和索引，不提前渲染）
+        let allImageData = [];
+        let loadedCount = 0;
+
+        // 初始化网格高度（用于虚拟滚动）
+        function initGridHeight() {
+            const rowCount = Math.ceil(totalImages / Math.floor(container.clientWidth / 160)); // 150px图片+10px间距
+            const rowHeight = 140; // 120px图片+20px内边距/间距
+            grid.style.height = `${rowCount * rowHeight}px`;
+        }
+
+        // 加载单批图片数据（仅存URL，不渲染）
+        async function loadBatchData(start, end) {
+            const promises = [];
+            for (let i = start; i < end; i++) {
+                if (i >= totalImages) break;
+                const imgUrl = `${apiUrl}?t=${Date.now()}_${i}`;
+                promises.push(
+                    new Promise(resolve => {
+                        const img = new Image();
+                        img.src = imgUrl;
+                        img.onload = () => resolve({ index: i, url: imgUrl, success: true });
+                        img.onerror = () => resolve({ index: i, url: 'https://via.placeholder.com/150x120?text=加载失败', success: false });
+                    })
+                );
+            }
+            const batchData = await Promise.all(promises);
+            allImageData = [...allImageData, ...batchData];
+            loadedCount = end > totalImages ? totalImages : end;
+            statusElement.textContent = `已加载数据：${loadedCount}/${totalImages} 张`;
+        }
+
+        // 虚拟滚动渲染（只渲染可视区域图片）
+        function renderVisibleImages() {
+            const scrollTop = container.scrollTop;
+            const viewHeight = container.clientHeight;
+            const itemHeight = 140; // 图片项高度
+            const startIndex = Math.floor(scrollTop / itemHeight) * Math.floor(container.clientWidth / 160);
+            const endIndex = startIndex + Math.ceil(viewHeight / itemHeight) * Math.floor(container.clientWidth / 160) + batchSize;
+
+            // 清空现有可视区域DOM（避免重复渲染）
+            grid.innerHTML = '';
+
+            // 渲染可视区域内的图片
+            for (let i = startIndex; i < endIndex && i < allImageData.length; i++) {
+                const data = allImageData[i];
+                if (!data) continue;
+
+                const imageItem = document.createElement('div');
+                imageItem.className = 'image-item';
+                imageItem.style.position = 'absolute';
+                imageItem.style.top = `${Math.floor(i / Math.floor(container.clientWidth / 160)) * itemHeight}px`;
+                imageItem.style.left = `${(i % Math.floor(container.clientWidth / 160)) * 160}px`;
+                imageItem.style.width = '150px';
+
+                const img = document.createElement('img');
+                img.src = data.url;
+                img.alt = `图片${data.index + 1}`;
+
+                const caption = document.createElement('p');
+                caption.textContent = `图片 ${data.index + 1}${data.success ? '' : '（失败）'}`;
+
+                imageItem.appendChild(img);
+                imageItem.appendChild(caption);
+                grid.appendChild(imageItem);
+            }
+        }
+
+        // 分批加载所有图片数据
+        async function loadAllData() {
+            initGridHeight();
+            for (let batch = 0; batch < Math.ceil(totalImages / concurrency); batch++) {
+                const start = batch * concurrency;
+                const end = start + concurrency;
+                await loadBatchData(start, end);
+                
+                // 每加载10批渲染一次，避免频繁DOM操作
+                if (batch % 10 === 0) renderVisibleImages();
+            }
+            statusElement.textContent = `加载完成！共${totalImages}张图片（失败：${allImageData.filter(item => !item.success).length}张）`;
+            renderVisibleImages(); // 最后渲染全部可视区域
+        }
+
+        // 监听滚动事件，触发虚拟滚动渲染
+        container.addEventListener('scroll', renderVisibleImages);
+
+        // 页面加载后执行
+        window.onload = () => {
+            initGridHeight();
+            loadAllData();
+        };
+    </script>
+</body>
+</html>
