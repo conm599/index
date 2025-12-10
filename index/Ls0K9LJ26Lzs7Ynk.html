@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量图片压缩工具 - 智能分批次处理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        neutral: '#64748B',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .shadow-soft {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .transition-custom {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .scale-hover {
+                @apply hover:scale-105 transition-all duration-300;
+            }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 text-dark min-h-screen flex flex-col">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm py-4 px-6 md:px-12">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-compress text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    批量图片压缩工具 - 智能分批处理
+                </h1>
+            </div>
+            <div class="text-sm text-neutral hidden md:block">
+                分批次处理 · 保护隐私 · 自动下载
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容区 -->
+    <main class="flex-grow container mx-auto p-4 md:p-8 lg:p-12">
+        <!-- 上传区域 -->
+        <section class="mb-10">
+            <div id="upload-container" class="bg-white rounded-xl shadow-soft p-6 md:p-8 border-2 border-dashed border-gray-200 hover:border-primary transition-custom">
+                <div class="flex flex-col items-center justify-center text-center">
+                    <i class="fa fa-cloud-upload text-5xl text-primary mb-4"></i>
+                    <h2 class="text-xl font-semibold mb-2">批量上传文件</h2>
+                    <p class="text-neutral mb-6 max-w-md">支持超大文件批量处理，智能分批次压缩并自动下载</p>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <label for="folder-upload" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg cursor-pointer transition-custom scale-hover flex items-center">
+                            <i class="fa fa-folder-open mr-2"></i>选择文件夹
+                        </label>
+                        <label for="file-upload" class="bg-secondary hover:bg-secondary/90 text-white font-medium py-3 px-8 rounded-lg cursor-pointer transition-custom scale-hover flex items-center">
+                            <i class="fa fa-file-image-o mr-2"></i>选择文件
+                        </label>
+                    </div>
+                    <input id="folder-upload" type="file" webkitdirectory directory multiple class="hidden">
+                    <input id="file-upload" type="file" multiple class="hidden">
+                    
+                    <p id="file-count" class="mt-4 text-sm text-neutral hidden"></p>
+                    <button id="reset-upload" class="mt-4 text-neutral hover:text-red-500 transition-custom hidden">
+                        <i class="fa fa-times-circle mr-1"></i> 重新选择
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 压缩设置区域 -->
+        <section id="compression-settings" class="mb-10 hidden">
+            <div class="bg-white rounded-xl shadow-soft p-6 md:p-8">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-sliders text-primary mr-2"></i>压缩设置
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- 质量设置 -->
+                    <div>
+                        <label for="quality" class="block text-sm font-medium text-gray-700 mb-2">
+                            压缩质量: <span id="quality-value">80</span>%
+                        </label>
+                        <input type="range" id="quality" min="1" max="100" value="80" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+                        <p class="text-xs text-neutral mt-1">数值越低，压缩率越高，画质可能下降越明显</p>
+                    </div>
+                    
+                    <!-- 输出格式 -->
+                    <div>
+                        <label for="output-format" class="block text-sm font-medium text-gray-700 mb-2">
+                            输出格式
+                        </label>
+                        <select id="output-format" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-custom">
+                            <option value="keep">保持原格式</option>
+                            <option value="jpeg">JPEG</option>
+                            <option value="png">PNG</option>
+                            <option value="webp">WebP (现代格式)</option>
+                        </select>
+                        <p class="text-xs text-neutral mt-1">选择压缩后的图片格式</p>
+                    </div>
+                    
+                    <!-- 批量处理选项 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            处理选项
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="preserve-structure" checked class="rounded text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm">保持原文件夹结构</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="include-non-images" class="rounded text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm">包含非图片文件</span>
+                            </label>
+                            <div class="pt-2">
+                                <label for="batch-size" class="block text-sm font-medium text-gray-700 mb-2">
+                                    每批次文件数: <span id="batch-size-value">2000</span>
+                                </label>
+                                <input type="range" id="batch-size" min="100" max="5000" step="100" value="2000" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <p class="text-xs text-neutral mt-1">每处理指定数量后自动下载并清内存 (100-5000)</p>
+                            </div>
+                            <div class="pt-2">
+                                <label for="concurrency" class="block text-sm font-medium text-gray-700 mb-2">
+                                    并发线程数: <span id="concurrency-value">32</span>
+                                </label>
+                                <input type="range" id="concurrency" min="1" max="128" value="32" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary">
+                                <p class="text-xs text-neutral mt-1">调整同时处理的文件数量 (1-128)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-center">
+                    <button id="compress-btn" class="bg-secondary hover:bg-secondary/90 text-white font-medium py-3 px-8 rounded-lg transition-custom scale-hover flex items-center">
+                        <i class="fa fa-cog mr-2"></i>开始批量压缩
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 进度条区域 -->
+        <section id="progress-section" class="mb-10 hidden">
+            <div class="bg-white rounded-xl shadow-soft p-6 md:p-8">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-spinner text-primary mr-2"></i>处理进度
+                </h2>
+                
+                <!-- 总体进度 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium mb-2">总体进度</h3>
+                    <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                        <div id="progress-bar" class="bg-primary h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-text" class="text-center text-neutral">准备处理...</p>
+                </div>
+                
+                <!-- 当前批次进度 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium mb-2">当前批次进度</h3>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+                        <div id="batch-progress-bar" class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <p id="batch-progress-text" class="text-center text-sm text-neutral">批次准备中...</p>
+                </div>
+                
+                <!-- 统计信息 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <p class="text-sm text-neutral">当前批次</p>
+                        <p id="current-batch" class="text-lg font-semibold">0/0</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <p class="text-sm text-neutral">已处理文件</p>
+                        <p id="processed-files" class="text-lg font-semibold">0</p>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-lg">
+                        <p class="text-sm text-neutral">总节省空间</p>
+                        <p id="total-space-saved" class="text-lg font-semibold">0 B</p>
+                    </div>
+                </div>
+                
+                <!-- 停止按钮 -->
+                <div class="mt-6 flex justify-center">
+                    <button id="stop-process-btn" class="bg-red-500 hover:bg-red-600 text-white font-medium py-3 px-8 rounded-lg transition-custom scale-hover flex items-center hidden">
+                        <i class="fa fa-stop mr-2"></i>停止处理
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 结果区域 -->
+        <section id="result-section" class="mb-10 hidden">
+            <div class="bg-white rounded-xl shadow-soft p-6 md:p-8">
+                <h2 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fa fa-check-circle text-secondary mr-2"></i>处理完成
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-blue-50 p-6 rounded-lg">
+                        <h3 class="font-medium text-lg mb-2">统计信息</h3>
+                        <ul class="space-y-2">
+                            <li class="flex justify-between">
+                                <span>总文件数:</span>
+                                <span id="total-files">0</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>成功处理:</span>
+                                <span id="success-count">0</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>跳过文件:</span>
+                                <span id="skipped-count">0</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>处理失败:</span>
+                                <span id="failed-count">0</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-green-50 p-6 rounded-lg">
+                        <h3 class="font-medium text-lg mb-2">压缩结果</h3>
+                        <ul class="space-y-2">
+                            <li class="flex justify-between">
+                                <span>压缩批次:</span>
+                                <span id="batch-count">0</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>总节省空间:</span>
+                                <span id="space-saved">0 MB</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>压缩比率:</span>
+                                <span id="compression-ratio">0%</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>处理时间:</span>
+                                <span id="processing-time">0s</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- 已下载文件列表 -->
+                <div class="mb-8">
+                    <h3 class="font-medium text-lg mb-3">已下载文件</h3>
+                    <div id="downloaded-files" class="bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto">
+                        <p class="text-sm text-neutral text-center">已下载的文件将显示在这里</p>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-center">
+                    <button id="restart-btn" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-custom scale-hover flex items-center">
+                        <i class="fa fa-refresh mr-2"></i>重新开始
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 提示信息区域 -->
+        <section id="info-section" class="bg-blue-50 border-l-4 border-primary p-4 rounded-r-lg mb-10 hidden">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fa fa-info-circle text-primary"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-blue-700" id="info-message">
+                        提示信息将显示在这里
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 py-6 px-6">
+        <div class="container mx-auto text-center text-sm text-neutral">
+            <p>批量图片压缩工具 © 2025 - 智能分批次处理，支持超大文件批量压缩，保护隐私安全</p>
+        </div>
+    </footer>
+
+    <!-- 加载动画 -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg flex items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-4"></div>
+            <p class="font-medium">正在处理文件...</p>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let uploadedFiles = [];
+        let compressedFiles = [];
+        let batchSize = 2000; // 每批次处理文件数
+        let currentBatch = 0;
+        let totalBatches = 0;
+        let processedFilesCount = 0;
+        let successCount = 0;
+        let skippedCount = 0;
+        let failedCount = 0;
+        let totalSizeBefore = 0;
+        let totalSizeAfter = 0;
+        let totalSpaceSaved = 0;
+        let processingStartTime = 0;
+        let isProcessing = false;
+        let stopProcessing = false;
+        let downloadedFiles = [];
+        
+        // DOM元素
+        const uploadContainer = document.getElementById('upload-container');
+        const fileUpload = document.getElementById('file-upload');
+        const folderUpload = document.getElementById('folder-upload');
+        const fileCount = document.getElementById('file-count');
+        const resetUpload = document.getElementById('reset-upload');
+        const compressionSettings = document.getElementById('compression-settings');
+        const progressSection = document.getElementById('progress-section');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const batchProgressBar = document.getElementById('batch-progress-bar');
+        const batchProgressText = document.getElementById('batch-progress-text');
+        const resultSection = document.getElementById('result-section');
+        const currentBatchElement = document.getElementById('current-batch');
+        const processedFilesElement = document.getElementById('processed-files');
+        const totalSpaceSavedElement = document.getElementById('total-space-saved');
+        const qualitySlider = document.getElementById('quality');
+        const qualityValue = document.getElementById('quality-value');
+        const compressBtn = document.getElementById('compress-btn');
+        const batchSizeSlider = document.getElementById('batch-size');
+        const batchSizeValue = document.getElementById('batch-size-value');
+        const concurrencySlider = document.getElementById('concurrency');
+        const concurrencyValue = document.getElementById('concurrency-value');
+        const stopProcessBtn = document.getElementById('stop-process-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const downloadedFilesContainer = document.getElementById('downloaded-files');
+        
+        // 图片MIME类型映射
+        const imageMimeTypes = [
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'image/bmp',
+            'image/svg+xml'
+        ];
+        
+        // 初始化事件监听
+        function initEventListeners() {
+            // 更新质量值显示
+            qualitySlider.addEventListener('input', () => {
+                qualityValue.textContent = qualitySlider.value;
+            });
+            
+            // 更新批次大小显示
+            batchSizeSlider.addEventListener('input', () => {
+                batchSizeValue.textContent = batchSizeSlider.value;
+                batchSize = parseInt(batchSizeSlider.value);
+            });
+            
+            // 更新并发线程数显示
+            concurrencySlider.addEventListener('input', () => {
+                concurrencyValue.textContent = concurrencySlider.value;
+            });
+            
+            // 文件选择事件
+            fileUpload.addEventListener('change', handleFileSelect);
+            folderUpload.addEventListener('change', handleFolderSelect);
+            
+            // 重置上传
+            resetUpload.addEventListener('click', resetAll);
+            
+            // 开始压缩
+            compressBtn.addEventListener('click', startCompression);
+            
+            // 停止处理
+            stopProcessBtn.addEventListener('click', stopProcessingHandler);
+            
+            // 重新开始
+            restartBtn.addEventListener('click', resetAll);
+        }
+        
+        // 初始化
+        function init() {
+            initEventListeners();
+            console.log("批量图片压缩工具已初始化");
+        }
+        
+        // 处理文件选择
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+            
+            uploadedFiles = files.map(file => ({
+                file: file,
+                relativePath: file.name,
+                type: file.type
+            }));
+            
+            updateFileSelectionUI(files.length, null);
+        }
+        
+        // 处理文件夹选择
+        function handleFolderSelect(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+            
+            uploadedFiles = files.map(file => ({
+                file: file,
+                relativePath: file.webkitRelativePath,
+                type: file.type
+            }));
+            
+            // 获取文件夹名称
+            const folderName = files[0].webkitRelativePath.split('/')[0];
+            
+            updateFileSelectionUI(files.length, folderName);
+        }
+        
+        // 更新文件选择UI
+        function updateFileSelectionUI(fileCount, folderName) {
+            if (folderName) {
+                fileCount.textContent = `已选择文件夹 "${folderName}"，包含 ${fileCount} 个文件`;
+            } else {
+                fileCount.textContent = `已选择 ${fileCount} 个文件`;
+            }
+            
+            fileCount.classList.remove('hidden');
+            resetUpload.classList.remove('hidden');
+            compressionSettings.classList.remove('hidden');
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 显示提示信息
+        function showInfoMessage(message, type = 'info') {
+            const infoSection = document.getElementById('info-section');
+            const infoMessage = document.getElementById('info-message');
+            
+            infoMessage.textContent = message;
+            
+            // 根据类型设置颜色
+            const borderColors = {
+                info: 'border-primary',
+                success: 'border-green-500',
+                warning: 'border-yellow-500',
+                error: 'border-red-500'
+            };
+            
+            const bgColors = {
+                info: 'bg-blue-50',
+                success: 'bg-green-50',
+                warning: 'bg-yellow-50',
+                error: 'bg-red-50'
+            };
+            
+            infoSection.className = `${bgColors[type]} border-l-4 ${borderColors[type]} p-4 rounded-r-lg mb-10`;
+            infoSection.classList.remove('hidden');
+            
+            // 5秒后自动隐藏
+            setTimeout(() => {
+                infoSection.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // 开始压缩处理 - 智能分批次处理
+        async function startCompression() {
+            if (uploadedFiles.length === 0) {
+                showInfoMessage('请先选择文件或文件夹', 'warning');
+                return;
+            }
+            
+            // 重置变量
+            resetProcessingVariables();
+            processingStartTime = Date.now();
+            
+            // 获取设置
+            const quality = parseInt(qualitySlider.value);
+            const outputFormat = document.getElementById('output-format').value;
+            const preserveStructure = document.getElementById('preserve-structure').checked;
+            const includeNonImages = document.getElementById('include-non-images').checked;
+            const maxConcurrency = parseInt(concurrencySlider.value);
+            
+            // 显示进度区域
+            progressSection.classList.remove('hidden');
+            resultSection.classList.add('hidden');
+            stopProcessBtn.classList.remove('hidden');
+            
+            isProcessing = true;
+            stopProcessing = false;
+            
+            // 计算总批次
+            totalBatches = Math.ceil(uploadedFiles.length / batchSize);
+            
+            // 分批处理
+            for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+                if (stopProcessing) break;
+                
+                currentBatch = batchIndex + 1;
+                updateProgressUI(batchIndex);
+                
+                // 计算当前批次的开始和结束索引
+                const startIndex = batchIndex * batchSize;
+                const endIndex = Math.min(startIndex + batchSize, uploadedFiles.length);
+                const batchFiles = uploadedFiles.slice(startIndex, endIndex);
+                
+                // 处理当前批次
+                await processBatch(
+                    batchFiles, 
+                    batchIndex, 
+                    quality, 
+                    outputFormat, 
+                    preserveStructure, 
+                    includeNonImages, 
+                    maxConcurrency
+                );
+                
+                // 清除当前批次的内存缓存
+                clearBatchCache();
+            }
+            
+            // 处理完成
+            processingComplete();
+        }
+        
+        // 处理单个批次
+        async function processBatch(batchFiles, batchIndex, quality, outputFormat, preserveStructure, includeNonImages, maxConcurrency) {
+            const batchZip = new JSZip();
+            const semaphore = new Semaphore(maxConcurrency);
+            const processPromises = [];
+            
+            let batchProcessed = 0;
+            let batchSuccess = 0;
+            let batchSkipped = 0;
+            let batchFailed = 0;
+            let batchSizeBefore = 0;
+            let batchSizeAfter = 0;
+            
+            // 为每个文件创建处理任务
+            for (let i = 0; i < batchFiles.length; i++) {
+                if (stopProcessing) break;
+                
+                const fileObj = batchFiles[i];
+                const file = fileObj.file;
+                const relativePath = fileObj.relativePath;
+                const isImage = imageMimeTypes.includes(file.type);
+                
+                // 创建处理任务
+                const task = semaphore.acquire().then(async () => {
+                    try {
+                        // 更新批次进度
+                        batchProcessed++;
+                        const batchProgress = Math.round((batchProcessed / batchFiles.length) * 100);
+                        batchProgressBar.style.width = `${batchProgress}%`;
+                        batchProgressText.textContent = `批次 ${currentBatch}/${totalBatches}: ${batchProcessed}/${batchFiles.length} (${batchProgress}%)`;
+                        
+                        // 如果不是图片且不包含非图片文件，则跳过
+                        if (!isImage && !includeNonImages) {
+                            batchSkipped++;
+                            skippedCount++;
+                            
+                            // 如果保持目录结构，使用相对路径添加到压缩包
+                            if (preserveStructure && relativePath) {
+                                batchZip.file(relativePath, file);
+                            } else {
+                                batchZip.file(file.name, file);
+                            }
+                            return;
+                        }
+                        
+                        // 如果是图片文件，则进行压缩处理
+                        if (isImage) {
+                            const compressedBlob = await compressImage(file, quality, outputFormat);
+                            const originalNameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+                            const extension = getExtension(outputFormat, file.name);
+                            const newName = `${originalNameWithoutExt}.${extension}`;
+                            
+                            // 计算节省空间
+                            batchSizeBefore += file.size;
+                            batchSizeAfter += compressedBlob.size;
+                            totalSizeBefore += file.size;
+                            totalSizeAfter += compressedBlob.size;
+                            
+                            batchSuccess++;
+                            successCount++;
+                            
+                            // 添加到压缩包，保持目录结构
+                            if (preserveStructure && relativePath) {
+                                // 替换文件名以使用新格式
+                                const pathParts = relativePath.split('/');
+                                pathParts[pathParts.length - 1] = `${originalNameWithoutExt}.${extension}`;
+                                const newPath = pathParts.join('/');
+                                batchZip.file(newPath, compressedBlob);
+                            } else {
+                                batchZip.file(newName, compressedBlob);
+                            }
+                            
+                            compressedFiles.push({
+                                name: newName,
+                                originalName: file.name,
+                                blob: compressedBlob,
+                                originalSize: file.size,
+                                compressedSize: compressedBlob.size,
+                                batchIndex: batchIndex
+                            });
+                        } else {
+                            // 非图片文件直接添加到压缩包
+                            batchSkipped++;
+                            skippedCount++;
+                            if (preserveStructure && relativePath) {
+                                batchZip.file(relativePath, file);
+                            } else {
+                                batchZip.file(file.name, file);
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`处理文件 ${file.name} 失败:`, error);
+                        batchFailed++;
+                        failedCount++;
+                        // 即使处理失败也保留原文件
+                        if (preserveStructure && relativePath) {
+                            batchZip.file(relativePath, file);
+                        } else {
+                            batchZip.file(file.name, file);
+                        }
+                    } finally {
+                        // 释放信号量
+                        semaphore.release();
+                    }
+                });
+                
+                processPromises.push(task);
+            }
+            
+            // 等待批次内所有任务完成
+            await Promise.all(processPromises);
+            
+            // 更新总进度
+            processedFilesCount += batchFiles.length;
+            const totalProgress = Math.round((processedFilesCount / uploadedFiles.length) * 100);
+            progressBar.style.width = `${totalProgress}%`;
+            progressText.textContent = `已处理 ${processedFilesCount}/${uploadedFiles.length} 个文件 (${totalProgress}%)`;
+            
+            // 计算当前批次节省的空间
+            const batchSpaceSaved = batchSizeBefore - batchSizeAfter;
+            totalSpaceSaved += batchSpaceSaved;
+            totalSpaceSavedElement.textContent = formatFileSize(totalSpaceSaved);
+            currentBatchElement.textContent = `${currentBatch}/${totalBatches}`;
+            processedFilesElement.textContent = processedFilesCount;
+            
+            // 如果批次中有文件，则生成并下载ZIP
+            if (batchZip.files && Object.keys(batchZip.files).length > 0) {
+                await generateAndDownloadBatchZip(batchZip, batchIndex, batchFiles.length);
+            }
+            
+            return {
+                batchIndex,
+                batchSuccess,
+                batchSkipped,
+                batchFailed,
+                batchSpaceSaved
+            };
+        }
+        
+        // 压缩图片
+        function compressImage(file, quality, outputFormat) {
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                img.onload = () => {
+                    // 设置画布尺寸
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    // 绘制图片到画布
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // 确定输出格式
+                    let mimeType = 'image/jpeg';
+                    if (outputFormat === 'keep') {
+                        // 如果保持原格式，但原格式是PNG，则转换为JPEG以实现压缩
+                        if (file.type === 'image/png') {
+                            mimeType = 'image/jpeg';
+                        } else {
+                            mimeType = file.type;
+                        }
+                    } else {
+                        mimeType = `image/${outputFormat}`;
+                    }
+                    
+                    // 确保质量值在有效范围内 (0.01 - 1.0)
+                    let qualityValue = quality / 100;
+                    if (qualityValue < 0.01) qualityValue = 0.01;
+                    if (qualityValue > 1.0) qualityValue = 1.0;
+                    
+                    // 对于PNG格式，强制转换为JPEG以实现压缩
+                    if (file.type === 'image/png' && (outputFormat === 'keep' || outputFormat === 'png')) {
+                        mimeType = 'image/jpeg';
+                    }
+                    
+                    // 导出为blob
+                    canvas.toBlob(resolve, mimeType, qualityValue);
+                };
+                
+                img.onerror = reject;
+                
+                // 读取文件
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 获取文件扩展名
+        function getExtension(outputFormat, originalName) {
+            if (outputFormat === 'keep') {
+                return originalName.split('.').pop();
+            }
+            return outputFormat;
+        }
+        
+        // 信号量实现，用于控制并发数
+        class Semaphore {
+            constructor(maxConcurrency) {
+                this.maxConcurrency = maxConcurrency;
+                this.currentConcurrency = 0;
+                this.queue = [];
+            }
+            
+            async acquire() {
+                return new Promise((resolve) => {
+                    if (this.currentConcurrency < this.maxConcurrency) {
+                        this.currentConcurrency++;
+                        resolve();
+                    } else {
+                        this.queue.push(resolve);
+                    }
+                });
+            }
+            
+            release() {
+                this.currentConcurrency--;
+                if (this.queue.length > 0) {
+                    this.currentConcurrency++;
+                    const resolve = this.queue.shift();
+                    resolve();
+                }
+            }
+        }
+        
+        // 生成并下载批次ZIP
+        async function generateAndDownloadBatchZip(batchZip, batchIndex, batchFileCount) {
+            try {
+                // 生成ZIP文件
+                const zipContent = await batchZip.generateAsync({
+                    type: "blob",
+                    compression: "DEFLATE",
+                    compressionOptions: {
+                        level: 6
+                    }
+                });
+                
+                // 创建文件名
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+                const fileName = `compressed_batch_${batchIndex + 1}_${timestamp}.zip`;
+                
+                // 自动下载
+                saveAs(zipContent, fileName);
+                
+                // 记录已下载的文件
+                downloadedFiles.push({
+                    name: fileName,
+                    size: zipContent.size,
+                    batch: batchIndex + 1,
+                    fileCount: batchFileCount,
+                    timestamp: new Date().toLocaleString()
+                });
+                
+                // 更新已下载文件列表
+                updateDownloadedFilesList();
+                
+                console.log(`批次 ${batchIndex + 1} ZIP文件已下载: ${fileName}`);
+                showInfoMessage(`批次 ${batchIndex + 1} 已处理完成并自动下载`, 'success');
+                
+            } catch (error) {
+                console.error(`生成批次 ${batchIndex + 1} ZIP文件失败:`, error);
+                showInfoMessage(`批次 ${batchIndex + 1} 下载失败，但处理已完成。错误: ${error.message}`, 'error');
+            }
+        }
+        
+        // 清除批次缓存
+        function clearBatchCache() {
+            // 触发垃圾回收提示（如果可用）
+            if (window.gc) {
+                window.gc();
+            }
+            
+            // 显示内存使用情况（仅调试用）
+            if (performance && performance.memory) {
+                const memory = performance.memory;
+                console.log(`内存使用: ${formatFileSize(memory.usedJSHeapSize)} / ${formatFileSize(memory.totalJSHeapSize)} (限制: ${formatFileSize(memory.jsHeapSizeLimit)})`);
+            }
+        }
+        
+        // 更新进度UI
+        function updateProgressUI(batchIndex) {
+            const totalProgress = Math.round((processedFilesCount / uploadedFiles.length) * 100);
+            progressBar.style.width = `${totalProgress}%`;
+            progressText.textContent = `已处理 ${processedFilesCount}/${uploadedFiles.length} 个文件 (${totalProgress}%)`;
+            
+            currentBatchElement.textContent = `${batchIndex + 1}/${totalBatches}`;
+            processedFilesElement.textContent = processedFilesCount;
+            totalSpaceSavedElement.textContent = formatFileSize(totalSpaceSaved);
+        }
+        
+        // 处理完成
+        function processingComplete() {
+            isProcessing = false;
+            stopProcessBtn.classList.add('hidden');
+            
+            // 更新进度为100%
+            progressBar.style.width = '100%';
+            progressText.textContent = `处理完成！总共处理 ${processedFilesCount} 个文件`;
+            batchProgressText.textContent = '所有批次处理完成';
+            
+            // 计算处理时间
+            const processingTime = Math.round((Date.now() - processingStartTime) / 1000);
+            
+            // 更新结果统计
+            document.getElementById('total-files').textContent = uploadedFiles.length;
+            document.getElementById('success-count').textContent = successCount;
+            document.getElementById('skipped-count').textContent = skippedCount;
+            document.getElementById('failed-count').textContent = failedCount;
+            document.getElementById('batch-count').textContent = currentBatch;
+            document.getElementById('space-saved').textContent = formatFileSize(totalSpaceSaved);
+            document.getElementById('compression-ratio').textContent = totalSizeBefore > 0 ? Math.round((1 - totalSizeAfter / totalSizeBefore) * 100) + '%' : '0%';
+            document.getElementById('processing-time').textContent = `${processingTime} 秒`;
+            
+            // 显示结果区域
+            resultSection.classList.remove('hidden');
+            
+            showInfoMessage(`所有批次处理完成！总共 ${currentBatch} 个批次，节省空间 ${formatFileSize(totalSpaceSaved)}`, 'success');
+        }
+        
+        // 停止处理
+        function stopProcessingHandler() {
+            stopProcessing = true;
+            isProcessing = false;
+            stopProcessBtn.classList.add('hidden');
+            
+            showInfoMessage('处理已停止，已完成的批次文件已下载', 'warning');
+            
+            // 显示当前结果
+            if (processedFilesCount > 0) {
+                processingComplete();
+            }
+        }
+        
+        // 重置所有
+        function resetAll() {
+            // 重置变量
+            resetProcessingVariables();
+            
+            // 重置UI
+            fileUpload.value = '';
+            folderUpload.value = '';
+            fileCount.classList.add('hidden');
+            resetUpload.classList.add('hidden');
+            compressionSettings.classList.add('hidden');
+            progressSection.classList.add('hidden');
+            resultSection.classList.add('hidden');
+            stopProcessBtn.classList.add('hidden');
+            
+            // 重置进度条
+            progressBar.style.width = '0%';
+            batchProgressBar.style.width = '0%';
+            progressText.textContent = '准备处理...';
+            batchProgressText.textContent = '批次准备中...';
+            
+            // 清空已下载文件列表
+            downloadedFiles = [];
+            downloadedFilesContainer.innerHTML = '<p class="text-sm text-neutral text-center">已下载的文件将显示在这里</p>';
+            
+            showInfoMessage('已重置，可以重新开始处理', 'info');
+        }
+        
+        // 重置处理变量
+        function resetProcessingVariables() {
+            uploadedFiles = [];
+            compressedFiles = [];
+            currentBatch = 0;
+            totalBatches = 0;
+            processedFilesCount = 0;
+            successCount = 0;
+            skippedCount = 0;
+            failedCount = 0;
+            totalSizeBefore = 0;
+            totalSizeAfter = 0;
+            totalSpaceSaved = 0;
+            processingStartTime = 0;
+            isProcessing = false;
+            stopProcessing = false;
+        }
+        
+        // 更新已下载文件列表
+        function updateDownloadedFilesList() {
+            if (downloadedFiles.length === 0) {
+                downloadedFilesContainer.innerHTML = '<p class="text-sm text-neutral text-center">已下载的文件将显示在这里</p>';
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            downloadedFiles.forEach(file => {
+                html += `
+                    <div class="flex items-center justify-between p-2 bg-white rounded border">
+                        <div class="flex items-center">
+                            <i class="fa fa-file-archive-o text-primary mr-2"></i>
+                            <div>
+                                <p class="text-sm font-medium">${file.name}</p>
+                                <p class="text-xs text-neutral">批次 ${file.batch} | ${file.fileCount} 个文件 | ${formatFileSize(file.size)}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs text-neutral">${file.timestamp}</span>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            downloadedFilesContainer.innerHTML = html;
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
