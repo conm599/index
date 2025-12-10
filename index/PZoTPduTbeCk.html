@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量加载随机图片</title>
+    <style>
+        /* 页面样式：图片网格布局，自适应响应 */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+            margin: 0;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        .image-item {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .image-item img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover; /* 保持图片比例，裁剪多余部分 */
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .image-item p {
+            font-size: 14px;
+            color: #666;
+            margin: 0;
+        }
+        .loading {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>批量加载100张随机图片</h1>
+    <div class="loading">正在加载图片...</div>
+    <div class="image-container"></div>
+
+    <script>
+        // 目标API地址
+        const apiUrl = 'https://nx.caoshen.top/';
+        // 要加载的图片数量
+        const imageCount = 100;
+        // 获取容器元素
+        const loadingElement = document.querySelector('.loading');
+        const container = document.querySelector('.image-container');
+
+        // 批量加载图片的函数
+        async function loadImages() {
+            loadingElement.textContent = `正在加载${imageCount}张图片，请稍候...`;
+            
+            // 循环请求100次API
+            for (let i = 0; i < imageCount; i++) {
+                try {
+                    // 请求API获取图片（API直接返回图片数据流，可直接作为img的src）
+                    const imageItem = document.createElement('div');
+                    imageItem.className = 'image-item';
+
+                    const img = document.createElement('img');
+                    // 拼接随机参数避免缓存（API可能返回相同图片，加时间戳+索引确保请求唯一性）
+                    img.src = `${apiUrl}?t=${Date.now()}_${i}`;
+                    img.alt = `随机图片${i + 1}`;
+
+                    // 图片加载失败时的处理
+                    img.onerror = function() {
+                        img.src = 'https://via.placeholder.com/200x180?text=加载失败';
+                        img.alt = `图片${i + 1}加载失败`;
+                    };
+
+                    const caption = document.createElement('p');
+                    caption.textContent = `图片 ${i + 1}`;
+
+                    // 将图片和标题添加到容器
+                    imageItem.appendChild(img);
+                    imageItem.appendChild(caption);
+                    container.appendChild(imageItem);
+
+                } catch (error) {
+                    // 请求出错时创建错误提示项
+                    const errorItem = document.createElement('div');
+                    errorItem.className = 'image-item';
+                    errorItem.innerHTML = `<p>图片 ${i + 1} 请求失败</p>`;
+                    container.appendChild(errorItem);
+                    console.error(`加载图片${i + 1}失败：`, error);
+                }
+            }
+
+            // 全部加载完成后隐藏加载提示
+            loadingElement.style.display = 'none';
+        }
+
+        // 页面加载完成后执行
+        window.onload = loadImages;
+    </script>
+</body>
+</html>
