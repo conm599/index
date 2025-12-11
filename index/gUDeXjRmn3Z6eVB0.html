@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高并发加载200张图片</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+            margin: 10px 0;
+        }
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .image-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .image-item:hover {
+            transform: translateY(-3px);
+        }
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 6px;
+            display: block;
+        }
+        .image-item p {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>加载200张随机图片（ywenp.naxid.top）</h1>
+    <div class="status" id="loadStatus">准备加载...</div>
+    <div class="image-container" id="imageContainer"></div>
+
+    <script>
+        // 配置项
+        const apiUrl = 'https://ywenp.naxid.top/';
+        const totalImages = 200; // 加载数量
+        const concurrency = 64; // 并发数（适配120Mbps带宽）
+        const container = document.getElementById('imageContainer');
+        const statusElement = document.getElementById('loadStatus');
+
+        let loadedCount = 0;
+
+        // 加载单张图片
+        function loadSingleImage(index) {
+            return new Promise(resolve => {
+                const imageItem = document.createElement('div');
+                imageItem.className = 'image-item';
+
+                const img = document.createElement('img');
+                // 防缓存+唯一标识
+                img.src = `${apiUrl}?t=${Date.now()}_${index}`;
+                img.alt = `随机图片${index + 1}`;
+
+                // 加载成功处理
+                img.onload = () => {
+                    const caption = document.createElement('p');
+                    caption.textContent = `图片 ${index + 1}`;
+                    imageItem.appendChild(img);
+                    imageItem.appendChild(caption);
+                    container.appendChild(imageItem);
+                    loadedCount++;
+                    updateStatus();
+                    resolve();
+                };
+
+                // 加载失败兜底
+                img.onerror = () => {
+                    img.src = 'https://via.placeholder.com/180x150?text=加载失败';
+                    img.alt = `图片${index + 1}加载失败`;
+                    const caption = document.createElement('p');
+                    caption.textContent = `图片 ${index + 1}（失败）`;
+                    imageItem.appendChild(img);
+                    imageItem.appendChild(caption);
+                    container.appendChild(imageItem);
+                    loadedCount++;
+                    updateStatus();
+                    resolve();
+                };
+            });
+        }
+
+        // 更新加载状态
+        function updateStatus() {
+            statusElement.textContent = `已加载：${loadedCount}/${totalImages} 张（${Math.round(loadedCount/totalImages*100)}%）`;
+            if (loadedCount === totalImages) {
+                statusElement.textContent += ' ✅ 加载完成！';
+            }
+        }
+
+        // 批量高并发加载
+        async function loadAllImages() {
+            statusElement.textContent = '开始高并发加载...';
+            const allPromises = [];
+
+            // 生成所有加载Promise（无分批等待，最大化并发）
+            for (let i = 0; i < totalImages; i++) {
+                allPromises.push(loadSingleImage(i));
+                // 每64个Promise批量执行，避免内存瞬间过载
+                if (i % concurrency === 0 && i > 0) {
+                    await Promise.allSettled(allPromises.splice(0, concurrency));
+                }
+            }
+
+            // 处理剩余Promise
+            if (allPromises.length > 0) {
+                await Promise.allSettled(allPromises);
+            }
+        }
+
+        // 页面加载后执行
+        window.onload = loadAllImages;
+    </script>
+</body>
+</html>
