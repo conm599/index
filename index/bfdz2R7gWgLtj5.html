@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D随机图片卡片展示</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+            transition: background-image 1s ease-in-out;
+        }
+        
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: brightness(0.4);
+            z-index: -1;
+            transition: background-image 1s ease-in-out;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #fff;
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+        }
+        
+        .subtitle {
+            color: #a3d9ff;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-label {
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        
+        .card-count-display {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 10px;
+        }
+        
+        .cards-container {
+            width: 100%;
+            height: 65vh;
+            position: relative;
+            margin: 30px 0;
+            perspective: 1000px;
+        }
+        
+        .card {
+            position: absolute;
+            width: 180px;
+            height: 250px;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        .card-front {
+            background-color: #f8f9fa;
+            transform: rotateY(0deg);
+        }
+        
+        .card-back {
+            background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
+            transform: rotateY(180deg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .card-back i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .card:hover .card-image {
+            transform: scale(1.05);
+        }
+        
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card.shaking {
+            animation: shake 0.5s ease-in-out infinite alternate;
+        }
+        
+        .card.wobbling {
+            animation: wobble 2s ease-in-out infinite;
+        }
+        
+        @keyframes shake {
+            0% { transform: translateX(-2px) rotate(-0.5deg); }
+            100% { transform: translateX(2px) rotate(0.5deg); }
+        }
+        
+        @keyframes wobble {
+            0%, 100% { transform: rotate(-1deg); }
+            50% { transform: rotate(1deg); }
+        }
+        
+        .info-panel {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            color: #fff;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-panel h3 {
+            margin-bottom: 15px;
+            color: #a3d9ff;
+            font-size: 1.5rem;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #4dabf7;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(45deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(37, 117, 252, 0.4);
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(37, 117, 252, 0.6);
+        }
+        
+        .refresh-btn:active {
+            transform: translateY(0);
+        }
+        
+        footer {
+            margin-top: 30px;
+            color: #aaa;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            color: #fff;
+            font-size: 1.5rem;
+            text-align: center;
+            margin-top: 50px;
+        }
+        
+        .loading-spinner {
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 5px solid #4dabf7;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .slider-container {
+            width: 200px;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4dabf7;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(77, 171, 247, 0.8);
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+            
+            .cards-container {
+                height: 55vh;
+            }
+            
+            .card {
+                width: 140px;
+                height: 200px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-overlay" id="backgroundOverlay"></div>
+    
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-dice"></i> 3D随机图片卡片</h1>
+            <p class="subtitle">每次访问都会获取不同的图片，卡片具有3D效果并会晃动和摇动</p>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <span class="control-label">卡片数量: <span id="currentCardCount">10</span></span>
+                    <div class="slider-container">
+                        <input type="range" min="2" max="20" value="10" class="slider" id="cardCountSlider">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <span class="control-label">动画强度</span>
+                    <div class="slider-container">
+                        <input type="range" min="0" max="100" value="50" class="slider" id="animationSlider">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <span class="card-count-display" id="cardCountDisplay">10 / 20</span>
+                    <span class="control-label">当前卡片数量</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="cards-container" id="cardsContainer">
+            <!-- 卡片将通过JavaScript动态生成 -->
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>正在加载图片和卡片...</p>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h3><i class="fas fa-info-circle"></i> 网站信息</h3>
+            <p>每5秒自动更换背景图片，卡片随机显示从 <strong>https://ywebp.naxid.top/</strong> 获取的图片</p>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-value" id="totalCardsLoaded">0</span>
+                    <span class="stat-label">已加载卡片</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="backgroundChanges">0</span>
+                    <span class="stat-label">背景更换次数</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="animationStatus">开启</span>
+                    <span class="stat-label">动画状态</span>
+                </div>
+            </div>
+            
+            <button class="refresh-btn" id="refreshCards">
+                <i class="fas fa-sync-alt"></i> 刷新所有卡片图片
+            </button>
+        </div>
+        
+        <footer>
+            <p>© 2023 3D随机图片卡片展示 | 图片源: https://ywebp.naxid.top/ | 设计: 前端开发</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const cardsContainer = document.getElementById('cardsContainer');
+            const backgroundOverlay = document.getElementById('backgroundOverlay');
+            const cardCountSlider = document.getElementById('cardCountSlider');
+            const animationSlider = document.getElementById('animationSlider');
+            const currentCardCount = document.getElementById('currentCardCount');
+            const cardCountDisplay = document.getElementById('cardCountDisplay');
+            const refreshCardsBtn = document.getElementById('refreshCards');
+            const loadingElement = document.getElementById('loading');
+            const totalCardsLoaded = document.getElementById('totalCardsLoaded');
+            const backgroundChanges = document.getElementById('backgroundChanges');
+            const animationStatus = document.getElementById('animationStatus');
+            
+            // 图片API基础URL
+            const IMAGE_API_URL = 'https://ywebp.naxid.top/';
+            
+            // 全局变量
+            let cards = [];
+            let cardCount = parseInt(cardCountSlider.value);
+            let animationIntensity = parseInt(animationSlider.value);
+            let isAnimationsEnabled = true;
+            let backgroundChangeCount = 0;
+            let totalCardsLoadedCount = 0;
+            
+            // 初始化
+            init();
+            
+            function init() {
+                // 初始加载背景图片
+                updateBackground();
+                
+                // 初始创建卡片
+                createCards(cardCount);
+                
+                // 设置定时器：每5秒更换背景
+                setInterval(updateBackground, 5000);
+                
+                // 设置卡片数量滑块事件
+                cardCountSlider.addEventListener('input', function() {
+                    cardCount = parseInt(this.value);
+                    currentCardCount.textContent = cardCount;
+                    cardCountDisplay.textContent = `${cardCount} / 20`;
+                    updateCardCount(cardCount);
+                });
+                
+                // 设置动画强度滑块事件
+                animationSlider.addEventListener('input', function() {
+                    animationIntensity = parseInt(this.value);
+                    updateCardAnimations();
+                });
+                
+                // 设置刷新卡片按钮事件
+                refreshCardsBtn.addEventListener('click', refreshAllCards);
+                
+                // 隐藏加载提示
+                setTimeout(() => {
+                    loadingElement.style.display = 'none';
+                }, 1500);
+                
+                // 更新统计数据
+                updateStats();
+            }
+            
+            // 创建卡片
+            function createCards(count) {
+                // 清除现有卡片（除了加载提示）
+                const existingCards = document.querySelectorAll('.card');
+                existingCards.forEach(card => card.remove());
+                
+                cards = [];
+                
+                // 创建新卡片
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => {
+                        createCard(i);
+                    }, i * 100); // 延迟创建，形成逐个出现的效果
+                }
+            }
+            
+            // 创建单个卡片
+            function createCard(index) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.index = index;
+                
+                // 设置随机位置
+                const containerWidth = cardsContainer.clientWidth;
+                const containerHeight = cardsContainer.clientHeight;
+                const cardWidth = 180;
+                const cardHeight = 250;
+                
+                // 随机位置，确保卡片不会完全重叠
+                const maxX = containerWidth - cardWidth;
+                const maxY = containerHeight - cardHeight;
+                
+                // 尝试找到一个不与其他卡片重叠的位置
+                let x, y, overlap;
+                let attempts = 0;
+                
+                do {
+                    x = Math.random() * maxX;
+                    y = Math.random() * maxY;
+                    overlap = false;
+                    
+                    // 检查是否与现有卡片重叠
+                    for (const existingCard of cards) {
+                        const rect = existingCard.getBoundingClientRect();
+                        const containerRect = cardsContainer.getBoundingClientRect();
+                        
+                        const existingX = rect.left - containerRect.left;
+                        const existingY = rect.top - containerRect.top;
+                        
+                        // 简单重叠检测
+                        if (Math.abs(x - existingX) < cardWidth * 0.8 && 
+                            Math.abs(y - existingY) < cardHeight * 0.8) {
+                            overlap = true;
+                            break;
+                        }
+                    }
+                    
+                    attempts++;
+                } while (overlap && attempts < 50);
+                
+                // 设置卡片位置
+                card.style.left = `${x}px`;
+                card.style.top = `${y}px`;
+                
+                // 随机旋转角度
+                const rotation = (Math.random() * 20) - 10; // -10到10度之间
+                card.style.transform = `rotate(${rotation}deg)`;
+                
+                // 创建卡片正面（图片）
+                const frontFace = document.createElement('div');
+                frontFace.className = 'card-face card-front';
+                
+                const img = document.createElement('img');
+                img.className = 'card-image';
+                img.alt = `随机图片 ${index + 1}`;
+                
+                // 添加时间戳参数以避免缓存
+                const timestamp = new Date().getTime();
+                img.src = `${IMAGE_API_URL}?t=${timestamp}-${index}`;
+                
+                img.onload = function() {
+                    totalCardsLoadedCount++;
+                    updateStats();
+                };
+                
+                img.onerror = function() {
+                    // 如果图片加载失败，使用备用颜色
+                    frontFace.style.background = `linear-gradient(45deg, hsl(${Math.random() * 360}, 70%, 60%), hsl(${Math.random() * 360}, 70%, 60%))`;
+                    frontFace.innerHTML = `<i class="fas fa-image" style="font-size: 3rem; color: white;"></i>`;
+                };
+                
+                frontFace.appendChild(img);
+                card.appendChild(frontFace);
+                
+                // 创建卡片背面（设计）
+                const backFace = document.createElement('div');
+                backFace.className = 'card-face card-back';
+                backFace.innerHTML = `
+                    <i class="fas fa-question-circle"></i>
+                    <p>点击翻转卡片</p>
+                    <p>随机图片 #${index + 1}</p>
+                `;
+                card.appendChild(backFace);
+                
+                // 添加点击翻转卡片事件
+                card.addEventListener('click', function() {
+                    this.classList.toggle('flipped');
+                });
+                
+                // 添加到容器和数组
+                cardsContainer.appendChild(card);
+                cards.push(card);
+                
+                // 应用动画效果
+                applyCardAnimation(card);
+                
+                // 更新统计数据
+                updateStats();
+            }
+            
+            // 应用卡片动画
+            function applyCardAnimation(card) {
+                if (!isAnimationsEnabled) return;
+                
+                // 随机决定动画类型
+                const animationType = Math.random() > 0.5 ? 'shaking' : 'wobbling';
+                card.classList.add(animationType);
+                
+                // 根据强度调整动画
+                const intensity = animationIntensity / 100;
+                if (animationType === 'shaking') {
+                    card.style.animationDuration = `${1.5 - intensity * 0.8}s`;
+                } else {
+                    card.style.animationDuration = `${3 - intensity * 1.5}s`;
+                }
+                
+                // 随机延迟开始动画
+                const delay = Math.random() * 2;
+                card.style.animationDelay = `${delay}s`;
+            }
+            
+            // 更新卡片数量
+            function updateCardCount(newCount) {
+                const currentCount = cards.length;
+                
+                if (newCount > currentCount) {
+                    // 添加新卡片
+                    for (let i = currentCount; i < newCount; i++) {
+                        setTimeout(() => {
+                            createCard(i);
+                        }, (i - currentCount) * 100);
+                    }
+                } else if (newCount < currentCount) {
+                    // 移除多余的卡片
+                    const cardsToRemove = currentCount - newCount;
+                    for (let i = 0; i < cardsToRemove; i++) {
+                        const cardToRemove = cards.pop();
+                        if (cardToRemove) {
+                            cardToRemove.style.opacity = '0';
+                            cardToRemove.style.transform = `${cardToRemove.style.transform} scale(0.5)`;
+                            setTimeout(() => {
+                                if (cardToRemove.parentNode) {
+                                    cardToRemove.parentNode.removeChild(cardToRemove);
+                                }
+                            }, 300);
+                        }
+                    }
+                }
+                
+                updateStats();
+            }
+            
+            // 更新卡片动画
+            function updateCardAnimations() {
+                // 移除所有动画
+                cards.forEach(card => {
+                    card.classList.remove('shaking', 'wobbling');
+                });
+                
+                // 根据设置重新应用动画
+                if (animationIntensity > 0) {
+                    isAnimationsEnabled = true;
+                    animationStatus.textContent = '开启';
+                    
+                    cards.forEach(card => {
+                        applyCardAnimation(card);
+                    });
+                } else {
+                    isAnimationsEnabled = false;
+                    animationStatus.textContent = '关闭';
+                }
+            }
+            
+            // 刷新所有卡片图片
+            function refreshAllCards() {
+                cards.forEach((card, index) => {
+                    const img = card.querySelector('.card-image');
+                    if (img) {
+                        // 添加新的时间戳参数
+                        const timestamp = new Date().getTime();
+                        img.src = `${IMAGE_API_URL}?t=${timestamp}-${index}-refresh`;
+                        
+                        // 添加加载效果
+                        card.style.opacity = '0.7';
+                        setTimeout(() => {
+                            card.style.opacity = '1';
+                        }, 500);
+                    }
+                });
+                
+                // 更新统计数据
+                updateStats();
+            }
+            
+            // 更新背景图片
+            function updateBackground() {
+                // 添加时间戳参数以避免缓存
+                const timestamp = new Date().getTime();
+                const bgUrl = `${IMAGE_API_URL}?t=${timestamp}-bg`;
+                
+                // 预加载图片
+                const img = new Image();
+                img.onload = function() {
+                    backgroundOverlay.style.backgroundImage = `url('${bgUrl}')`;
+                    backgroundChangeCount++;
+                    updateStats();
+                };
+                img.onerror = function() {
+                    // 如果加载失败，使用随机渐变背景
+                    const hue1 = Math.floor(Math.random() * 360);
+                    const hue2 = (hue1 + 180) % 360;
+                    backgroundOverlay.style.backgroundImage = `linear-gradient(135deg, hsl(${hue1}, 70%, 15%), hsl(${hue2}, 70%, 15%))`;
+                    backgroundChangeCount++;
+                    updateStats();
+                };
+                img.src = bgUrl;
+            }
+            
+            // 更新统计数据
+            function updateStats() {
+                totalCardsLoaded.textContent = totalCardsLoadedCount;
+                backgroundChanges.textContent = backgroundChangeCount;
+            }
+            
+            // 窗口调整大小时重新定位卡片
+            window.addEventListener('resize', function() {
+                // 在实际项目中，这里应该重新计算卡片位置
+                // 为了简化，我们只更新容器高度
+                cardsContainer.style.height = `${window.innerHeight * 0.65}px`;
+            });
+            
+            // 添加键盘快捷键
+            document.addEventListener('keydown', function(e) {
+                // 空格键刷新卡片
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    refreshAllCards();
+                }
+                
+                // 数字键1-9快速设置卡片数量
+                if (e.key >= '1' && e.key <= '9') {
+                    let count = parseInt(e.key) * 2;
+                    if (count > 20) count = 20;
+                    cardCountSlider.value = count;
+                    cardCount = count;
+                    currentCardCount.textContent = count;
+                    cardCountDisplay.textContent = `${count} / 20`;
+                    updateCardCount(count);
+                }
+                
+                // A键切换动画
+                if (e.code === 'KeyA') {
+                    isAnimationsEnabled = !isAnimationsEnabled;
+                    animationStatus.textContent = isAnimationsEnabled ? '开启' : '关闭';
+                    updateCardAnimations();
+                }
+            });
+            
+            // 添加卡片拖拽功能
+            let isDragging = false;
+            let currentCard = null;
+            let offsetX, offsetY;
+            
+            document.addEventListener('mousedown', function(e) {
+                if (e.target.closest('.card')) {
+                    isDragging = true;
+                    currentCard = e.target.closest('.card');
+                    
+                    // 计算鼠标位置与卡片位置的偏移量
+                    const rect = currentCard.getBoundingClientRect();
+                    offsetX = e.clientX - rect.left;
+                    offsetY = e.clientY - rect.top;
+                    
+                    // 将卡片置于顶层
+                    cards.forEach(card => {
+                        card.style.zIndex = 1;
+                    });
+                    currentCard.style.zIndex = 100;
+                }
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging && currentCard) {
+                    // 计算新位置
+                    const containerRect = cardsContainer.getBoundingClientRect();
+                    let newX = e.clientX - containerRect.left - offsetX;
+                    let newY = e.clientY - containerRect.top - offsetY;
+                    
+                    // 限制在容器内
+                    newX = Math.max(0, Math.min(newX, containerRect.width - currentCard.offsetWidth));
+                    newY = Math.max(0, Math.min(newY, containerRect.height - currentCard.offsetHeight));
+                    
+                    // 应用新位置
+                    currentCard.style.left = `${newX}px`;
+                    currentCard.style.top = `${newY}px`;
+                }
+            });
+            
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+                currentCard = null;
+            });
+            
+            // 添加触摸事件支持
+            document.addEventListener('touchstart', function(e) {
+                if (e.target.closest('.card')) {
+                    isDragging = true;
+                    currentCard = e.target.closest('.card');
+                    
+                    const touch = e.touches[0];
+                    const rect = currentCard.getBoundingClientRect();
+                    offsetX = touch.clientX - rect.left;
+                    offsetY = touch.clientY - rect.top;
+                    
+                    cards.forEach(card => {
+                        card.style.zIndex = 1;
+                    });
+                    currentCard.style.zIndex = 100;
+                    
+                    e.preventDefault(); // 防止滚动
+                }
+            }, { passive: false });
+            
+            document.addEventListener('touchmove', function(e) {
+                if (isDragging && currentCard) {
+                    const touch = e.touches[0];
+                    const containerRect = cardsContainer.getBoundingClientRect();
+                    let newX = touch.clientX - containerRect.left - offsetX;
+                    let newY = touch.clientY - containerRect.top - offsetY;
+                    
+                    newX = Math.max(0, Math.min(newX, containerRect.width - currentCard.offsetWidth));
+                    newY = Math.max(0, Math.min(newY, containerRect.height - currentCard.offsetHeight));
+                    
+                    currentCard.style.left = `${newX}px`;
+                    currentCard.style.top = `${newY}px`;
+                    
+                    e.preventDefault(); // 防止滚动
+                }
+            }, { passive: false });
+            
+            document.addEventListener('touchend', function() {
+                isDragging = false;
+                currentCard = null;
+            });
+        });
+    </script>
+</body>
+</html>
