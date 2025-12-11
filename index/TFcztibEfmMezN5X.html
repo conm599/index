@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高并发加载200张图片（带放大预览）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            text-align: center;
+            font-size: 18px;
+            color: #555;
+            margin: 10px 0;
+        }
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .image-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: zoom-in; /* 鼠标悬浮显示放大图标 */
+        }
+        .image-item:hover {
+            transform: translateY(-3px);
+        }
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 6px;
+            display: block;
+        }
+        .image-item p {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        /* 图片放大预览层样式 */
+        .preview-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: none; /* 默认隐藏 */
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            cursor: zoom-out; /* 鼠标悬浮显示缩小图标 */
+        }
+        .preview-img {
+            max-width: 90vw;
+            max-height: 90vh;
+            object-fit: contain; /* 保持图片比例，不超出可视区域 */
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>加载200张随机图片（ywebp.naxid.top）</h1>
+    <div class="status" id="loadStatus">准备加载...</div>
+    <div class="image-container" id="imageContainer"></div>
+
+    <!-- 图片放大预览层 -->
+    <div class="preview    <div class="preview-overlay" id="previewOverlay">
+        <img src="" alt="预览图片" class="preview-img" id="previewImg">
+    </div>
+
+    <script>
+        // 配置项
+        const apiUrl = 'https://ywebp.naxid.top/';
+        const totalImages = 200;
+        const concurrency = 64;
+        const container = document.getElementById('imageContainer');
+        const statusElement = document.getElementById('loadStatus');
+        const previewOverlay = document.getElementById('previewOverlay');
+        const previewImg = document.getElementById('previewImg');
+
+        let loadedCount = 0;
+
+        // 加载单张图片
+        function loadSingleImage(index) {
+            return new Promise(resolve => {
+                const imageItem = document.createElement('div');
+                imageItem.className = 'image-item';
+
+                const img = document.createElement('img');
+                img.src = `${apiUrl}?t=${Date.now()}_${index}`;
+                img.alt = `随机图片${index + 1}`;
+                // 存储原图地址，用于预览
+                img.dataset.original = img.src;
+
+                // 加载成功处理
+                img.onload = () => {
+                    const caption = document.createElement('p');
+                    caption.textContent = `图片 ${index + 1}`;
+                    imageItem.appendChild(img);
+                    imageItem.appendChild(caption);
+                    container.appendChild(imageItem);
+                    // 绑定点击放大事件
+                    imageItem.addEventListener('click', () => openPreview(img.dataset.original));
+                    loadedCount++;
+                    updateStatus();
+                    resolve();
+                };
+
+                // 加载失败兜底
+                img.onerror = () => {
+                    img.src = 'https://via.placeholder.com/180x150?text=加载失败';
+                    img.alt = `图片${index + 1}加载失败`;
+                    img.dataset.original = img.src; // 失败图也支持预览
+                    const caption = document.createElement('p');
+                    caption.textContent = `图片 ${index + 1}（失败）`;
+                    imageItem.appendChild(img);
+                    imageItem.appendChild(caption);
+                    container.appendChild(imageItem);
+                    // 绑定点击放大事件
+                    imageItem.addEventListener('click', () => openPreview(img.dataset.original));
+                    loadedCount++;
+                    updateStatus();
+                    resolve();
+                };
+            });
+        }
+
+        // 更新加载状态
+        function updateStatus() {
+            statusElement.textContent = `已加载：${loadedCount}/${totalImages} 张（${Math.round(loadedCount/totalImages*100)}%）`;
+            if (loadedCount === totalImages) {
+                statusElement.textContent += ' ✅ 加载完成！';
+            }
+        }
+
+        // 打开图片预览
+        function openPreview(originalUrl) {
+            previewImg.src = originalUrl;
+            previewOverlay.style.display = 'flex'; // 显示预览层
+            document.body.style.overflow = 'hidden'; // 禁止页面滚动
+        }
+
+        // 关闭图片预览（点击空白处）
+        previewOverlay.addEventListener('click', (e) => {
+            if (e.target === previewOverlay) { // 仅点击遮罩层（空白处）时关闭
+                previewOverlay.style.display = 'none';
+                document.body.style.overflow = 'auto'; // 恢复页面滚动
+            }
+        });
+
+        // 批量高并发加载
+        async function loadAllImages() {
+            statusElement.textContent = '开始高并发加载...';
+            const allPromises = [];
+
+            for (let i = 0; i < totalImages; i++) {
+                allPromises.push(loadSingleImage(i));
+                if (i % concurrency === 0 && i > 0) {
+                    await Promise.allSettled(allPromises.splice(0, concurrency));
+                }
+            }
+
+            if (allPromises.length > 0) {
+                await Promise.allSettled(allPromises);
+            }
+        }
+
+        // 页面加载后执行
+        window.onload = loadAllImages;
+    </script>
+</body>
+</html>
