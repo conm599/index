@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多卡片并发展示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #fff;
+            font-size: 1.8rem;
+            z-index: 1000;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+        
+        .loading-spinner {
+            border: 6px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 6px solid #4dabf7;
+            width: 70px;
+            height: 70px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 25px;
+        }
+        
+        .loading-progress {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #4dabf7;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .card {
+            position: absolute;
+            width: 200px;
+            height: 280px;
+            transform-style: preserve-3d;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9);
+            cursor: pointer;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out, transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+            transform-origin: center;
+            z-index: 1;
+        }
+        
+        .card.visible {
+            opacity: 1;
+        }
+        
+        .card.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.9);
+            transform: scale(1.05) !important;
+            z-index: 100;
+        }
+        
+        .card:hover .card-image {
+            transform: scale(1.08);
+        }
+        
+        .card.shaking {
+            animation: shake 0.8s ease-in-out infinite alternate;
+        }
+        
+        .card.wobbling {
+            animation: wobble 2.5s ease-in-out infinite;
+        }
+        
+        @keyframes shake {
+            0% { transform: translateX(-4px) rotate(-1deg) translateY(-2px); }
+            100% { transform: translateX(4px) rotate(1deg) translateY(2px); }
+        }
+        
+        @keyframes wobble {
+            0%, 100% { transform: rotate(-1.5deg) scale(1); }
+            50% { transform: rotate(1.5deg) scale(1.03); }
+        }
+        
+        .original-image-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        .original-image-container.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .original-image {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 5px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+        
+        .background-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: brightness(0.15) blur(3px);
+            z-index: -1;
+            transition: background-image 1.5s ease-in-out;
+        }
+        
+        .stats {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 15px;
+            border-radius: 10px;
+            z-index: 999;
+            backdrop-filter: blur(5px);
+        }
+        
+        @media (max-width: 768px) {
+            .card {
+                width: 160px;
+                height: 230px;
+            }
+            
+            .stats {
+                font-size: 0.8rem;
+                bottom: 10px;
+                right: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .card {
+                width: 140px;
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-overlay" id="backgroundOverlay"></div>
+    
+    <div id="loading">
+        <div class="loading-spinner"></div>
+        <p>正在并发加载图片...</p>
+        <div class="loading-progress" id="loadingProgress">0/24</div>
+    </div>
+    
+    <div class="stats" id="stats">
+        已加载: <span id="loadedCount">0</span> | 显示中: <span id="displayingCount">0</span>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const loadingElement = document.getElementById('loading');
+            const loadingProgress = document.getElementById('loadingProgress');
+            const backgroundOverlay = document.getElementById('backgroundOverlay');
+            const statsElement = document.getElementById('stats');
+            const loadedCountElement = document.getElementById('loadedCount');
+            const displayingCountElement = document.getElementById('displayingCount');
+            
+            // 图片API基础URL
+            const IMAGE_API_URL = 'https://ywebp.naxid.top/';
+            
+            // 全局变量
+            let activeCards = []; // 当前显示的卡片
+            let preloadedImages = []; // 预加载的图片URL数组
+            let totalPreloaded = 0; // 总共预加载的图片数量
+            let concurrentDownloads = 8; // 并发下载数量
+            let minCardsOnScreen = 2; // 屏幕上最少卡片数
+            let maxCardsOnScreen = 10; // 屏幕上最多卡片数
+            let currentCardsOnScreen = 0; // 当前屏幕上的卡片数
+            let isInitialLoad = true; // 是否是初始加载
+            let backgroundChangeInterval; // 背景更换间隔
+            
+            // 初始化
+            init();
+            
+            async function init() {
+                // 初始加载背景图片
+                updateBackground();
+                
+                // 并发预加载24张图片
+                await concurrentPreloadImages(24);
+                
+                // 开始卡片展示循环
+                startCardDisplayCycle();
+                
+                // 设置定时器：每5秒更换背景
+                backgroundChangeInterval = setInterval(updateBackground, 5000);
+                
+                // 隐藏加载提示
+                setTimeout(() => {
+                    loadingElement.style.opacity = '0';
+                    loadingElement.style.visibility = 'hidden';
+                }, 500);
+                
+                // 更新统计信息
+                updateStats();
+            }
+            
+            // 并发预加载图片
+            async function concurrentPreloadImages(totalCount) {
+                console.log(`开始并发预加载 ${totalCount} 张图片...`);
+                
+                // 创建多个并发加载任务
+                const batchSize = concurrentDownloads;
+                const batches = Math.ceil(totalCount / batchSize);
+                
+                for (let batch = 0; batch < batches; batch++) {
+                    const startIndex = batch * batchSize;
+                    const endIndex = Math.min(startIndex + batchSize, totalCount);
+                    
+                    // 创建当前批次的并发加载任务
+                    const batchPromises = [];
+                    
+                    for (let i = startIndex; i < endIndex; i++) {
+                        batchPromises.push(loadSingleImage(i));
+                    }
+                    
+                    // 并发执行当前批次的所有加载任务
+                    const batchResults = await Promise.allSettled(batchPromises);
+                    
+                    // 处理当前批次的结果
+                    batchResults.forEach((result, index) => {
+                        if (result.status === 'fulfilled') {
+                            preloadedImages.push(result.value);
+                        } else {
+                            // 如果加载失败，使用随机渐变颜色作为备用
+                            const hue = Math.floor(Math.random() * 360);
+                            preloadedImages.push(`linear-gradient(45deg, hsl(${hue}, 70%, 40%), hsl(${hue + 60}, 70%, 40%))`);
+                        }
+                    });
+                    
+                    totalPreloaded = preloadedImages.length;
+                    loadingProgress.textContent = `${totalPreloaded}/${totalCount}`;
+                    
+                    // 如果还有剩余批次，等待一小段时间再继续
+                    if (batch < batches - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
+                
+                console.log(`并发预加载完成，共 ${preloadedImages.length} 张图片`);
+            }
+            
+            // 加载单张图片
+            function loadSingleImage(index) {
+                return new Promise((resolve, reject) => {
+                    const timestamp = Date.now() + index + Math.random();
+                    const imageUrl = `${IMAGE_API_URL}?t=${timestamp}`;
+                    
+                    const img = new Image();
+                    
+                    img.onload = () => {
+                        console.log(`图片 ${index + 1} 加载成功`);
+                        resolve(imageUrl);
+                    };
+                    
+                    img.onerror = () => {
+                        console.warn(`图片 ${index + 1} 加载失败`);
+                        reject(new Error(`图片 ${index + 1} 加载失败`));
+                    };
+                    
+                    img.src = imageUrl;
+                });
+            }
+            
+            // 开始卡片展示循环
+            function startCardDisplayCycle() {
+                // 确保始终有足够的预加载图片
+                maintainPreloadQueue();
+                
+                // 确定初始显示的卡片数量 (2-10张)
+                const initialCardCount = getRandomInt(minCardsOnScreen, maxCardsOnScreen);
+                
+                // 初始显示多张卡片
+                for (let i = 0; i < initialCardCount; i++) {
+                    setTimeout(() => {
+                        showCard();
+                    }, i * 300); // 稍微错开显示时间
+                }
+                
+                // 设置定时检查，确保屏幕上始终有足够卡片
+                setInterval(checkCardCount, 2000);
+                
+                isInitialLoad = false;
+            }
+            
+            // 显示一张卡片
+            function showCard() {
+                if (preloadedImages.length === 0) {
+                    console.warn('预加载队列为空，无法显示新卡片');
+                    return;
+                }
+                
+                // 从预加载队列中取出一张图片
+                const imageUrl = preloadedImages.shift();
+                
+                // 创建新卡片
+                createCard(imageUrl);
+                
+                // 补充预加载队列
+                maintainPreloadQueue();
+            }
+            
+            // 创建卡片
+            function createCard(imageUrl) {
+                // 创建卡片元素
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                // 随机位置，确保卡片不会重叠太多
+                let x, y;
+                let attempts = 0;
+                const maxAttempts = 20;
+                
+                do {
+                    x = Math.random() * (window.innerWidth - 200);
+                    y = Math.random() * (window.innerHeight - 280);
+                    attempts++;
+                } while (isOverlappingWithOtherCards(x, y) && attempts < maxAttempts);
+                
+                // 随机旋转角度
+                const rotation = (Math.random() * 25) - 12.5; // -12.5到12.5度之间
+                
+                // 设置卡片位置和旋转
+                card.style.left = `${x}px`;
+                card.style.top = `${y}px`;
+                card.style.transform = `rotate(${rotation}deg)`;
+                
+                // 随机选择动画效果
+                const animationType = Math.random() > 0.5 ? 'shaking' : 'wobbling';
+                card.classList.add(animationType);
+                
+                // 创建图片元素
+                const img = document.createElement('img');
+                img.className = 'card-image';
+                img.alt = '随机图片';
+                
+                // 判断是否是渐变背景
+                if (imageUrl.startsWith('linear-gradient')) {
+                    // 创建div作为背景
+                    const gradientDiv = document.createElement('div');
+                    gradientDiv.style.width = '100%';
+                    gradientDiv.style.height = '100%';
+                    gradientDiv.style.background = imageUrl;
+                    card.appendChild(gradientDiv);
+                } else {
+                    // 使用图片
+                    img.src = imageUrl;
+                    card.appendChild(img);
+                }
+                
+                // 创建原图容器
+                const originalContainer = document.createElement('div');
+                originalContainer.className = 'original-image-container';
+                
+                const originalImg = document.createElement('img');
+                originalImg.className = 'original-image';
+                originalImg.alt = '原图';
+                
+                if (!imageUrl.startsWith('linear-gradient')) {
+                    originalImg.src = imageUrl;
+                } else {
+                    // 如果是渐变背景，创建一个相似的div
+                    const gradientDiv = document.createElement('div');
+                    gradientDiv.style.width = '80%';
+                    gradientDiv.style.height = '80%';
+                    gradientDiv.style.background = imageUrl;
+                    gradientDiv.style.borderRadius = '10px';
+                    originalContainer.appendChild(gradientDiv);
+                }
+                
+                originalContainer.appendChild(originalImg);
+                card.appendChild(originalContainer);
+                
+                // 添加到页面
+                document.body.appendChild(card);
+                
+                // 添加到活动卡片数组
+                activeCards.push({
+                    element: card,
+                    originalImageUrl: imageUrl,
+                    x: x,
+                    y: y
+                });
+                
+                currentCardsOnScreen++;
+                
+                // 短暂延迟后显示卡片
+                setTimeout(() => {
+                    card.classList.add('visible');
+                    
+                    // 设置卡片显示时间（4-5秒）
+                    const displayTime = 4000 + Math.random() * 1000; // 4-5秒
+                    
+                    // 显示时间结束后隐藏卡片
+                    const hideTimeout = setTimeout(() => {
+                        hideCard(card);
+                    }, displayTime);
+                    
+                    // 保存timeout引用以便可以取消
+                    card.dataset.hideTimeout = hideTimeout;
+                    
+                    // 点击卡片显示原图
+                    card.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        
+                        // 清除自动隐藏的timeout
+                        clearTimeout(hideTimeout);
+                        
+                        // 暂停卡片的主动画
+                        card.style.animationPlayState = 'paused';
+                        
+                        // 显示原图容器
+                        originalContainer.classList.add('active');
+                        
+                        // 原图显示4秒后消失并重新开始卡片计时
+                        setTimeout(() => {
+                            originalContainer.classList.remove('active');
+                            
+                            // 恢复卡片动画
+                            card.style.animationPlayState = 'running';
+                            
+                            // 重新设置卡片隐藏计时
+                            const newDisplayTime = 4000 + Math.random() * 1000;
+                            card.dataset.hideTimeout = setTimeout(() => {
+                                hideCard(card);
+                            }, newDisplayTime);
+                        }, 4000);
+                    });
+                    
+                }, 100);
+                
+                // 更新统计信息
+                updateStats();
+                
+                return card;
+            }
+            
+            // 检查卡片是否与其他卡片重叠太多
+            function isOverlappingWithOtherCards(x, y) {
+                const minDistance = 150; // 卡片之间的最小距离
+                
+                for (const cardData of activeCards) {
+                    const distance = Math.sqrt(
+                        Math.pow(x - cardData.x, 2) + Math.pow(y - cardData.y, 2)
+                    );
+                    
+                    if (distance < minDistance) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+            
+            // 隐藏卡片
+            function hideCard(card) {
+                card.classList.remove('visible');
+                card.classList.add('hidden');
+                
+                // 延迟后移除卡片
+                setTimeout(() => {
+                    if (card.parentNode) {
+                        card.parentNode.removeChild(card);
+                        
+                        // 从活动卡片数组中移除
+                        const index = activeCards.findIndex(cardData => cardData.element === card);
+                        if (index !== -1) {
+                            activeCards.splice(index, 1);
+                            currentCardsOnScreen--;
+                            updateStats();
+                        }
+                    }
+                }, 800);
+            }
+            
+            // 确保预加载队列始终有足够图片
+            function maintainPreloadQueue() {
+                const targetPreloadCount = 24;
+                
+                // 如果预加载队列不足24张，补充新的图片
+                if (preloadedImages.length < targetPreloadCount) {
+                    const needed = Math.min(concurrentDownloads, targetPreloadCount - preloadedImages.length);
+                    
+                    // 并发补充图片
+                    setTimeout(() => {
+                        loadImagesConcurrently(needed);
+                    }, 100);
+                }
+            }
+            
+            // 并发加载多张图片
+            async function loadImagesConcurrently(count) {
+                const promises = [];
+                
+                for (let i = 0; i < count; i++) {
+                    promises.push(loadSingleImage(totalPreloaded + i));
+                }
+                
+                const results = await Promise.allSettled(promises);
+                
+                results.forEach(result => {
+                    if (result.status === 'fulfilled') {
+                        preloadedImages.push(result.value);
+                    } else {
+                        // 如果加载失败，使用随机渐变颜色作为备用
+                        const hue = Math.floor(Math.random() * 360);
+                        preloadedImages.push(`linear-gradient(45deg, hsl(${hue}, 70%, 40%), hsl(${hue + 60}, 70%, 40%))`);
+                    }
+                });
+                
+                totalPreloaded += count;
+                updateStats();
+            }
+            
+            // 检查卡片数量并补充
+            function checkCardCount() {
+                if (currentCardsOnScreen < minCardsOnScreen) {
+                    // 如果卡片数量少于最小值，补充卡片
+                    const cardsToAdd = minCardsOnScreen - currentCardsOnScreen;
+                    
+                    for (let i = 0; i < cardsToAdd; i++) {
+                        setTimeout(() => {
+                            if (preloadedImages.length > 0) {
+                                showCard();
+                            }
+                        }, i * 300);
+                    }
+                } else if (currentCardsOnScreen < maxCardsOnScreen && Math.random() > 0.7) {
+                    // 如果卡片数量少于最大值，有30%的几率添加一张新卡片
+                    setTimeout(() => {
+                        if (preloadedImages.length > 0) {
+                            showCard();
+                        }
+                    }, 100);
+                }
+            }
+            
+            // 更新背景图片
+            function updateBackground() {
+                // 添加时间戳参数以避免缓存
+                const timestamp = Date.now();
+                const bgUrl = `${IMAGE_API_URL}?t=${timestamp}-bg`;
+                
+                // 预加载背景图片
+                const img = new Image();
+                img.onload = function() {
+                    backgroundOverlay.style.backgroundImage = `url('${bgUrl}')`;
+                };
+                img.onerror = function() {
+                    // 如果加载失败，使用随机渐变背景
+                    const hue1 = Math.floor(Math.random() * 360);
+                    const hue2 = (hue1 + 180) % 360;
+                    backgroundOverlay.style.backgroundImage = `linear-gradient(135deg, hsl(${hue1}, 60%, 10%), hsl(${hue2}, 60%, 10%))`;
+                };
+                img.src = bgUrl;
+            }
+            
+            // 更新统计信息
+            function updateStats() {
+                loadedCountElement.textContent = totalPreloaded;
+                displayingCountElement.textContent = currentCardsOnScreen;
+            }
+            
+            // 获取随机整数
+            function getRandomInt(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+            
+            // 窗口调整大小时重新定位卡片
+            window.addEventListener('resize', function() {
+                // 如果窗口大小变化太大，重新定位卡片
+                activeCards.forEach(cardData => {
+                    if (cardData.x > window.innerWidth - 200 || cardData.y > window.innerHeight - 280) {
+                        cardData.x = Math.random() * (window.innerWidth - 200);
+                        cardData.y = Math.random() * (window.innerHeight - 280);
+                        cardData.element.style.left = `${cardData.x}px`;
+                        cardData.element.style.top = `${cardData.y}px`;
+                    }
+                });
+            });
+            
+            // 页面可见性变化处理
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    // 页面隐藏时暂停背景更换
+                    clearInterval(backgroundChangeInterval);
+                    
+                    // 暂停所有卡片动画
+                    activeCards.forEach(cardData => {
+                        cardData.element.style.animationPlayState = 'paused';
+                    });
+                } else {
+                    // 页面恢复时重新开始背景更换
+                    backgroundChangeInterval = setInterval(updateBackground, 5000);
+                    
+                    // 恢复所有卡片动画
+                    activeCards.forEach(cardData => {
+                        cardData.element.style.animationPlayState = 'running';
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
