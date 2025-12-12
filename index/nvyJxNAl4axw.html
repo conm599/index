@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纯前端钢琴谱识别与播放工具</title>
+    <!-- 引入依赖库 -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/omr-js@0.12.0/dist/omr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.7.0/build/opensheetmusicdisplay.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .upload-area { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .upload-btn { display: inline-block; padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 10px 0; }
+        .upload-btn:hover { background: #3367d6; }
+        #fileInput { display: none; }
+        #loading { display: none; color: #4285f4; margin: 10px 0; }
+        .progress-bar { height: 5px; background: #eee; border-radius: 3px; margin: 10px 0; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; background: #4285f4; width: 0%; transition: width 0.3s; }
+        .score-area { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: none; }
+        .controls { margin: 20px 0; }
+        .control-btn { padding: 8px 16px; margin-right: 10px; border: none; border-radius: 4px; cursor: pointer; background: #28a745; color: white; }
+        .control-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .page-nav { margin: 10px 0; }
+        .page-btn { padding: 5px 10px; margin: 0 5px; cursor: pointer; border: 1px solid #ddd; border-radius: 4px; background: white; }
+        .page-btn:disabled { background: #eee; cursor: not-allowed; }
+        #scoreContainer { overflow-x: auto; padding: 10px; min-height: 400px; border: 1px solid #eee; border-radius: 4px; }
+        #status { margin: 10px 0; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="upload-area">
+        <h2>纯前端钢琴谱识别与播放工具</h2>
+        <p>支持PDF/多页图片（JPG/PNG），离线识别·无需服务器</p>
+        <label for="fileInput" class="upload-btn">选择文件</label>
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" multiple>
+        
+        <div id="loading">加载识别模型中...（首次使用需下载模型，约5MB）</div>
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="status"></p>
+    </div>
+
+    <div class="score-area" id="scoreArea">
+        <div class="page-nav">
+            <button class="page-btn" id="prevPage" disabled>上一页</button>
+            <span id="pageInfo">第 1 页 / 共 0 页</span>
+            <button class="page-btn" id="nextPage" disabled>下一页</button>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn" id="playBtn" disabled>播放</button>
+            <button class="control-btn" id="pauseBtn" disabled>暂停</button>
+            <button class="control-btn" id="stopBtn" disabled>停止</button>
+        </div>
+        
+        <div id="scoreContainer"></div>
+    </div>
+
+    <script>
+        // 全局变量
+        let scorePages = []; // 存储各页的MusicXML数据
+        let currentPage = 0;
+        let osmd = null; // 乐谱渲染实例
+        let player = null; // 音频播放器实例
+        let omrReady = false; // OMR模型是否加载完成
+
+        // 初始化OMR模型
+        async function initOMR() {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                // 加载OMR识别模型（纯前端）
+                await omr.loadModel();
+                omrReady = true;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('status').textContent = '模型加载完成，可上传文件！';
+            } catch (err) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('status').textContent = `模型加载失败：${err.message}`;
+            }
+        }
+
+        // PDF转图片（纯前端）
+        async function pdfToImages(pdfFile) {
+            const pdf = await pdfjsLib.getDocument({ data: pdfFile }).promise;
+            const images = [];
+            const totalPages = pdf.numPages;
+            
+            document.querySelector('.progress-bar').style.display = 'block';
+            document.getElementById('progressFill').style.width = '0%';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 }); // 放大2倍提高识别精度
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+                images.push(canvas.toDataURL('image/png'));
+                
+                // 更新进度
+                const progress = (i / totalPages) * 100;
+                document.getElementById('progressFill').style.width = `${progress}%`;
+            }
+
+            document.querySelector('.progress-bar').style.display = 'none';
+            return images;
+        }
+
+        // 图片文件转Image对象
+        function fileToImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // OMR识别乐谱图片
+        async function recognizeScoreImage(img) {
+            try {
+                // 纯前端OMR识别，生成MusicXML
+                const recognitionResult = await omr.recognize(img);
+                return recognitionResult.musicXml; // 获取MusicXML数据
+            } catch (err) {
+                throw new Error(`识别失败：${err.message}`);
+            }
+        }
+
+        // 渲染乐谱（基于MusicXML）
+        function renderScore(musicXml) {
+            const container = document.getElementById('scoreContainer');
+            container.innerHTML = '';
+            
+            // 初始化OSMD渲染器
+            osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay(container, {
+                autoResize: true,
+                drawingParameters: {
+                    layoutMode: opensheetmusicdisplay.LayoutMode.Page,
+                    staffSpacing: 15,
+                }
+            });
+            
+            osmd
+                .load(musicXml)
+                .then(() => osmd.render())
+                .catch(err => document.getElementById('status').textContent = `渲染失败：${err.message}`);
+        }
+
+        // 解析MusicXML生成播放序列
+        function parseMusicXMLToNotes(musicXml) {
+            // 简化版解析：提取音符、音高、时长（可根据需求扩展）
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(musicXml, 'text/xml');
+            const notes = [];
+            
+            // 获取所有音符节点
+            const noteNodes = xmlDoc.querySelectorAll('note');
+            noteNodes.forEach(noteNode => {
+                // 提取音高（如C4、D#5）
+                const pitchNode = noteNode.querySelector('pitch');
+                if (!pitchNode) return; // 跳过休止符
+                
+                const step = pitchNode.querySelector('step').textContent;
+                const octave = pitchNode.querySelector('octave').textContent;
+                const alter = pitchNode.querySelector('alter')?.textContent || 0;
+                const accidental = alter == 1 ? '#' : alter == -1 ? 'b' : '';
+                const pitch = `${step}${accidental}${octave}`;
+                
+                // 提取时长（简化处理：四分音符=1拍）
+                const duration = parseInt(noteNode.querySelector('duration').textContent) / 4;
+                
+                notes.push({ pitch, duration });
+            });
+
+            return notes;
+        }
+
+        // 播放乐谱（基于Tone.js）
+        async function playScore(notes) {
+            if (Tone.context.state !== 'running') {
+                await Tone.context.resume(); // 唤醒音频上下文（浏览器要求）
+            }
+
+            // 初始化合成器
+            const synth = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.5 }
+            }).toDestination();
+
+            // 停止之前的播放
+            if (player) player.stop();
+            
+            // 创建播放序列
+            const now = Tone.now();
+            let time = now;
+            
+            notes.forEach(note => {
+                synth.triggerAttackRelease(note.pitch, note.duration, time);
+                time += note.duration;
+            });
+
+            player = synth;
+            return synth;
+        }
+
+        // 切换乐谱页面
+        function switchPage(pageIndex) {
+            if (pageIndex < 0 || pageIndex >= scorePages.length) return;
+            
+            currentPage = pageIndex;
+            renderScore(scorePages[currentPage]);
+            
+            // 更新页码信息
+            document.getElementById('pageInfo').textContent = `第 ${currentPage + 1} 页 / 共 ${scorePages.length} 页`;
+            
+            // 更新按钮状态
+            document.getElementById('prevPage').disabled = currentPage === 0;
+            document.getElementById('nextPage').disabled = currentPage === scorePages.length - 1;
+            
+            // 启用播放按钮
+            document.getElementById('playBtn').disabled = false;
+        }
+
+        // 绑定文件上传事件
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length || !omrReady) return;
+
+            document.getElementById('status').textContent = '处理中...';
+            scorePages = [];
+            currentPage = 0;
+
+            try {
+                for (const file of files) {
+                    let images = [];
+                    
+                    // 区分PDF和图片文件
+                    if (file.type === 'application/pdf') {
+                        images = await pdfToImages(file);
+                    } else if (file.type.startsWith('image/')) {
+                        const img = await fileToImage(file);
+                        images.push(img);
+                    }
+
+                    // 识别每张图片
+                    for (const img of images) {
+                        const musicXml = await recognizeScoreImage(img);
+                        scorePages.push(musicXml);
+                    }
+                }
+
+                if (scorePages.length > 0) {
+                    document.getElementById('scoreArea').style.display = 'block';
+                    switchPage(0);
+                    document.getElementById('status').textContent = `成功识别 ${scorePages.length} 页乐谱！`;
+                }
+            } catch (err) {
+                document.getElementById('status').textContent = `处理失败：${err.message}`;
+            }
+        });
+
+        // 绑定页面切换事件
+        document.getElementById('prevPage').addEventListener('click', () => switchPage(currentPage - 1));
+        document.getElementById('nextPage').addEventListener('click', () => switchPage(currentPage + 1));
+
+        // 绑定播放控制事件
+        document.getElementById('playBtn').addEventListener('click', async () => {
+            const notes = parseMusicXMLToNotes(scorePages[currentPage]);
+            if (notes.length === 0) {
+                document.getElementById('status').textContent = '当前页无有效音符';
+                return;
+            }
+
+            document.getElementById('playBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = false;
+            
+            await playScore(notes);
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            Tone.Transport.pause();
+            document.getElementById('playBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            Tone.Transport.stop();
+            if (player) player.dispose();
+            document.getElementById('playBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+        });
+
+        // 页面加载时初始化OMR模型
+        window.onload = initOMR;
+    </script>
+</body>
+</html>
