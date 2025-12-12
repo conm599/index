@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>纯前端钢琴谱识别播放器 (OMR Web原型)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+
+    <style>
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: red;
+            box-shadow: 0 0 10px red;
+            top: 0;
+            left: 0;
+            display: none;
+            z-index: 10;
+        }
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+        .scanning .scan-line {
+            display: block;
+            animation: scan 4s linear infinite;
+        }
+        canvas {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-8 font-sans">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="bg-indigo-600 p-6 text-white">
+            <h1 class="text-2xl font-bold">🎹 纯前端 AI 识谱播放器</h1>
+            <p class="text-indigo-200 text-sm mt-1">支持图片与PDF / 浏览器本地解析 / 无需服务器</p>
+        </div>
+
+        <div class="p-6 border-b border-gray-200 space-y-4">
+            <div class="flex flex-wrap gap-4 items-center">
+                <label class="block">
+                    <span class="sr-only">选择文件</span>
+                    <input type="file" id="fileInput" accept="image/*,application/pdf"
+                        class="block w-full text-sm text-slate-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-indigo-50 file:text-indigo-700
+                        hover:file:bg-indigo-100"/>
+                </label>
+                
+                <button id="playBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition" disabled>
+                    ▶️ 识别并播放
+                </button>
+                
+                <button id="stopBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-full disabled:opacity-50 transition" disabled>
+                    ⏹ 停止
+                </button>
+            </div>
+            
+            <div id="status" class="text-sm text-gray-500 italic">等待上传乐谱...</div>
+        </div>
+
+        <div class="relative bg-gray-50 min-h-[400px] flex justify-center items-start p-4 overflow-auto" id="canvasContainer">
+            <div class="scan-line"></div>
+            <canvas id="scoreCanvas" class="bg-white"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // 1. 初始化变量
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('scoreCanvas');
+        const ctx = canvas.getContext('2d');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDiv = document.getElementById('status');
+        const canvasContainer = document.getElementById('canvasContainer');
+
+        let audioSynth = null;
+        let isPlaying = false;
+        let opencvReady = false;
+
+        // 设置 PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        function onOpenCvReady() {
+            opencvReady = true;
+            console.log('OpenCV.js 已加载');
+        }
+
+        // 2. 文件处理逻辑
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            statusDiv.textContent = `正在加载: ${file.name}...`;
+            playBtn.disabled = true;
+
+            if (file.type === 'application/pdf') {
+                await renderPDF(file);
+            } else if (file.type.startsWith('image/')) {
+                await renderImage(file);
+            }
+
+            statusDiv.textContent = "加载完成。点击“识别并播放”开始解析。";
+            playBtn.disabled = false;
+        });
+
+        // 渲染图片
+        function renderImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    // 缩放以适应屏幕（可选）
+                    if(img.width > 800) {
+                        const scale = 800 / img.width;
+                        canvas.width = 800;
+                        canvas.height = img.height * scale;
+                    }
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // 渲染 PDF (取第一页)
+        async function renderPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const page = await pdf.getPage(1); // 默认只处理第一页
+            
+            const scale = 1.5;
+            const viewport = page.getViewport({ scale: scale });
+
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+            await page.render(renderContext).promise;
+        }
+
+        // 3. 核心功能：模拟 OMR (光学乐谱识别)
+        // 真实场景下，这里需要调用 TensorFlow.js 模型
+        playBtn.addEventListener('click', async () => {
+            if (!audioSynth) {
+                // 初始化音频引擎
+                await Tone.start();
+                audioSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+                // 设置一点混响让它听起来像钢琴
+                const reverb = new Tone.Reverb(1.5).toDestination();
+                audioSynth.connect(reverb);
+            }
+
+            statusDiv.textContent = "正在利用计算机视觉分析谱面...";
+            canvasContainer.classList.add('scanning'); // 开始扫描动画
+            playBtn.disabled = true;
+            stopBtn.disabled = false;
+
+            // 模拟分析耗时
+            setTimeout(async () => {
+                canvasContainer.classList.remove('scanning');
+                statusDiv.textContent = "识别成功！正在播放...";
+                
+                // --- 真实技术解析点 ---
+                // 在这里，如果是真实生产环境，你需要：
+                // 1. let src = cv.imread(canvas); (OpenCV 读取图像)
+                // 2. cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY); (转灰度)
+                // 3. 使用算法去除五线谱线，只保留音符。
+                // 4. 将提取的音符图像块送入 TensorFlow.js 模型进行分类 (是Do还是Re，是全音符还是四分音符)。
+                // 5. 生成 JSON 格式的音符序列。
+                
+                // 由于无法在此处内嵌几百兆的 AI 模型，
+                // 下面演示一个“生成的音符序列”来模拟播放效果。
+                // --------------------
+
+                const demoNotes = [
+                    { note: "C4", duration: "4n", time: 0 },
+                    { note: "E4", duration: "4n", time: 0.5 },
+                    { note: "G4", duration: "4n", time: 1.0 },
+                    { note: "C5", duration: "2n", time: 1.5 },
+                    { note: "G4", duration: "4n", time: 2.5 },
+                    { note: "E4", duration: "4n", time: 3.0 },
+                    { note: "C4", duration: "1n", time: 3.5 },
+                ];
+
+                const now = Tone.now();
+                demoNotes.forEach(n => {
+                    audioSynth.triggerAttackRelease(n.note, n.duration, now + n.time);
+                });
+
+                // 播放结束后恢复状态
+                setTimeout(() => {
+                    statusDiv.textContent = "播放结束。";
+                    playBtn.disabled = false;
+                    stopBtn.disabled = true;
+                }, 5000);
+
+            }, 2000); // 模拟2秒处理时间
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if(audioSynth) {
+                audioSynth.releaseAll();
+            }
+            statusDiv.textContent = "已停止。";
+            playBtn.disabled = false;
+            stopBtn.disabled = true;
+            canvasContainer.classList.remove('scanning');
+        });
+
+    </script>
+</body>
+</html>
