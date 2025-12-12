@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>真实前端识谱播放器 (像素分析版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <style>
+        canvas { border: 1px solid #ccc; max-width: 100%; }
+        .overlay { position: absolute; top: 0; left: 0; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-gray-100 p-5 font-sans">
+
+<div class="max-w-5xl mx-auto bg-white p-6 shadow-lg rounded-xl">
+    <h1 class="text-2xl font-bold mb-2">🎹 真实像素分析识谱器</h1>
+    <p class="text-gray-600 text-sm mb-4">
+        这是一个纯前端算法。它通过计算像素位置来猜测音符。
+        <br>
+        <span class="text-red-500 font-bold">使用建议：</span>请上传<b>清晰、背景干净、五线谱横平竖直</b>的图片或PDF。如果是手写或歪斜的，识别率会下降。
+    </p>
+
+    <div class="flex gap-4 mb-4 items-center flex-wrap">
+        <input type="file" id="fileInput" accept="image/*,application/pdf" class="block w-64 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+        
+        <button id="processBtn" class="bg-blue-600 text-white px-6 py-2 rounded-full hover:bg-blue-700 disabled:bg-gray-400 transition" disabled>
+            👁️ 解析乐谱
+        </button>
+        
+        <button id="playBtn" class="bg-green-600 text-white px-6 py-2 rounded-full hover:bg-green-700 disabled:bg-gray-400 transition" disabled>
+            ▶️ 播放识别结果
+        </button>
+
+        <span id="status" class="text-sm font-mono text-blue-600">等待上传...</span>
+    </div>
+
+    <div class="relative overflow-auto border-2 border-dashed border-gray-300 min-h-[300px] flex justify-center bg-gray-50">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="debugCanvas" class="overlay"></canvas>
+    </div>
+    
+    <div class="mt-4 p-4 bg-gray-800 text-green-400 font-mono text-xs rounded h-32 overflow-y-auto" id="logConsole">
+        > 系统就绪...
+    </div>
+</div>
+
+<script>
+    // --- 配置与变量 ---
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    const fileInput = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const playBtn = document.getElementById('playBtn');
+    const status = document.getElementById('status');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const debugCanvas = document.getElementById('debugCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const dbgCtx = debugCanvas.getContext('2d');
+    const logConsole = document.getElementById('logConsole');
+
+    let detectedNotes = []; // 存储识别到的音符 {note: 'C4', time: 0, x: 100, y: 200}
+    let synth = null;
+
+    // --- 工具函数 ---
+    function log(msg) {
+        logConsole.innerHTML += `> ${msg}<br>`;
+        logConsole.scrollTop = logConsole.scrollHeight;
+    }
+
+    // --- 1. 文件加载模块 ---
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        status.textContent = "正在加载...";
+        processBtn.disabled = true;
+        playBtn.disabled = true;
+        detectedNotes = [];
+        dbgCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+
+        try {
+            if (file.type === 'application/pdf') {
+                await renderPDF(file);
+            } else {
+                await renderImage(file);
+            }
+            status.textContent = "图片已加载，请点击解析";
+            processBtn.disabled = false;
+        } catch (err) {
+            log("加载错误: " + err.message);
+        }
+    });
+
+    async function renderImage(file) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                resizeAndDraw(img);
+                resolve();
+            };
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    async function renderPDF(file) {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(buf).promise;
+        const page = await pdf.getPage(1); // 仅第一页
+        const viewport = page.getViewport({ scale: 2.0 }); // 高清渲染
+        
+        // 临时canvas用于渲染PDF
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = viewport.width;
+        tempCanvas.height = viewport.height;
+        
+        await page.render({
+            canvasContext: tempCanvas.getContext('2d'),
+            viewport: viewport
+        }).promise;
+        
+        //以此创建Image对象方便统一处理
+        const img = new Image();
+        img.onload = () => {
+            resizeAndDraw(img);
+        };
+        img.src = tempCanvas.toDataURL();
+    }
+
+    function resizeAndDraw(img) {
+        // 限制最大宽度以保证性能
+        const maxWidth = 1000;
+        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+        
+        mainCanvas.width = img.width * scale;
+        mainCanvas.height = img.height * scale;
+        debugCanvas.width = mainCanvas.width;
+        debugCanvas.height = mainCanvas.height;
+        
+        ctx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
+        log(`图片加载成功: ${mainCanvas.width}x${mainCanvas.height}`);
+    }
+
+    // --- 2. 核心算法：像素分析 (不依赖AI) ---
+    processBtn.addEventListener('click', () => {
+        status.textContent = "正在分析像素...";
+        log("开始像素分析...");
+        
+        // 1. 获取像素数据
+        const imageData = ctx.getImageData(0, 0, mainCanvas.width, mainCanvas.height);
+        const data = imageData.data;
+        const width = mainCanvas.width;
+        const height = mainCanvas.height;
+
+        // 2. 二值化 (转黑白)
+        const binaryMap = new Uint8Array(width * height);
+        for (let i = 0; i < data.length; i += 4) {
+            // RGB平均值
+            const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+            // 阈值设为 200 (255是白, 0是黑), 小于200认为是墨迹
+            binaryMap[i / 4] = avg < 180 ? 1 : 0; 
+        }
+
+        // 3. 水平投影：找五线谱的线
+        // 统计每一行有多少个黑点
+        const rowSums = new Int32Array(height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (binaryMap[y * width + x] === 1) rowSums[y]++;
+            }
+        }
+
+        // 寻找波峰 (Staff Lines)
+        const staffLinesY = [];
+        const threshold = width * 0.3; // 如果一行超过30%是黑的，认为是线
+        for (let y = 1; y < height - 1; y++) {
+            if (rowSums[y] > threshold && rowSums[y] > rowSums[y-1] && rowSums[y] > rowSums[y+1]) {
+                // 简单的去重，防止一条粗线被识别为多条
+                if (staffLinesY.length === 0 || y - staffLinesY[staffLinesY.length - 1] > 5) {
+                    staffLinesY.push(y);
+                }
+            }
+        }
+        
+        log(`检测到 ${staffLinesY.length} 条可能的谱线`);
+
+        // 4. 将线分组 (5条一组)
+        const staves = [];
+        for (let i = 0; i < staffLinesY.length - 4; i+=1) {
+            const line1 = staffLinesY[i];
+            const line5 = staffLinesY[i+4];
+            const avgSpacing = (line5 - line1) / 4;
+            
+            // 验证这5条线是否间距大致相等
+            let isStaff = true;
+            for(let j=0; j<4; j++) {
+                let dist = staffLinesY[i+j+1] - staffLinesY[i+j];
+                if (Math.abs(dist - avgSpacing) > 5) isStaff = false;
+            }
+
+            if (isStaff) {
+                staves.push({
+                    top: line1,
+                    bottom: line5,
+                    spacing: avgSpacing,
+                    lines: staffLinesY.slice(i, i+5)
+                });
+                i += 4; // 跳过这组
+            }
+        }
+        log(`识别出 ${staves.length} 组五线谱`);
+
+        // 5. 音符检测 (Blob Detection)
+        detectedNotes = [];
+        dbgCtx.clearRect(0, 0, width, height);
+        dbgCtx.strokeStyle = "red";
+        dbgCtx.lineWidth = 2;
+
+        staves.forEach((staff, staffIndex) => {
+            // 在五线谱区域内扫描
+            // 定义扫描区域：上加一线到下加一线
+            const scanTop = Math.max(0, staff.top - staff.spacing * 3);
+            const scanBottom = Math.min(height, staff.bottom + staff.spacing * 3);
+            
+            // 垂直投影 (找音符的X坐标)
+            const colSums = new Int32Array(width);
+            for (let x = 0; x < width; x++) {
+                for (let y = parseInt(scanTop); y < parseInt(scanBottom); y++) {
+                    if (binaryMap[y * width + x] === 1) {
+                        // 排除掉原本就是线的位置，只统计音符
+                        let onLine = false;
+                        for(let l of staff.lines) {
+                            if (Math.abs(y - l) < 2) onLine = true;
+                        }
+                        if (!onLine) colSums[x]++;
+                    }
+                }
+            }
+
+            // 简单的峰值查找 (寻找X轴上的音符)
+            let noteX = -1;
+            for (let x = 0; x < width; x++) {
+                if (colSums[x] > staff.spacing * 1.5) { // 阈值：黑点高度总和超过1.5倍线间距
+                    if (noteX === -1) noteX = x;
+                } else {
+                    if (noteX !== -1) {
+                        // 结束一个音符块，计算中心
+                        const centerX = (noteX + x) / 2;
+                        
+                        // 确定这个X切片上，重心的Y在哪里
+                        let totalY = 0;
+                        let pixelCount = 0;
+                        for (let y = parseInt(scanTop); y < parseInt(scanBottom); y++) {
+                            // 采样中间的列
+                            if (binaryMap[y * width + parseInt(centerX)] === 1) {
+                                totalY += y;
+                                pixelCount++;
+                            }
+                        }
+                        
+                        if (pixelCount > 5) { // 过滤噪点
+                            const centerY = totalY / pixelCount;
+                            
+                            // 6. 计算音高
+                            // 原理：计算Y距离五线谱最上面的线的距离，除以半间距
+                            // 0 = Top Line (F5), 1 = Space (E5), 2 = Line (D5)...
+                            const halfSpace = staff.spacing / 2;
+                            const stepsFromTop = Math.round((centerY - staff.top) / halfSpace);
+                            
+                            // 映射到音名 (假设高音谱号 Treble Clef)
+                            // F5 是 Top Line
+                            const referenceNote = 77; // MIDI for F5
+                            // 五线谱上，每一步对应自然大调的一个音级（需要复杂的调式处理，这里简化为白键映射）
+                            // 简单映射逻辑：
+                            const trebleNotes = ["F5", "E5", "D5", "C5", "B4", "A4", "G4", "F4", "E4", "D4", "C4"];
+                            // 处理越界
+                            let noteName = "C4";
+                            if (stepsFromTop >= 0 && stepsFromTop < trebleNotes.length) {
+                                noteName = trebleNotes[stepsFromTop];
+                            } else if (stepsFromTop < 0) {
+                                noteName = "G5"; // 太高了
+                            } else {
+                                noteName = "A3"; // 太低了
+                            }
+
+                            detectedNotes.push({
+                                note: noteName,
+                                x: centerX,
+                                y: centerY,
+                                staffIndex: staffIndex
+                            });
+
+                            // 绘制红框
+                            dbgCtx.strokeRect(centerX - 5, centerY - 5, 10, 10);
+                            dbgCtx.fillStyle = "red";
+                            dbgCtx.font = "10px Arial";
+                            dbgCtx.fillText(noteName, centerX - 10, centerY - 8);
+                        }
+                        noteX = -1;
+                    }
+                }
+            }
+        });
+
+        // 按时间和五线谱顺序排序
+        // 先按五线谱行排序，再按X排序
+        detectedNotes.sort((a, b) => {
+            if (a.staffIndex !== b.staffIndex) return a.staffIndex - b.staffIndex;
+            return a.x - b.x;
+        });
+
+        log(`分析完成！找到 ${detectedNotes.length} 个音符。点击播放听到结果。`);
+        status.textContent = `找到 ${detectedNotes.length} 个音符`;
+        playBtn.disabled = false;
+    });
+
+    // --- 3. 播放模块 ---
+    playBtn.addEventListener('click', async () => {
+        if (!synth) {
+            await Tone.start();
+            synth = new Tone.PolySynth(Tone.Synth).toDestination();
+            const reverb = new Tone.Reverb(1.5).toDestination();
+            synth.connect(reverb);
+        }
+
+        if (detectedNotes.length === 0) {
+            alert("没有识别到音符，请先解析");
+            return;
+        }
+
+        status.textContent = "播放中...";
+        const now = Tone.now();
+        let timeOffset = 0;
+        
+        // 简单的节奏：每个音符假设是四分音符，间隔0.5秒
+        // 进阶版应该根据音符之间的距离(pixel distance)来决定时值，这里简化处理
+        detectedNotes.forEach((n, i) => {
+            // 简单的可视化跟踪
+            setTimeout(() => {
+                dbgCtx.fillStyle = "blue";
+                dbgCtx.fillRect(n.x - 5, n.y - 5, 10, 10);
+            }, i * 400);
+
+            synth.triggerAttackRelease(n.note, "8n", now + i * 0.4);
+        });
+
+        setTimeout(() => {
+            status.textContent = "播放结束";
+             // 重绘红色框 (清除蓝色的播放痕迹)
+             // (此处省略重绘逻辑，简单保留痕迹)
+        }, detectedNotes.length * 400);
+    });
+
+</script>
+</body>
+</html>
