@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌词自由落体显示效果</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            color: white;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .lyrics-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px;
+        }
+
+        .lyric-line {
+            position: absolute;
+            font-size: 4rem;
+            font-weight: 800;
+            text-align: center;
+            width: 100%;
+            opacity: 0;
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+            transition: opacity 0.3s ease;
+        }
+
+        .lyric-line.active {
+            opacity: 1;
+        }
+
+        .control-panel {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 20px 30px;
+            border-radius: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        button {
+            background: linear-gradient(45deg, #6a11cb, #2575fc);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .color-options {
+            display: flex;
+            gap: 10px;
+            margin: 0 15px;
+        }
+
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .color-option.active {
+            border-color: white;
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .settings {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-left: 15px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="range"] {
+            width: 120px;
+            height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #6a11cb;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(106, 17, 203, 0.8);
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 300px;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-panel h3 {
+            color: #6a11cb;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .info-panel p {
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .lyric-counter {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 15px;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .lyric-counter span {
+            color: #6a11cb;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(1deg); }
+        }
+
+        @keyframes fallOut {
+            0% { 
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            70% {
+                transform: translateY(50vh) rotate(5deg);
+                opacity: 0.7;
+            }
+            100% { 
+                transform: translateY(100vh) rotate(10deg);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .lyric-line {
+                font-size: 2.5rem;
+            }
+            
+            .control-panel {
+                flex-wrap: wrap;
+                justify-content: center;
+                width: 90%;
+                padding: 15px;
+            }
+            
+            .info-panel, .lyric-counter {
+                position: relative;
+                top: auto;
+                left: auto;
+                right: auto;
+                margin: 15px auto;
+                width: 90%;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="lyrics-container" id="lyricsContainer"></div>
+        
+        <div class="lyric-counter">
+            当前歌词: <span id="currentLyricIndex">0</span> / <span id="totalLyrics">0</span>
+        </div>
+        
+        <div class="control-panel">
+            <button id="startBtn">开始播放</button>
+            <button id="pauseBtn">暂停/继续</button>
+            <button id="nextBtn">下一句</button>
+            <button id="resetBtn">重置</button>
+            
+            <div class="color-options">
+                <div class="color-option active" style="background: linear-gradient(45deg, #6a11cb, #2575fc);" data-color="purple-blue"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #ff416c, #ff4b2b);" data-color="red-orange"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #11998e, #38ef7d);" data-color="green-cyan"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #fc466b, #3f5efb);" data-color="pink-purple"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #f7971e, #ffd200);" data-color="orange-yellow"></div>
+            </div>
+            
+            <div class="settings">
+                <div class="setting-item">
+                    <span>速度:</span>
+                    <input type="range" id="speedControl" min="0.5" max="2" step="0.1" value="1">
+                    <span id="speedValue">1.0x</span>
+                </div>
+                <div class="setting-item">
+                    <span>大小:</span>
+                    <input type="range" id="sizeControl" min="0.5" max="1.5" step="0.1" value="1">
+                    <span id="sizeValue">100%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h3>歌词自由落体效果</h3>
+            <p>• 歌词从屏幕顶部自由落体到中央</p>
+            <p>• 到达中央后有弹性缓冲和漂浮效果</p>
+            <p>• 当前歌词掉落出屏幕时，下一句同时从顶部掉落</p>
+            <p>• 显示时间根据歌词长度动态调整</p>
+            <p>• 支持多种颜色主题和个性化设置</p>
+        </div>
+    </div>
+
+    <script>
+        // 歌词数据 - 可以替换成您喜欢的歌词
+        const lyrics = [
+            { text: "夜空中最亮的星，能否听清", duration: 5 },
+            { text: "那仰望的人，心底的孤独和叹息", duration: 6 },
+            { text: "夜空中最亮的星，能否记起", duration: 5 },
+            { text: "曾与我同行，消失在风里的身影", duration: 6 },
+            { text: "我祈祷拥有一颗透明的心灵", duration: 5 },
+            { text: "和会流泪的眼睛", duration: 4 },
+            { text: "给我再去相信的勇气", duration: 4 },
+            { text: "越过谎言去拥抱你", duration: 5 },
+            { text: "每当我找不到存在的意义", duration: 5 },
+            { text: "每当我迷失在黑夜里", duration: 5 },
+            { text: "夜空中最亮的星", duration: 4 },
+            { text: "请指引我靠近你", duration: 5 }
+        ];
+
+        // DOM元素
+        const lyricsContainer = document.getElementById('lyricsContainer');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const speedControl = document.getElementById('speedControl');
+        const speedValue = document.getElementById('speedValue');
+        const sizeControl = document.getElementById('sizeControl');
+        const sizeValue = document.getElementById('sizeValue');
+        const currentLyricIndex = document.getElementById('currentLyricIndex');
+        const totalLyrics = document.getElementById('totalLyrics');
+
+        // 状态变量
+        let currentLineIndex = 0;
+        let isPlaying = false;
+        let isPaused = false;
+        let animationSpeed = 1;
+        let fontSizeScale = 1;
+        let currentColor = 'purple-blue';
+        let lyricElements = [];
+        let timeoutIds = [];
+        let animationInstances = [];
+
+        // 颜色主题配置
+        const colorThemes = {
+            'purple-blue': { gradient: 'linear-gradient(45deg, #6a11cb, #2575fc)' },
+            'red-orange': { gradient: 'linear-gradient(45deg, #ff416c, #ff4b2b)' },
+            'green-cyan': { gradient: 'linear-gradient(45deg, #11998e, #38ef7d)' },
+            'pink-purple': { gradient: 'linear-gradient(45deg, #fc466b, #3f5efb)' },
+            'orange-yellow': { gradient: 'linear-gradient(45deg, #f7971e, #ffd200)' }
+        };
+
+        // 初始化
+        function init() {
+            totalLyrics.textContent = lyrics.length;
+            createLyricElements();
+            
+            // 颜色选择器
+            colorOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    colorOptions.forEach(opt => opt.classList.remove('active'));
+                    option.classList.add('active');
+                    currentColor = option.dataset.color;
+                    updateLyricColors();
+                });
+            });
+            
+            // 速度控制
+            speedControl.addEventListener('input', (e) => {
+                animationSpeed = parseFloat(e.target.value);
+                speedValue.textContent = animationSpeed.toFixed(1) + 'x';
+            });
+            
+            // 大小控制
+            sizeControl.addEventListener('input', (e) => {
+                fontSizeScale = parseFloat(e.target.value);
+                sizeValue.textContent = Math.round(fontSizeScale * 100) + '%';
+                updateLyricSizes();
+            });
+            
+            // 按钮事件
+            startBtn.addEventListener('click', startPlayback);
+            pauseBtn.addEventListener('click', togglePause);
+            nextBtn.addEventListener('click', nextLyric);
+            resetBtn.addEventListener('click', resetPlayback);
+            
+            // 键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                switch(e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        togglePause();
+                        break;
+                    case 'ArrowRight':
+                        nextLyric();
+                        break;
+                    case 'ArrowLeft':
+                        resetPlayback();
+                        break;
+                    case 'Enter':
+                        startPlayback();
+                        break;
+                }
+            });
+            
+            console.log('🎵 歌词自由落体效果已初始化');
+            console.log('快捷键：空格键=暂停/继续, 右箭头=下一句, 左箭头=重置, 回车键=开始播放');
+        }
+        
+        // 创建歌词元素
+        function createLyricElements() {
+            lyricsContainer.innerHTML = '';
+            lyricElements = [];
+            
+            lyrics.forEach((lyric, index) => {
+                const lyricEl = document.createElement('div');
+                lyricEl.className = 'lyric-line';
+                lyricEl.id = `lyric-${index}`;
+                lyricEl.textContent = lyric.text;
+                lyricEl.style.color = 'transparent';
+                lyricEl.style.background = colorThemes[currentColor].gradient;
+                lyricEl.style.webkitBackgroundClip = 'text';
+                lyricEl.style.backgroundClip = 'text';
+                lyricEl.style.fontSize = (4 * fontSizeScale) + 'rem';
+                lyricEl.style.top = '-200px'; // 初始位置在屏幕上方
+                
+                lyricsContainer.appendChild(lyricEl);
+                lyricElements.push(lyricEl);
+            });
+        }
+        
+        // 更新歌词颜色
+        function updateLyricColors() {
+            lyricElements.forEach(el => {
+                el.style.background = colorThemes[currentColor].gradient;
+                el.style.webkitBackgroundClip = 'text';
+                el.style.backgroundClip = 'text';
+            });
+        }
+        
+        // 更新歌词大小
+        function updateLyricSizes() {
+            lyricElements.forEach(el => {
+                el.style.fontSize = (4 * fontSizeScale) + 'rem';
+            });
+        }
+        
+        // 清空所有动画和定时器
+        function clearAllAnimations() {
+            timeoutIds.forEach(id => clearTimeout(id));
+            timeoutIds = [];
+            
+            animationInstances.forEach(instance => {
+                if (instance.animation) instance.animation.cancel();
+                if (instance.element) {
+                    instance.element.style.transform = '';
+                    instance.element.style.opacity = '0';
+                    instance.element.style.top = '-200px';
+                    instance.element.classList.remove('active');
+                }
+            });
+            animationInstances = [];
+        }
+        
+        // 开始播放
+        function startPlayback() {
+            if (isPlaying && !isPaused) return;
+            
+            isPlaying = true;
+            isPaused = false;
+            currentLineIndex = 0;
+            pauseBtn.textContent = '暂停';
+            
+            clearAllAnimations();
+            playLyric(currentLineIndex);
+        }
+        
+        // 播放指定歌词
+        function playLyric(index) {
+            if (index >= lyrics.length) {
+                // 所有歌词播放完毕
+                isPlaying = false;
+                return;
+            }
+            
+            currentLyricIndex.textContent = index + 1;
+            const lyricEl = lyricElements[index];
+            const lyricData = lyrics[index];
+            
+            if (!lyricEl) return;
+            
+            // 显示歌词元素
+            lyricEl.classList.add('active');
+            lyricEl.style.opacity = '1';
+            
+            // 计算动画时间
+            const baseDuration = lyricData.duration * 1000; // 转换为毫秒
+            const wordCount = lyricData.text.length;
+            
+            // 掉落时间根据歌词长度调整
+            let fallDuration = Math.min(baseDuration * 0.3, 2000);
+            fallDuration = Math.max(fallDuration, 800);
+            fallDuration = fallDuration / animationSpeed;
+            
+            // 停留在中央的时间
+            let stayDuration = baseDuration * 0.5;
+            stayDuration = Math.max(stayDuration, 1500);
+            stayDuration = stayDuration / animationSpeed;
+            
+            // 掉落出屏幕的时间
+            let fallOutDuration = Math.min(baseDuration * 0.2, 1500);
+            fallOutDuration = Math.max(fallOutDuration, 600);
+            fallOutDuration = fallOutDuration / animationSpeed;
+            
+            console.log(`歌词${index+1}: 掉落${fallDuration}ms, 停留${stayDuration}ms, 掉落出${fallOutDuration}ms`);
+            
+            // 第一阶段：从顶部自由落体掉落到屏幕中央
+            const startTime = Date.now();
+            
+            // 使用requestAnimationFrame实现自由落体动画
+            function animateFall() {
+                if (isPaused) return;
+                
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / fallDuration, 1);
+                
+                // 自由落体曲线：开始加速，结束缓冲
+                const easeInOutCubic = t => t < 0.5 
+                    ? 4 * t * t * t 
+                    : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                
+                const yProgress = easeInOutCubic(progress);
+                
+                // 计算当前位置（从屏幕外到屏幕中央）
+                const startY = -200; // 起始位置（px）
+                const endY = 50; // 目标位置（视口高度的50%）
+                const currentY = startY + (endY - startY) * yProgress;
+                
+                // 添加弹性效果
+                let bounce = 0;
+                if (progress > 0.7) {
+                    const bounceProgress = (progress - 0.7) / 0.3;
+                    bounce = Math.sin(bounceProgress * Math.PI * 4) * (1 - bounceProgress) * 10;
+                }
+                
+                lyricEl.style.top = `calc(${currentY}% + ${bounce}px)`;
+                
+                // 添加旋转效果
+                const rotation = (Math.sin(progress * Math.PI * 2) * 5) + bounce * 0.5;
+                lyricEl.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+                
+                // 添加缩放效果
+                const scale = 0.8 + 0.2 * (1 - Math.abs(progress - 0.5) * 2);
+                lyricEl.style.transform += ` scale(${scale})`;
+                
+                if (progress < 1) {
+                    animationInstances.push({ animation: requestAnimationFrame(animateFall), element: lyricEl });
+                } else {
+                    // 第一阶段动画完成，开始漂浮效果
+                    startFloatAnimation(lyricEl, stayDuration);
+                }
+            }
+            
+            // 开始掉落动画
+            animationInstances.push({ animation: requestAnimationFrame(animateFall), element: lyricEl });
+            
+            // 设置定时器，在适当时间开始下一句歌词
+            const nextLyricDelay = fallDuration + stayDuration * 0.7;
+            const timeoutId = setTimeout(() => {
+                if (!isPaused && isPlaying) {
+                    // 当前歌词开始掉落出屏幕时，下一句开始掉落
+                    playLyric(index + 1);
+                }
+            }, nextLyricDelay);
+            
+            timeoutIds.push(timeoutId);
+            
+            // 设置定时器，开始掉落出屏幕动画
+            const fallOutTimeoutId = setTimeout(() => {
+                if (isPaused) return;
+                startFallOutAnimation(lyricEl, fallOutDuration);
+            }, fallDuration + stayDuration);
+            
+            timeoutIds.push(fallOutTimeoutId);
+        }
+        
+        // 漂浮动画
+        function startFloatAnimation(element, duration) {
+            const startTime = Date.now();
+            
+            function animateFloat() {
+                if (isPaused) return;
+                
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
+                
+                if (progress >= 1) return;
+                
+                // 轻微漂浮效果
+                const floatOffset = Math.sin(progress * Math.PI * 4) * 8;
+                const rotation = Math.sin(progress * Math.PI * 2) * 3;
+                
+                element.style.top = `calc(50% + ${floatOffset}px)`;
+                element.style.transform = `translateX(-50%) rotate(${rotation}deg) scale(1)`;
+                
+                animationInstances.push({ animation: requestAnimationFrame(animateFloat), element });
+            }
+            
+            animationInstances.push({ animation: requestAnimationFrame(animateFloat), element });
+        }
+        
+        // 掉落出屏幕动画
+        function startFallOutAnimation(element, duration) {
+            const startTime = Date.now();
+            
+            function animateFallOut() {
+                if (isPaused) return;
+                
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // 缓出效果
+                const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+                const yProgress = easeOutCubic(progress);
+                
+                // 从中央掉落到屏幕外
+                const startY = 50;
+                const endY = 150; // 掉落到屏幕下方
+                const currentY = startY + (endY - startY) * yProgress;
+                
+                // 添加旋转效果
+                const rotation = progress * 30;
+                
+                element.style.top = `${currentY}%`;
+                element.style.transform = `translateX(-50%) rotate(${rotation}deg) scale(${1 - progress * 0.3})`;
+                
+                // 淡出效果
+                element.style.opacity = `${1 - progress}`;
+                
+                if (progress < 1) {
+                    animationInstances.push({ animation: requestAnimationFrame(animateFallOut), element });
+                } else {
+                    // 动画完成，隐藏元素
+                    element.classList.remove('active');
+                    element.style.opacity = '0';
+                    element.style.top = '-200px';
+                }
+            }
+            
+            animationInstances.push({ animation: requestAnimationFrame(animateFallOut), element });
+        }
+        
+        // 暂停/继续
+        function togglePause() {
+            if (!isPlaying) return;
+            
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? '继续' : '暂停';
+            
+            if (!isPaused) {
+                // 继续播放
+                playLyric(currentLineIndex);
+            }
+        }
+        
+        // 下一句歌词
+        function nextLyric() {
+            if (!isPlaying) return;
+            
+            clearAllAnimations();
+            currentLineIndex = (currentLineIndex + 1) % lyrics.length;
+            playLyric(currentLineIndex);
+        }
+        
+        // 重置播放
+        function resetPlayback() {
+            isPlaying = false;
+            isPaused = false;
+            currentLineIndex = 0;
+            pauseBtn.textContent = '暂停';
+            currentLyricIndex.textContent = '0';
+            
+            clearAllAnimations();
+            
+            // 重置所有歌词元素位置
+            lyricElements.forEach(el => {
+                el.style.transform = '';
+                el.style.opacity = '0';
+                el.style.top = '-200px';
+                el.classList.remove('active');
+            });
+        }
+        
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html>
