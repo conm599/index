@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个性化歌词显示效果</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 1200px;
+            width: 90%;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #ff0080, #00ffcc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff0080, #00ffcc);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.active {
+            border-color: white;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .lyrics-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .lyrics-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+        }
+
+        .lyric-line {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin: 20px 0;
+            opacity: 0.3;
+            transition: opacity 0.3s ease;
+            display: none;
+            letter-spacing: 1px;
+        }
+
+        .lyric-line.active {
+            opacity: 1;
+            display: block;
+        }
+
+        .word {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(-50px);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .word.falling {
+            animation: fallDown 0.5s ease forwards;
+        }
+
+        @keyframes fallDown {
+            0% {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .current-line {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.2rem;
+            font-weight: bold;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0080, #00ffcc);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 10px;
+            color: #00ffcc;
+        }
+
+        .settings {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            width: 150px;
+        }
+
+        select {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        option {
+            background: #1a1a2e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 个性化歌词显示效果 🎵</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <button id="startBtn">开始播放</button>
+                <button id="pauseBtn">暂停/继续</button>
+                <button id="nextBtn">下一句</button>
+                <button id="resetBtn">重新开始</button>
+            </div>
+            
+            <div class="color-picker">
+                <div class="color-option active" style="background: linear-gradient(45deg, #ff0080, #ff4da6);" data-color="pink"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #00ffcc, #00ccff);" data-color="cyan"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #ffcc00, #ff9900);" data-color="orange"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #9966ff, #cc33ff);" data-color="purple"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #00ff00, #00cc00);" data-color="green"></div>
+                <div class="color-option" style="background: linear-gradient(45deg, #ff3366, #ff0066);" data-color="red"></div>
+            </div>
+            
+            <div class="settings">
+                <div class="setting-item">
+                    <label>速度：</label>
+                    <input type="range" id="speedControl" min="0.5" max="2" step="0.1" value="1">
+                    <span id="speedValue">1.0x</span>
+                </div>
+                <div class="setting-item">
+                    <label>字体大小：</label>
+                    <select id="fontSize">
+                        <option value="1.8">较小</option>
+                        <option value="2.2" selected>中等</option>
+                        <option value="2.8">较大</option>
+                        <option value="3.5">特大</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="lyrics-container">
+            <div id="currentLine" class="current-line"></div>
+        </div>
+        
+        <div class="progress-bar">
+            <div id="progress" class="progress"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h3>效果说明：</h3>
+            <p>• 歌词逐字掉落效果：每个字以渐变颜色掉落显示</p>
+            <p>• 掉落间隔时间：总时长/总字数（最小0.1秒，最大0.3秒）</p>
+            <p>• 当前歌词结束后，整行歌词会掉落消失</p>
+            <p>• 可使用不同颜色主题，调整播放速度和字体大小</p>
+        </div>
+    </div>
+
+    <script>
+        // 歌词数据
+        const lyrics = [
+            { text: "这是第一句测试歌词，用来展示效果", duration: 4 },
+            { text: "第二句歌词会有更长的显示时间", duration: 5 },
+            { text: "第三句：音乐让生活更美好", duration: 4 },
+            { text: "第四句歌词，逐字掉落效果", duration: 4 },
+            { text: "最后一句，享受音乐的快乐", duration: 5 }
+        ];
+
+        // DOM元素
+        const currentLineEl = document.getElementById('currentLine');
+        const progressEl = document.getElementById('progress');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const speedControl = document.getElementById('speedControl');
+        const speedValue = document.getElementById('speedValue');
+        const fontSizeSelect = document.getElementById('fontSize');
+
+        // 状态变量
+        let currentLineIndex = 0;
+        let isPlaying = false;
+        let isPaused = false;
+        let animationSpeed = 1;
+        let currentColor = 'pink';
+        let timeoutIds = [];
+
+        // 颜色主题配置
+        const colorThemes = {
+            pink: { gradient: 'linear-gradient(45deg, #ff0080, #ff4da6)' },
+            cyan: { gradient: 'linear-gradient(45deg, #00ffcc, #00ccff)' },
+            orange: { gradient: 'linear-gradient(45deg, #ffcc00, #ff9900)' },
+            purple: { gradient: 'linear-gradient(45deg, #9966ff, #cc33ff)' },
+            green: { gradient: 'linear-gradient(45deg, #00ff00, #00cc00)' },
+            red: { gradient: 'linear-gradient(45deg, #ff3366, #ff0066)' }
+        };
+
+        // 初始化颜色选择器
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                colorOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                currentColor = option.dataset.color;
+                updateCurrentLineColor();
+            });
+        });
+
+        // 更新当前歌词颜色
+        function updateCurrentLineColor() {
+            currentLineEl.style.background = colorThemes[currentColor].gradient;
+            currentLineEl.style.webkitBackgroundClip = 'text';
+            currentLineEl.style.backgroundClip = 'text';
+            currentLineEl.style.color = 'transparent';
+        }
+
+        // 速度控制
+        speedControl.addEventListener('input', (e) => {
+            animationSpeed = parseFloat(e.target.value);
+            speedValue.textContent = animationSpeed.toFixed(1) + 'x';
+        });
+
+        // 字体大小控制
+        fontSizeSelect.addEventListener('change', (e) => {
+            const size = e.target.value + 'rem';
+            currentLineEl.style.fontSize = size;
+        });
+
+        // 清空所有定时器
+        function clearAllTimeouts() {
+            timeoutIds.forEach(id => clearTimeout(id));
+            timeoutIds = [];
+        }
+
+        // 显示当前歌词
+        function displayCurrentLine() {
+            if (currentLineIndex >= lyrics.length) {
+                currentLineIndex = 0;
+            }
+            
+            const line = lyrics[currentLineIndex];
+            const words = line.text.split('');
+            const duration = line.duration * 1000; // 转换为毫秒
+            const wordCount = words.length;
+            
+            // 计算每个字的掉落间隔时间
+            let interval = duration / wordCount;
+            interval = Math.min(interval, 300); // 最大300ms
+            interval = Math.max(interval, 100); // 最小100ms
+            interval = interval / animationSpeed; // 应用速度控制
+            
+            // 清空当前显示
+            currentLineEl.innerHTML = '';
+            
+            // 逐字显示
+            words.forEach((word, index) => {
+                const wordEl = document.createElement('span');
+                wordEl.className = 'word';
+                wordEl.textContent = word;
+                wordEl.style.background = colorThemes[currentColor].gradient;
+                wordEl.style.webkitBackgroundClip = 'text';
+                wordEl.style.backgroundClip = 'text';
+                wordEl.style.color = 'transparent';
+                
+                currentLineEl.appendChild(wordEl);
+                
+                // 设置每个字的掉落动画
+                const timeoutId = setTimeout(() => {
+                    wordEl.classList.add('falling');
+                }, index * interval);
+                
+                timeoutIds.push(timeoutId);
+            });
+            
+            // 更新进度条
+            updateProgressBar(duration);
+            
+            // 歌词结束后掉落
+            const endTimeout = setTimeout(() => {
+                fallDownCurrentLine(() => {
+                    currentLineIndex++;
+                    if (isPlaying && !isPaused) {
+                        setTimeout(displayCurrentLine, 300);
+                    }
+                });
+            }, duration);
+            
+            timeoutIds.push(endTimeout);
+        }
+
+        // 当前歌词掉落效果
+        function fallDownCurrentLine(callback) {
+            const words = currentLineEl.querySelectorAll('.word');
+            words.forEach((word, index) => {
+                word.style.transition = 'transform 0.5s ease, opacity 0.5s ease';
+                word.style.transform = `translateY(100px)`;
+                word.style.opacity = '0';
+            });
+            
+            setTimeout(callback, 500);
+        }
+
+        // 更新进度条
+        function updateProgressBar(duration) {
+            progressEl.style.width = '0%';
+            
+            const interval = 100; // 每100ms更新一次
+            const steps = duration / interval;
+            const increment = 100 / steps;
+            let currentWidth = 0;
+            
+            const progressInterval = setInterval(() => {
+                if (!isPlaying || isPaused) {
+                    clearInterval(progressInterval);
+                    return;
+                }
+                
+                currentWidth += increment;
+                progressEl.style.width = Math.min(currentWidth, 100) + '%';
+                
+                if (currentWidth >= 100) {
+                    clearInterval(progressInterval);
+                }
+            }, interval / animationSpeed);
+        }
+
+        // 开始播放
+        startBtn.addEventListener('click', () => {
+            if (!isPlaying) {
+                isPlaying = true;
+                isPaused = false;
+                currentLineIndex = 0;
+                clearAllTimeouts();
+                displayCurrentLine();
+            }
+        });
+
+        // 暂停/继续
+        pauseBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                isPaused = !isPaused;
+                if (isPaused) {
+                    clearAllTimeouts();
+                    pauseBtn.textContent = '继续播放';
+                } else {
+                    pauseBtn.textContent = '暂停';
+                    displayCurrentLine();
+                }
+            }
+        });
+
+        // 下一句
+        nextBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                clearAllTimeouts();
+                fallDownCurrentLine(() => {
+                    currentLineIndex = (currentLineIndex + 1) % lyrics.length;
+                    displayCurrentLine();
+                });
+            }
+        });
+
+        // 重新开始
+        resetBtn.addEventListener('click', () => {
+            isPlaying = false;
+            isPaused = false;
+            currentLineIndex = 0;
+            clearAllTimeouts();
+            currentLineEl.innerHTML = '';
+            progressEl.style.width = '0%';
+            pauseBtn.textContent = '暂停/继续';
+        });
+
+        // 初始化
+        updateCurrentLineColor();
+        
+        // 添加键盘控制
+        document.addEventListener('keydown', (e) => {
+            switch(e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    pauseBtn.click();
+                    break;
+                case 'ArrowRight':
+                    nextBtn.click();
+                    break;
+                case 'ArrowLeft':
+                    resetBtn.click();
+                    break;
+                case 'Enter':
+                    startBtn.click();
+                    break;
+            }
+        });
+
+        // 添加说明
+        console.log('🎵 个性化歌词显示效果 🎵');
+        console.log('快捷键：');
+        console.log('空格键 - 暂停/继续');
+        console.log('右箭头 - 下一句');
+        console.log('左箭头 - 重新开始');
+        console.log('回车键 - 开始播放');
+    </script>
+</body>
+</html>
