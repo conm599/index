@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重力歌词特效</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000; /* 纯黑背景突出歌词 */
+            overflow: hidden; /* 防止滚动条出现 */
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #stage {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 歌词行的容器，确保居中 */
+        .lyric-line {
+            position: absolute;
+            top: 50%; /* 绝对定位在中间 */
+            left: 0;
+            width: 100%;
+            text-align: center;
+            transform: translateY(-50%); /* 修正垂直居中 */
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        /* 单个字的样式 */
+        .char {
+            display: inline-block;
+            font-size: 3.5rem; /* 字号大小 */
+            font-weight: 800;
+            opacity: 0; /* 初始不可见 */
+            
+            /* 渐变色文字效果 */
+            background-image: linear-gradient(135deg, #FF9D6C 0%, #BB4E75 20%, #ff00cc 50%, #3b8d99 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            
+            /* 初始位置在屏幕上方很远的地方 */
+            transform: translateY(-100vh); 
+            will-change: transform, opacity;
+        }
+
+        /* 关键动画定义 
+        */
+
+        /* 1. 进场：自由落体 + 缓冲回弹 */
+        @keyframes dropIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-100vh);
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(20px); /* 冲过头一点点 */
+            }
+            80% {
+                transform: translateY(-10px); /* 回弹 */
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0); /* 停在正中间 */
+            }
+        }
+
+        /* 2. 悬浮：轻微的呼吸漂浮感 */
+        @keyframes floating {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* 3. 离场：自由落体掉出屏幕 */
+        @keyframes dropOut {
+            0% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            20% {
+                /* 稍微向上蓄力 */
+                transform: translateY(-20px);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(120vh); /* 掉出屏幕下方 */
+            }
+        }
+
+        /* 激活进场动画的类 */
+        .char.animate-in {
+            /* cubic-bezier(.17,.67,.83,.67) 模拟重力加速
+               forwards 保持动画结束状态
+            */
+            animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* 激活悬浮动画的类 (进场后添加) */
+        .char.animate-float {
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        /* 激活离场动画的类 */
+        .char.animate-out {
+            /* ease-in 开始慢后来快（重力） */
+            animation: dropOut 0.8s ease-in forwards; 
+        }
+
+        /* 控制按钮 */
+        #control {
+            position: absolute;
+            bottom: 50px;
+            z-index: 100;
+            padding: 10px 20px;
+            background: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage"></div>
+    <button id="control" onclick="startLyrics()">开始播放歌词</button>
+
+    <script>
+        // 模拟歌词数据 (歌词文本, 持续时间秒)
+        const lyricsData = [
+            { text: "我想要做一个个性化的歌词", duration: 3.5 },
+            { text: "显示使用渐变显眼的颜色", duration: 3.0 },
+            { text: "从屏幕顶端掉到中间", duration: 2.5 },
+            { text: "像自由落体一样", duration: 2.0 },
+            { text: "然后慢慢的漂浮起来", duration: 3.0 },
+            { text: "最后掉出屏幕之外", duration: 2.5 },
+            { text: "这就是你想要的效果", duration: 4.0 }
+        ];
+
+        let currentIndex = 0;
+        const stage = document.getElementById('stage');
+        const btn = document.getElementById('control');
+
+        function startLyrics() {
+            btn.style.display = 'none'; // 隐藏按钮
+            playLine(0);
+        }
+
+        function playLine(index) {
+            if (index >= lyricsData.length) {
+                // 播放结束，可以重置或停止
+                return;
+            }
+
+            const currentLineData = lyricsData[index];
+            const text = currentLineData.text;
+            const totalDuration = currentLineData.duration * 1000; // 毫秒
+            
+            // --- 核心算法：计算掉落间隔 ---
+            // 算法：总时长 / 总字数 - 0.1秒
+            let interval = (currentLineData.duration / text.length) - 0.1;
+            
+            // 限制最大间隔为 0.3秒
+            if (interval > 0.3) interval = 0.3;
+            // 限制最小间隔（防止过快重叠）
+            if (interval < 0.05) interval = 0.05;
+
+            // 创建当前行的容器
+            const lineContainer = document.createElement('div');
+            lineContainer.className = 'lyric-line';
+            stage.appendChild(lineContainer);
+
+            // 生成每个字的 span
+            const chars = [];
+            for (let i = 0; i < text.length; i++) {
+                const span = document.createElement('span');
+                span.innerText = text[i];
+                span.className = 'char';
+                
+                // 动态给每个字设置不同的渐变色 (可选，增加随机感)
+                // span.style.backgroundImage = `linear-gradient(${Math.random() * 360}deg, #ff00cc, #333399)`;
+                
+                lineContainer.appendChild(span);
+                chars.push(span);
+            }
+
+            // --- 阶段 1: 掉落进场 ---
+            chars.forEach((char, i) => {
+                // 每个字的动画延迟
+                const delay = i * interval * 1000; 
+                
+                setTimeout(() => {
+                    char.classList.add('animate-in');
+                    
+                    // 进场动画(0.8s)结束后，添加悬浮效果
+                    setTimeout(() => {
+                        // 只有当还没开始离场时，才添加悬浮
+                        if (!char.classList.contains('animate-out')) {
+                            char.classList.remove('animate-in'); // 移除进场类，避免冲突
+                            char.style.opacity = 1; // 确保可见
+                            char.style.transform = 'translateY(0)'; // 确保位置正确
+                            char.classList.add('animate-float');
+                        }
+                    }, 800); 
+
+                }, delay);
+            });
+
+            // --- 阶段 2: 计时结束，离场并触发下一句 ---
+            setTimeout(() => {
+                // 1. 当前这句掉下去 (Exit)
+                chars.forEach((char, i) => {
+                    // 稍微错开一点离场时间，看起来更自然，也可以设为同时
+                    setTimeout(() => {
+                        char.classList.remove('animate-in', 'animate-float');
+                        char.classList.add('animate-out');
+                    }, i * 30); // 30ms 的微小间隔
+                });
+
+                // 清理 DOM (等待离场动画完成后删除元素)
+                setTimeout(() => {
+                    lineContainer.remove();
+                }, 1000);
+
+                // 2. 下一句同时开始 (Enter Next)
+                playLine(index + 1);
+
+            }, totalDuration);
+        }
+    </script>
+</body>
+</html>
