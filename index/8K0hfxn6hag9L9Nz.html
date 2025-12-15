@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极致丝滑-重力歌词特效</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #080808; /* 深邃黑背景 */
+            overflow: hidden;
+            font-family: 'Montserrat', 'Microsoft YaHei', sans-serif; /* 换个稍微现代点的字体组合 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            perspective: 1000px; /* 增加透视感 */
+        }
+
+        #stage {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 稍微增加一点背景光晕，让画面不那么死板 */
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 70%);
+        }
+
+        .lyric-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            transform: translateY(-50%);
+            white-space: nowrap;
+            pointer-events: none;
+            /* 确保3D变换效果 */
+            transform-style: preserve-3d;
+        }
+
+        .char {
+            display: inline-block;
+            font-size: 4rem;
+            font-weight: 900;
+            opacity: 0;
+            
+            /* 更鲜艳、对比度更高的渐变 */
+            background-image: linear-gradient(to bottom right, #4facfe 0%, #00f2fe 30%, #f093fb 60%, #f5576c 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            
+            /* 更柔和的文字发光 */
+            filter: drop-shadow(0 0 15px rgba(79, 172, 254, 0.6));
+            
+            transform: translateY(-120vh) scale(0.8); /* 初始状态在更高处，且稍微小一点 */
+            will-change: transform, opacity, filter;
+        }
+
+        /* ================= NEW ANIMATIONS ================= */
+
+        /* 1. 进场：多段式 Q弹缓冲 (Jelly Bounce) */
+        @keyframes dropInSmooth {
+            0% {
+                opacity: 0;
+                transform: translateY(-120vh) scale(0.8);
+                filter: blur(10px); /* 高速运动时模糊 */
+                animation-timing-function: ease-in; /* 加速下落 */
+            }
+            50% {
+                opacity: 1;
+                /* 第一次触底，冲过头，并且稍微压扁一点 (scaleY < 1) */
+                transform: translateY(40px) scaleY(0.9);
+                filter: blur(2px);
+                animation-timing-function: ease-out; /* 开始减速回弹 */
+            }
+            65% {
+                 /* 第一次强力回弹 */
+                transform: translateY(-25px) scaleY(1.05);
+                filter: blur(0);
+                animation-timing-function: ease-in-out;
+            }
+            80% {
+                /* 第二次小幅下落 */
+                transform: translateY(10px) scaleY(0.98);
+                animation-timing-function: ease-in-out;
+            }
+            100% {
+                /* 最终稳定在中间 */
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+
+        /* 2. 悬浮：更柔和的呼吸感 */
+        @keyframes floatingSmooth {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { 
+                /* 轻微上下浮动，加上极微小的旋转，增加有机感 */
+                transform: translateY(-8px) rotate(0.5deg); 
+            }
+        }
+
+        /* 3. 离场：带有旋转的飘落 (Flutter Down) */
+        @keyframes dropOutSmooth {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg);
+            }
+            25% {
+                /* 向上蓄力，同时稍微倾斜 */
+                opacity: 0.8;
+                transform: translateY(-40px) rotate(-5deg);
+                animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19); /* 开始加速下落 */
+            }
+            100% {
+                opacity: 0;
+                /* 掉出屏幕底部，并且明显旋转，像叶子飘落 */
+                transform: translateY(130vh) rotate(15deg);
+                filter: blur(5px); /* 离开时模糊 */
+            }
+        }
+
+        /* Class 应用 */
+        .char.animate-in {
+            /* 使用新的平滑动画，时间稍微拉长到 1s 让细节更明显 */
+            animation: dropInSmooth 1s forwards;
+        }
+
+        .char.animate-float {
+            animation: floatingSmooth 4s ease-in-out infinite;
+        }
+
+        .char.animate-out {
+            /* 使用新的飘落动画 */
+            animation: dropOutSmooth 0.9s forwards; 
+        }
+
+        #control {
+            position: absolute;
+            bottom: 50px;
+            z-index: 100;
+            padding: 12px 30px;
+            background: linear-gradient(to right, #4facfe, #f5576c);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        #control:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="stage"></div>
+    <button id="control" onclick="startLyrics()">开始丝滑体验</button>
+
+    <script>
+        // 模拟歌词数据 (保持不变)
+        const lyricsData = [
+            { text: "现在感觉怎么样？", duration: 3.0 },
+            { text: "我们采用了多段式缓冲动画", duration: 3.5 },
+            { text: "掉落时会有果冻般的Q弹感", duration: 3.0 },
+            { text: "并且加入了动态模糊", duration: 2.5 },
+            { text: "离开时不再是直上直下", duration: 3.0 },
+            { text: "而是带有旋转的自然飘落", duration: 3.5 },
+            { text: "整体视觉更加丝滑和生动", duration: 4.0 }
+        ];
+
+        let currentIndex = 0;
+        const stage = document.getElementById('stage');
+        const btn = document.getElementById('control');
+
+        function startLyrics() {
+            btn.style.display = 'none';
+            playLine(0);
+        }
+
+        function playLine(index) {
+            if (index >= lyricsData.length) return;
+
+            const currentLineData = lyricsData[index];
+            const text = currentLineData.text;
+            const totalDuration = currentLineData.duration * 1000;
+            
+            // 算法微调：让间隔稍微紧凑一点点，配合新的动画节奏
+            let interval = (currentLineData.duration / text.length) - 0.12;
+            if (interval > 0.25) interval = 0.25;
+            if (interval < 0.04) interval = 0.04;
+
+            const lineContainer = document.createElement('div');
+            lineContainer.className = 'lyric-line';
+            stage.appendChild(lineContainer);
+
+            const chars = [];
+            for (let i = 0; i < text.length; i++) {
+                const span = document.createElement('span');
+                span.innerText = text[i];
+                span.className = 'char';
+                // 可选：给每个字稍微不同的离场旋转角度，增加随机感
+                // span.style.setProperty('--rotate-end', Math.random() * 30 - 15 + 'deg');
+                lineContainer.appendChild(span);
+                chars.push(span);
+            }
+
+            // --- 阶段 1: 掉落进场 ---
+            chars.forEach((char, i) => {
+                const delay = i * interval * 1000; 
+                
+                setTimeout(() => {
+                    char.classList.add('animate-in');
+                    
+                    // 这里的延时需要匹配 CSS 中 dropInSmooth 的时长 (1s = 1000ms)
+                    setTimeout(() => {
+                        if (!char.classList.contains('animate-out')) {
+                            char.classList.remove('animate-in');
+                            char.style.opacity = 1;
+                            char.style.transform = 'translateY(0) scale(1)'; 
+                            char.style.filter = 'blur(0)';
+                            char.classList.add('animate-float');
+                        }
+                    }, 1000); // 匹配动画时长
+
+                }, delay);
+            });
+
+            // --- 阶段 2: 计时结束，离场并触发下一句 ---
+            setTimeout(() => {
+                chars.forEach((char, i) => {
+                    // 离场时错开的时间稍微拉大一点，产生“剥落”感
+                    setTimeout(() => {
+                        char.classList.remove('animate-in', 'animate-float');
+                        char.classList.add('animate-out');
+                    }, i * 50); 
+                });
+
+                setTimeout(() => {
+                    lineContainer.remove();
+                }, 1500); // 等待离场动画彻底完成
+
+                playLine(index + 1);
+
+            }, totalDuration);
+        }
+    </script>
+</body>
+</html>
