@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今天我还活着 ✨</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card { animation: fadeIn 0.5s ease; }
+        .record-item { animation: fadeIn 0.3s ease; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
+    <div class="max-w-2xl mx-auto">
+        <!-- 标题区域 -->
+        <div class="text-center mb-8 card">
+            <h1 class="text-3xl md:text-4xl font-bold text-rose-500 mb-2">今天我还活着 ✨</h1>
+            <p class="text-slate-500">记录每一个认真活着的日子</p>
+        </div>
+
+        <!-- 打卡按钮 -->
+        <div class="text-center mb-8 card">
+            <button id="checkInBtn" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-8 rounded-full shadow-md transition-all duration-300 transform hover:scale-105">
+                今日打卡 📌
+            </button>
+            <p id="statusText" class="mt-3 text-slate-500"></p>
+        </div>
+
+        <!-- 统计区域 -->
+        <div class="grid grid-cols-2 gap-4 mb-8 card">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+                <p class="text-slate-500 text-sm">总存活天数</p>
+                <p id="totalDays" class="text-2xl font-bold text-rose-500">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+                <p class="text-slate-500 text-sm">连续打卡</p>
+                <p id="continuousDays" class="text-2xl font-bold text-rose-500">0</p>
+            </div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-slate-700 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                存活记录
+            </h2>
+            <div id="recordList" class="space-y-2 max-h-80 overflow-y-auto pr-2">
+                <p class="text-slate-400 text-center py-8">暂无记录，点击上方按钮打卡吧～</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 初始化数据（本地存储）
+        let records = JSON.parse(localStorage.getItem('aliveRecords')) || [];
+        const today = new Date().toISOString().split('T')[0]; // 格式：YYYY-MM-DD
+
+        // 2. DOM 元素
+        const checkInBtn = document.getElementById('checkInBtn');
+        const statusText = document.getElementById('statusText');
+        const totalDaysEl = document.getElementById('totalDays');
+        const continuousDaysEl = document.getElementById('continuousDays');
+        const recordListEl = document.getElementById('recordList');
+
+        // 3. 初始化页面
+        updateUI();
+
+        // 4. 打卡按钮事件
+        checkInBtn.addEventListener('click', () => {
+            if (records.includes(today)) {
+                statusText.textContent = '✅ 今天已经打卡过啦，你超棒的！';
+                statusText.className = 'mt-3 text-green-500 font-medium';
+                return;
+            }
+
+            // 添加今日记录
+            records.push(today);
+            records.sort((a, b) => new Date(b) - new Date(a)); // 倒序排列
+            localStorage.setItem('aliveRecords', JSON.stringify(records));
+
+            // 反馈动画
+            checkInBtn.textContent = '打卡成功！🎉';
+            statusText.textContent = `✅ 已记录 ${today} 的存活状态`;
+            statusText.className = 'mt-3 text-green-500 font-medium';
+            
+            // 恢复按钮文本
+            setTimeout(() => {
+                checkInBtn.textContent = '今日打卡 📌';
+            }, 1500);
+
+            // 更新UI
+            updateUI();
+        });
+
+        // 5. 更新页面数据和视图
+        function updateUI() {
+            // 更新统计
+            updateStats();
+            // 更新记录列表
+            updateRecordList();
+            // 检查今日是否已打卡
+            checkTodayChecked();
+        }
+
+        // 6. 更新统计数据
+        function updateStats() {
+            // 总天数
+            totalDaysEl.textContent = records.length;
+
+            // 连续打卡天数
+            let continuous = 0;
+            if (records.length > 0) {
+                const sortedRecords = [...records].sort((a, b) => new Date(b) - new Date(a));
+                for (let i = 0; i < sortedRecords.length; i++) {
+                    const recordDate = new Date(sortedRecords[i]);
+                    const targetDate = new Date();
+                    targetDate.setDate(targetDate.getDate() - i);
+                    const targetDateStr = targetDate.toISOString().split('T')[0];
+
+                    if (sortedRecords[i] === targetDateStr) {
+                        continuous++;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            continuousDaysEl.textContent = continuous;
+        }
+
+        // 7. 更新记录列表
+        function updateRecordList() {
+            if (records.length === 0) {
+                recordListEl.innerHTML = '<p class="text-slate-400 text-center py-8">暂无记录，点击上方按钮打卡吧～</p>';
+                return;
+            }
+
+            // 生成记录项
+            let html = '';
+            records.forEach((date, index) => {
+                // 格式化日期显示（如：2024-05-20 → 2024年5月20日）
+                const [year, month, day] = date.split('-');
+                const formatDate = `${year}年${month}月${day}日`;
+                const isToday = date === today;
+
+                html += `
+                    <div class="record-item bg-white p-3 rounded-lg shadow-sm border ${isToday ? 'border-rose-300 bg-rose-50' : 'border-slate-100'}">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium ${isToday ? 'text-rose-500' : 'text-slate-700'}">${formatDate}</span>
+                            ${isToday ? '<span class="bg-rose-100 text-rose-500 text-xs py-1 px-2 rounded-full">今日</span>' : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            recordListEl.innerHTML = html;
+        }
+
+        // 8. 检查今日是否已打卡
+        function checkTodayChecked() {
+            if (records.includes(today)) {
+                checkInBtn.textContent = '今日已打卡 ✅';
+                checkInBtn.classList.remove('bg-rose-500', 'hover:bg-rose-600');
+                checkInBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+                statusText.textContent = '✅ 今天已经认真活着啦！';
+                statusText.className = 'mt-3 text-green-500 font-medium';
+            }
+        }
+    </script>
+</body>
+</html>
