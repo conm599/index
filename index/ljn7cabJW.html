@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专业图片转 SVG 矢量化工具</title>
+    <!-- 引入 ImageTracer.js 库，这是客户端实现高质量图片转SVG的核心 -->
+    <script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success-color: #10b981;
+            --radius-md: 8px;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部导航 */
+        header {
+            background-color: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+            z-index: 10;
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .brand svg {
+            color: var(--primary-color);
+        }
+
+        /* 主布局 */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: calc(100vh - 65px);
+            overflow: hidden;
+        }
+
+        /* 左侧边栏 - 控制区 */
+        aside {
+            background-color: var(--surface-color);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .control-group h3 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .setting-item label {
+            font-size: 0.875rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .value-display {
+            font-family: monospace;
+            color: var(--primary-color);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-primary:disabled {
+            background-color: var(--text-secondary);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--bg-color);
+            border-color: var(--text-secondary);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 2rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #fafafa;
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: var(--primary-color);
+            background-color: #eff6ff;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* 右侧工作区 */
+        .workspace {
+            padding: 2rem;
+            background-color: #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* 预览网格 */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        .preview-card {
+            background: white;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .card-body {
+            flex: 1;
+            background-color: #e2e8f0;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            overflow: auto;
+            position: relative;
+        }
+
+        .card-body img, .card-body svg {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            box-shadow: var(--shadow-md);
+            background: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        /* 加载遮罩 */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Toast 提示 */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 50;
+        }
+
+        .toast {
+            background: #333;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-md);
+            margin-top: 0.5rem;
+            box-shadow: var(--shadow-md);
+            font-size: 0.9rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+                height: auto;
+                overflow: visible;
+            }
+            
+            aside {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                max-height: 300px;
+            }
+
+            .preview-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                <path d="M2 2l7.586 7.586"></path>
+                <circle cx="11" cy="11" r="2"></circle>
+            </svg>
+            <span>VectorMagic</span>
+        </div>
+        <a href="#" class="btn btn-outline" onclick="window.location.reload()">重置</a>
+    </header>
+
+    <main>
+        <!-- 左侧控制面板 -->
+        <aside>
+            <!-- 上传区域 -->
+            <div class="control-group">
+                <h3>源文件</h3>
+                <div class="upload-area" id="dropZone">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">点击或拖拽图片到这里<br>(JPG, PNG, BMP)</div>
+                    <input type="file" id="fileInput" accept="image/png, image/jpeg, image/bmp" style="display: none;">
+                </div>
+            </div>
+
+            <!-- 参数设置 -->
+            <div class="control-group">
+                <h3>转换设置</h3>
+                
+                <div class="setting-item">
+                    <label>
+                        颜色数量
+                        <span id="colorCountVal" class="value-display">16</span>
+                    </label>
+                    <input type="range" id="colorCount" min="2" max="64" value="16">
+                    <small style="color:var(--text-secondary); font-size:0.75rem;">数值越低越抽象，文件越小</small>
+                </div>
+
+                <div class="setting-item">
+                    <label>
+                        模糊半径
+                        <span id="blurRadiusVal" class="value-display">0</span>
+                    </label>
+                    <input type="range" id="blurRadius" min="0" max="5" step="0.5" value="0">
+                    <small style="color:var(--text-secondary); font-size:0.75rem;">预处理降噪，可减少噪点</small>
+                </div>
+
+                <div class="setting-item">
+                    <label>
+                        最小区域面积
+                        <span id="minAreaVal" class="value-display">10</span> px²
+                    </label>
+                    <input type="range" id="minArea" min="0" max="100" value="10">
+                    <small style="color:var(--text-secondary); font-size:0.75rem;">过滤掉细碎的色块</small>
+                </div>
+
+                <div class="setting-item">
+                    <label>
+                        缩放比例
+                        <span id="scaleVal" class="value-display">1</span>x
+                    </label>
+                    <input type="range" id="scale" min="0.5" max="4" step="0.5" value="1">
+                    <small style="color:var(--text-secondary); font-size:0.75rem;">若图片太大，可先缩小处理</small>
+                </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="control-group" style="margin-top: auto;">
+                <button id="convertBtn" class="btn btn-primary" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M2.5 2v6h6"></path>
+                        <path d="M21.5 22v-6h-6"></path>
+                        <path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"></path>
+                    </svg>
+                    开始转换
+                </button>
+                <button id="downloadBtn" class="btn btn-outline" disabled style="margin-top: 0.5rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    下载 SVG
+                </button>
+            </div>
+        </aside>
+
+        <!-- 右侧工作区 -->
+        <div class="workspace">
+            <div class="preview-grid">
+                <!-- 原始图片 -->
+                <div class="preview-card">
+                    <div class="card-header">
+                        <span>原始图片</span>
+                        <span id="originalInfo"></span>
+                    </div>
+                    <div class="card-body" id="originalContainer">
+                        <div class="empty-state">暂无图片</div>
+                    </div>
+                </div>
+
+                <!-- 生成结果 -->
+                <div class="preview-card">
+                    <div class="card-header">
+                        <span>SVG 矢量预览</span>
+                        <span id="svgInfo"></span>
+                    </div>
+                    <div class="card-body" id="svgContainer">
+                        <div class="empty-state">等待转换...</div>
+                    </div>
+                    <!-- 加载动画 -->
+                    <div class="loading-overlay" id="loadingOverlay">
+                        <div class="spinner"></div>
+                        <div style="font-weight: 500; color: var(--text-main);">正在处理像素...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // DOM 元素引用
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const originalContainer = document.getElementById('originalContainer');
+        const svgContainer = document.getElementById('svgContainer');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        
+        // 输入控件
+        const inputs = {
+            colorCount: document.getElementById('colorCount'),
+            blurRadius: document.getElementById('blurRadius'),
+            minArea: document.getElementById('minArea'),
+            scale: document.getElementById('scale')
+        };
+
+        // 显示数值的元素
+        const displays = {
+            colorCount: document.getElementById('colorCountVal'),
+            blurRadius: document.getElementById('blurRadiusVal'),
+            minArea: document.getElementById('minAreaVal'),
+            scale: document.getElementById('scaleVal')
+        };
+
+        // 状态变量
+        let currentFile = null;
+        let currentSvgString = null;
+
+        // --- 事件监听初始化 ---
+
+        // 1. 拖拽与上传处理
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // 2. 设置项变化更新数值显示
+        Object.keys(inputs).forEach(key => {
+            inputs[key].addEventListener('input', (e) => {
+                displays[key].textContent = e.target.value;
+            });
+        });
+
+        // 3. 按钮动作
+        convertBtn.addEventListener('click', startConversion);
+        downloadBtn.addEventListener('click', downloadSVG);
+
+        // --- 核心逻辑函数 ---
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showToast('请上传有效的图片文件 (JPG, PNG, BMP)');
+                return;
+            }
+
+            currentFile = file;
+            
+            // 读取并预览原始图片
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                originalContainer.innerHTML = `<img src="${e.target.result}" id="sourceImage" alt="Source">`;
+                document.getElementById('originalInfo').textContent = `${file.name}`;
+                
+                // 清空旧的 SVG
+                svgContainer.innerHTML = '<div class="empty-state">准备就绪</div>';
+                currentSvgString = null;
+                downloadBtn.disabled = true;
+                
+                // 启用转换按钮
+                convertBtn.disabled = false;
+                showToast('图片加载成功');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function startConversion() {
+            if (!currentFile) return;
+
+            // 获取配置参数
+            const options = {
+                // 核心算法参数
+                numberofcolors: parseInt(inputs.colorCount.value),
+                blurradius: parseFloat(inputs.blurRadius.value),
+                mincolorratio: 0,
+                turdsize: parseInt(inputs.minArea.value), // 过滤噪点
+                
+                // 视觉风格
+                strokewidth: 0, // 描边宽度，0表示填充模式
+                viewbox: true, // 使用 viewBox，使SVG自适应
+                
+                // 性能优化
+                scale: parseFloat(inputs.scale.value),
+                
+                // 渲染细节
+                linefilter: true, // 启用线段过滤以减少路径数量
+                pal: [], // 自动生成调色板
+                colorsampling: 2 // 确定性采样
+            };
+
+            loadingOverlay.classList.add('active');
+            convertBtn.disabled = true;
+
+            // 使用 setTimeout 让 UI 有机会渲染 Loading 状态
+            setTimeout(() => {
+                try {
+                    // 获取原始图片的 DataURL
+                    const imgSrc = document.getElementById('sourceImage').src;
+                    
+                    // 调用 ImageTracer.js
+                    ImageTracer.imageToSVG(imgSrc, function(svgstr) {
+                        // 回调处理
+                        currentSvgString = svgstr;
+                        renderSVG(svgstr);
+                        loadingOverlay.classList.remove('active');
+                        convertBtn.disabled = false;
+                        downloadBtn.disabled = false;
+                        
+                        // 显示 SVG 文件大小估算
+                        const sizeKB = (new Blob([svgstr]).size / 1024).toFixed(1);
+                        document.getElementById('svgInfo').textContent = `约 ${sizeKB} KB`;
+                        
+                        showToast('转换成功！');
+                    }, options);
+                } catch (error) {
+                    console.error(error);
+                    loadingOverlay.classList.remove('active');
+                    convertBtn.disabled = false;
+                    showToast('转换失败，请重试或更换图片');
+                }
+            }, 100);
+        }
+
+        function renderSVG(svgString) {
+            // 安全清理（虽然生成的是安全的，但这是一个好习惯）
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgString, "image/svg+xml");
+            const svgElement = doc.documentElement;
+            
+            // 移除可能的宽高属性，完全依赖 viewBox 自适应
+            svgElement.removeAttribute('width');
+            svgElement.removeAttribute('height');
+            svgElement.style.maxWidth = '100%';
+            svgElement.style.maxHeight = '100%';
+            
+            svgContainer.innerHTML = '';
+            svgContainer.appendChild(svgElement);
+        }
+
+        function downloadSVG() {
+            if (!currentSvgString) return;
+
+            const blob = new Blob([currentSvgString], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `vector_${currentFile.name.split('.')[0]}.svg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast('已开始下载');
+        }
+
+        // 简易 Toast 提示组件
+        function showToast(message) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                toast.addEventListener('transitionend', () => {
+                    if (toast.parentElement) toast.remove();
+                });
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
