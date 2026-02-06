@@ -1,0 +1,1891 @@
+这里为您设计一个改进版的前端自动抠图工具，解决了边缘平滑、分辨率一致性和抗锯齿问题：
+
+<yb_canvas uuid="f3a8b2c1-d5e7-4f9a-8c2b-7e6d9f0a1c3b" mversion="3" type="code" subtype="single">
+
+<title>纯前端自动抠图工具</title>
+
+<filename>advanced_image_background_remover.html</filename>
+
+<yb_code lang="html"><!DOCTYPE html>
+
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>高级纯前端抠图工具 - 抗锯齿版</title>
+
+<link rel="stylesheet" href=""https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" (https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
+
+<style>
+
+* {margin: 0;padding: 0;box-sizing: border-box;font-family: 'Segoe UI', system-ui, sans-serif;}
+
+body {
+
+background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+
+color: #333;
+
+min-height: 100vh;
+
+padding: 20px;
+
+}
+
+.container {
+
+max-width: 1400px;
+
+margin: 0 auto;
+
+}
+
+header {
+
+text-align: center;
+
+margin-bottom: 30px;
+
+padding: 20px;
+
+border-radius: 12px;
+
+background: rgba(255, 255, 255, 0.9);
+
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+
+}
+
+h1 {
+
+color: #2c3e50;
+
+margin-bottom: 10px;
+
+font-size: 2.5rem;
+
+}
+
+.subtitle {
+
+color: #7f8c8d;
+
+font-size: 1.1rem;
+
+margin-bottom: 5px;
+
+}
+
+.app-area {
+
+display: flex;
+
+flex-wrap: wrap;
+
+gap: 30px;
+
+margin-bottom: 30px;
+
+}
+
+.upload-section, .control-section, .preview-section {
+
+flex: 1;
+
+min-width: 320px;
+
+background: white;
+
+border-radius: 12px;
+
+padding: 25px;
+
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+
+}
+
+.section-title {
+
+color: #2c3e50;
+
+margin-bottom: 20px;
+
+padding-bottom: 10px;
+
+border-bottom: 2px solid #3498db;
+
+font-size: 1.4rem;
+
+display: flex;
+
+align-items: center;
+
+gap: 10px;
+
+}
+
+.section-title i {
+
+color: #3498db;
+
+}
+
+.upload-box {
+
+border: 3px dashed #3498db;
+
+border-radius: 10px;
+
+padding: 40px 20px;
+
+text-align: center;
+
+cursor: pointer;
+
+transition: all 0.3s;
+
+background: #f8fafc;
+
+}
+
+.upload-box:hover {
+
+background: #e3f2fd;
+
+transform: translateY(-3px);
+
+}
+
+.upload-box i {
+
+font-size: 3rem;
+
+color: #3498db;
+
+margin-bottom: 15px;
+
+}
+
+.upload-box p {
+
+color: #555;
+
+margin-bottom: 10px;
+
+}
+
+.file-types {
+
+color: #7f8c8d;
+
+font-size: 0.9rem;
+
+}
+
+#fileInput {
+
+display: none;
+
+}
+
+.image-preview {
+
+margin-top: 20px;
+
+text-align: center;
+
+}
+
+.image-preview img {
+
+max-width: 100%;
+
+max-height: 200px;
+
+border-radius: 8px;
+
+box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+
+}
+
+.control-group {
+
+margin: 25px 0;
+
+padding: 15px;
+
+background: #f8fafc;
+
+border-radius: 8px;
+
+}
+
+.control-label {
+
+display: flex;
+
+justify-content: space-between;
+
+margin-bottom: 10px;
+
+font-weight: 600;
+
+}
+
+.control-value {
+
+font-weight: bold;
+
+color: #3498db;
+
+font-size: 1.2rem;
+
+}
+
+.slider-container {
+
+position: relative;
+
+height: 30px;
+
+}
+
+.slider {
+
+width: 100%;
+
+height: 8px;
+
+-webkit-appearance: none;
+
+appearance: none;
+
+background: linear-gradient(to right, #2ecc71, #f1c40f, #e74c3c);
+
+border-radius: 4px;
+
+outline: none;
+
+}
+
+.slider::-webkit-slider-thumb {
+
+-webkit-appearance: none;
+
+appearance: none;
+
+width: 24px;
+
+height: 24px;
+
+border-radius: 50%;
+
+background: #3498db;
+
+cursor: pointer;
+
+border: 3px solid white;
+
+box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+
+}
+
+.slider-ticks {
+
+display: flex;
+
+justify-content: space-between;
+
+padding: 0 5px;
+
+margin-top: 5px;
+
+color: #7f8c8d;
+
+font-size: 0.8rem;
+
+}
+
+.smooth-slider {
+
+background: linear-gradient(to right, #9b59b6, #3498db, #2ecc71);
+
+}
+
+.button-group {
+
+display: flex;
+
+gap: 10px;
+
+margin-top: 20px;
+
+}
+
+.action-button {
+
+background: #3498db;
+
+color: white;
+
+border: none;
+
+padding: 12px 20px;
+
+border-radius: 8px;
+
+cursor: pointer;
+
+font-size: 1rem;
+
+font-weight: 600;
+
+flex: 1;
+
+transition: all 0.3s;
+
+display: flex;
+
+align-items: center;
+
+justify-content: center;
+
+gap: 8px;
+
+}
+
+.action-button:hover {
+
+transform: translateY(-2px);
+
+box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+
+}
+
+.action-button.auto {
+
+background: #2ecc71;
+
+}
+
+.action-button.auto:hover {
+
+box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
+
+}
+
+.action-button.reset {
+
+background: #e74c3c;
+
+}
+
+.action-button.reset:hover {
+
+box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+
+}
+
+.preview-canvas {
+
+width: 100%;
+
+height: 300px;
+
+border-radius: 8px;
+
+background:
+
+repeating-conic-gradient(#f0f0f0 0% 25%, white 0% 50%)
+
+50% / 20px 20px;
+
+margin-bottom: 20px;
+
+overflow: hidden;
+
+border: 1px solid #ddd;
+
+}
+
+canvas {
+
+display: block;
+
+image-rendering: -webkit-optimize-contrast;
+
+image-rendering: crisp-edges;
+
+}
+
+.export-section {
+
+text-align: center;
+
+margin-top: 20px;
+
+}
+
+.export-btn {
+
+background: #2ecc71;
+
+color: white;
+
+border: none;
+
+padding: 15px 30px;
+
+border-radius: 8px;
+
+cursor: pointer;
+
+font-size: 1.1rem;
+
+font-weight: 600;
+
+transition: all 0.3s;
+
+display: inline-flex;
+
+align-items: center;
+
+gap: 10px;
+
+}
+
+.export-btn:hover {
+
+background: #27ae60;
+
+box-shadow: 0 5px 20px rgba(46, 204, 113, 0.4);
+
+transform: translateY(-2px);
+
+}
+
+.quality-control {
+
+margin-top: 15px;
+
+display: flex;
+
+align-items: center;
+
+gap: 10px;
+
+justify-content: center;
+
+}
+
+.quality-label {
+
+color: #666;
+
+}
+
+.quality-select {
+
+padding: 5px 10px;
+
+border-radius: 4px;
+
+border: 1px solid #ddd;
+
+}
+
+.instructions {
+
+background: white;
+
+border-radius: 12px;
+
+padding: 25px;
+
+margin-top: 30px;
+
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+
+}
+
+.instructions h3 {
+
+color: #2c3e50;
+
+margin-bottom: 15px;
+
+font-size: 1.3rem;
+
+}
+
+.steps {
+
+display: flex;
+
+flex-wrap: wrap;
+
+gap: 20px;
+
+margin-top: 20px;
+
+}
+
+.step {
+
+flex: 1;
+
+min-width: 200px;
+
+padding: 20px;
+
+background: #f8fafc;
+
+border-radius: 8px;
+
+border-left: 4px solid #3498db;
+
+}
+
+.step-number {
+
+display: inline-block;
+
+width: 30px;
+
+height: 30px;
+
+background: #3498db;
+
+color: white;
+
+border-radius: 50%;
+
+text-align: center;
+
+line-height: 30px;
+
+font-weight: bold;
+
+margin-right: 10px;
+
+}
+
+footer {
+
+text-align: center;
+
+margin-top: 40px;
+
+color: #7f8c8d;
+
+font-size: 0.9rem;
+
+padding: 20px;
+
+}
+
+.warning {
+
+color: #e74c3c;
+
+background: #fdf2f2;
+
+padding: 10px;
+
+border-radius: 6px;
+
+margin-top: 15px;
+
+font-size: 0.9rem;
+
+}
+
+.info-box {
+
+color: #3498db;
+
+background: #e8f4fc;
+
+padding: 10px;
+
+border-radius: 6px;
+
+margin-top: 15px;
+
+font-size: 0.9rem;
+
+}
+
+.comparison-container {
+
+display: flex;
+
+gap: 20px;
+
+margin-top: 20px;
+
+}
+
+.comparison-box {
+
+flex: 1;
+
+text-align: center;
+
+}
+
+.comparison-box h4 {
+
+margin-bottom: 10px;
+
+color: #2c3e50;
+
+}
+
+.comparison-canvas {
+
+width: 100%;
+
+height: 200px;
+
+border-radius: 8px;
+
+background:
+
+repeating-conic-gradient(#f0f0f0 0% 25%, white 0% 50%)
+
+50% / 20px 20px;
+
+overflow: hidden;
+
+border: 1px solid #ddd;
+
+}
+
+.processing-indicator {
+
+display: none;
+
+text-align: center;
+
+color: #3498db;
+
+margin: 10px 0;
+
+}
+
+.processing-indicator.active {
+
+display: block;
+
+}
+
+.processing-indicator i {
+
+animation: spin 1s linear infinite;
+
+margin-right: 8px;
+
+}
+
+@keyframes spin {
+
+0% { transform: rotate(0deg); }
+
+100% { transform: rotate(360deg); }
+
+}
+
+@media (max-width: 768px) {
+
+.app-area {
+
+flex-direction: column;
+
+}
+
+h1 {
+
+font-size: 2rem;
+
+}
+
+.comparison-container {
+
+flex-direction: column;
+
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<header>
+
+</header>
+
+<div class="app-area">
+
+<!-- 上传区域 -->
+
+<section class="upload-section">
+
+<div class="upload-box" id="uploadBox">
+
+</div>
+
+<input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp">
+
+<div class="image-preview" id="imagePreview">
+
+<!-- 预览图片将显示在这里 -->
+
+</div>
+
+<div class="info-box">
+
+本工具使用TAA风格抗锯齿算法，确保预览与导出分辨率一致。
+
+</div>
+
+</section>
+
+<!-- 控制区域 -->
+
+<section class="control-section">
+
+<div class="control-group">
+
+<div class="control-label">
+
+</div>
+
+<div class="slider-container">
+
+<input type="range" id="thresholdSlider" class="slider" min="0" max="255" value="150">
+
+</div>
+
+<div class="slider-ticks">
+
+</div>
+
+<p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+
+阈值越高，被识别为背景的白色范围越大
+
+</p>
+
+</div>
+
+<div class="control-group">
+
+<div class="control-label">
+
+</div>
+
+<div class="slider-container">
+
+<input type="range" id="antialiasSlider" class="slider smooth-slider" min="0" max="4" value="2" step="1">
+
+</div>
+
+<div class="slider-ticks">
+
+</div>
+
+<p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+
+使用TAA风格抗锯齿，消除边缘锯齿，0=关闭，4=最强
+
+</p>
+
+</div>
+
+<div class="processing-indicator" id="processingIndicator">
+
+ 正在处理中，请稍候...
+
+</div>
+
+<div class="button-group">
+
+<button class="action-button auto" id="autoThresholdBtn">
+
+ 自动抠图
+
+</button>
+
+<button class="action-button reset" id="resetBtn">
+
+ 重置
+
+</button>
+
+</div>
+
+<div class="comparison-container">
+
+<div class="comparison-box">
+
+<div class="comparison-canvas">
+
+<canvas id="canvasBefore"></canvas>
+
+</div>
+
+</div>
+
+<div class="comparison-box">
+
+<div class="comparison-canvas">
+
+<canvas id="canvasAfter"></canvas>
+
+</div>
+
+</div>
+
+</div>
+
+<div class="warning">
+
+高抗锯齿级别会显著增加处理时间，特别是大图片。
+
+</div>
+
+</section>
+
+<!-- 预览区域 -->
+
+<section class="preview-section">
+
+<div class="preview-canvas">
+
+<canvas id="canvas"></canvas>
+
+</div>
+
+<div class="export-section">
+
+<button class="export-btn" id="exportBtn">
+
+ 导出为WebP格式
+
+</button>
+
+<div class="quality-control">
+
+<select id="qualitySelect" class="quality-select">
+
+<option value="1.0">最高 (100%)</option>
+
+<option value="0.9" selected>高 (90%)</option>
+
+<option value="0.8">中 (80%)</option>
+
+<option value="0.7">低 (70%)</option>
+
+</select>
+
+</div>
+
+<p style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+
+导出分辨率与原始图片一致，使用TAA抗锯齿算法
+
+</p>
+
+</div>
+
+</section>
+
+</div>
+
+<!-- 使用说明 -->
+
+<section class="instructions">
+
+<div class="steps">
+
+<div class="step">
+
+</div>
+
+<div class="step">
+
+</div>
+
+<div class="step">
+
+</div>
+
+</div>
+
+</section>
+
+<footer>
+
+</footer>
+
+</div>
+
+<script>
+
+// DOM元素
+
+const fileInput = document.getElementById('fileInput');
+
+const uploadBox = document.getElementById('uploadBox');
+
+const imagePreview = document.getElementById('imagePreview');
+
+const thresholdSlider = document.getElementById('thresholdSlider');
+
+const thresholdValue = document.getElementById('thresholdValue');
+
+const antialiasSlider = document.getElementById('antialiasSlider');
+
+const antialiasValue = document.getElementById('antialiasValue');
+
+const autoThresholdBtn = document.getElementById('autoThresholdBtn');
+
+const resetBtn = document.getElementById('resetBtn');
+
+const exportBtn = document.getElementById('exportBtn');
+
+const qualitySelect = document.getElementById('qualitySelect');
+
+const processingIndicator = document.getElementById('processingIndicator');
+
+const canvas = document.getElementById('canvas');
+
+const canvasBefore = document.getElementById('canvasBefore');
+
+const canvasAfter = document.getElementById('canvasAfter');
+
+const ctx = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
+
+const ctxBefore = canvasBefore.getContext('2d', { alpha: true, willReadFrequently: true });
+
+const ctxAfter = canvasAfter.getContext('2d', { alpha: true, willReadFrequently: true });
+
+// 全局变量
+
+let originalImage = null;
+
+let originalImageData = null;
+
+let currentThreshold = 150;
+
+let currentAntialias = 2;
+
+let isProcessing = false;
+
+let originalWidth = 0;
+
+let originalHeight = 0;
+
+// 上传区域点击事件
+
+uploadBox.addEventListener('click', () => fileInput.click());
+
+// 拖拽上传
+
+uploadBox.addEventListener('dragover', (e) => {
+
+e.preventDefault();
+
+uploadBox.style.background = '#e3fafc';
+
+uploadBox.style.borderColor = '#0ca678';
+
+});
+
+uploadBox.addEventListener('dragleave', () => {
+
+uploadBox.style.background = '#f8f9fa';
+
+uploadBox.style.borderColor = '#3498db';
+
+});
+
+uploadBox.addEventListener('drop', (e) => {
+
+e.preventDefault();
+
+uploadBox.style.background = '#f8f9fa';
+
+uploadBox.style.borderColor = '#3498db';
+
+if (e.dataTransfer.files.length) {
+
+const file = e.dataTransfer.files[0];
+
+if (isImageFile(file)) {
+
+loadImage(file);
+
+} else {
+
+alert('请选择图片文件 (JPG, PNG, GIF, BMP, WEBP)');
+
+}
+
+}
+
+});
+
+// 文件选择事件
+
+fileInput.addEventListener('change', (e) => {
+
+if (e.target.files.length) {
+
+const file = e.target.files[0];
+
+if (isImageFile(file)) {
+
+loadImage(file);
+
+} else {
+
+alert('请选择图片文件 (JPG, PNG, GIF, BMP, WEBP)');
+
+}
+
+}
+
+});
+
+// 阈值滑块事件
+
+thresholdSlider.addEventListener('input', (e) => {
+
+currentThreshold = parseInt(e.target.value);
+
+thresholdValue.textContent = currentThreshold;
+
+if (originalImage && !isProcessing) {
+
+processImageWithAntialias();
+
+}
+
+});
+
+// 抗锯齿滑块事件
+
+antialiasSlider.addEventListener('input', (e) => {
+
+currentAntialias = parseInt(e.target.value);
+
+antialiasValue.textContent = currentAntialias;
+
+if (originalImage && !isProcessing) {
+
+processImageWithAntialias();
+
+}
+
+});
+
+// 自动计算阈值按钮事件
+
+autoThresholdBtn.addEventListener('click', () => {
+
+if (originalImage) {
+
+const autoThreshold = calculateAutoThreshold(originalImage);
+
+thresholdSlider.value = autoThreshold;
+
+thresholdValue.textContent = autoThreshold;
+
+currentThreshold = autoThreshold;
+
+processImageWithAntialias();
+
+} else {
+
+alert('请先上传一张图片');
+
+}
+
+});
+
+// 重置按钮事件
+
+resetBtn.addEventListener('click', () => {
+
+thresholdSlider.value = 150;
+
+thresholdValue.textContent = 150;
+
+antialiasSlider.value = 2;
+
+antialiasValue.textContent = 2;
+
+currentThreshold = 150;
+
+currentAntialias = 2;
+
+if (originalImage) {
+
+processImageWithAntialias();
+
+}
+
+});
+
+// 导出按钮事件
+
+exportBtn.addEventListener('click', async () => {
+
+if (!originalImage) {
+
+alert('请先上传一张图片并处理');
+
+return;
+
+}
+
+processingIndicator.classList.add('active');
+
+exportBtn.disabled = true;
+
+try {
+
+// 使用原始分辨率进行最终处理
+
+const quality = parseFloat(qualitySelect.value);
+
+const dataURL = await processAndExportFullResolution(quality);
+
+const link = document.createElement('a');
+
+link.download = 
+"抠图结果_${Date.now()}.webp";
+
+link.href = dataURL;
+
+link.click();
+
+} catch (error) {
+
+console.error('导出失败:', error);
+
+alert('导出失败，请重试');
+
+} finally {
+
+processingIndicator.classList.remove('active');
+
+exportBtn.disabled = false;
+
+}
+
+});
+
+// 检查文件是否为图片
+
+function isImageFile(file) {
+
+const acceptedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];
+
+return acceptedTypes.includes(file.type);
+
+}
+
+// 加载图片
+
+function loadImage(file) {
+
+const reader = new FileReader();
+
+reader.onload = (e) => {
+
+const img = new Image();
+
+img.onload = () => {
+
+originalImage = img;
+
+originalWidth = img.naturalWidth;
+
+originalHeight = img.naturalHeight;
+
+displayImagePreview(img);
+
+processImageWithAntialias();
+
+};
+
+img.onerror = () => {
+
+alert('图片加载失败，请重试');
+
+};
+
+img.src = e.target.result;
+
+};
+
+reader.onerror = () => {
+
+alert('文件读取失败，请重试');
+
+};
+
+reader.readAsDataURL(file);
+
+}
+
+// 显示图片预览
+
+function displayImagePreview(img) {
+
+imagePreview.innerHTML = 
+"<p>已上传图片: ${img.naturalWidth} × ${img.naturalHeight} 像素</p>";
+
+const previewImg = document.createElement('img');
+
+previewImg.src = img.src;
+
+previewImg.alt = '上传的图片';
+
+previewImg.style.maxWidth = '100%';
+
+previewImg.style.maxHeight = '200px';
+
+imagePreview.appendChild(previewImg);
+
+}
+
+// 使用TAA风格抗锯齿处理图片
+
+async function processImageWithAntialias() {
+
+if (isProcessing || !originalImage) return;
+
+isProcessing = true;
+
+processingIndicator.classList.add('active');
+
+try {
+
+// 设置预览canvas尺寸（固定大小用于预览）
+
+const previewWidth = 400;
+
+const previewHeight = 300;
+
+[canvas, canvasBefore, canvasAfter].forEach(c => {
+
+c.width = previewWidth;
+
+c.height = previewHeight;
+
+});
+
+// 创建离屏canvas进行高质量处理
+
+const offscreenCanvas = document.createElement('canvas');
+
+const offscreenCtx = offscreenCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+
+// 先以高质量绘制到离屏canvas
+
+offscreenCanvas.width = originalImage.naturalWidth;
+
+offscreenCanvas.height = originalImage.naturalHeight;
+
+offscreenCtx.drawImage(originalImage, 0, 0);
+
+// 获取原始图片数据
+
+originalImageData = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+// 1. 基本抠图（无抗锯齿）
+
+const basicResult = removeBackgroundBasic(originalImageData, currentThreshold);
+
+drawToCanvas(basicResult, canvasBefore, previewWidth, previewHeight);
+
+// 2. 带抗锯齿的抠图
+
+const antialiasedResult = removeBackgroundWithAntialias(
+
+originalImageData,
+
+currentThreshold,
+
+currentAntialias
+
+);
+
+drawToCanvas(antialiasedResult, canvasAfter, previewWidth, previewHeight);
+
+// 3. 最终结果（使用抗锯齿版本）
+
+drawToCanvas(antialiasedResult, canvas, previewWidth, previewHeight);
+
+} catch (error) {
+
+console.error('处理失败:', error);
+
+alert('图片处理失败，请重试');
+
+} finally {
+
+isProcessing = false;
+
+processingIndicator.classList.remove('active');
+
+}
+
+}
+
+// 基本抠图函数（无抗锯齿）
+
+function removeBackgroundBasic(imageData, threshold) {
+
+const { width, height, data } = imageData;
+
+const result = new ImageData(width, height);
+
+const resultData = result.data;
+
+for (let i = 0; i < data.length; i += 4) {
+
+const r = data[i];
+
+const g = data[i + 1];
+
+const b = data[i + 2];
+
+const a = data[i + 3];
+
+// 计算颜色与白色的距离
+
+const whiteDistance = Math.sqrt(
+
+Math.pow(255 - r, 2) +
+
+Math.pow(255 - g, 2) +
+
+Math.pow(255 - b, 2)
+
+);
+
+// 复制颜色
+
+resultData[i] = r;
+
+resultData[i + 1] = g;
+
+resultData[i + 2] = b;
+
+// 如果颜色接近白色（根据阈值），则设为透明
+
+if (whiteDistance < threshold) {
+
+resultData[i + 3] = 0;
+
+} else {
+
+resultData[i + 3] = a;
+
+}
+
+}
+
+return result;
+
+}
+
+// 带TAA风格抗锯齿的抠图函数
+
+function removeBackgroundWithAntialias(imageData, threshold, antialiasLevel) {
+
+const { width, height, data } = imageData;
+
+const result = new ImageData(width, height);
+
+const resultData = result.data;
+
+// 创建alpha映射
+
+const alphaMap = new Float32Array(width * height);
+
+// 第一步：计算每个像素的基本alpha值
+
+for (let y = 0; y < height; y++) {
+
+for (let x = 0; x < width; x++) {
+
+const idx = (y * width + x) * 4;
+
+const r = data[idx];
+
+const g = data[idx + 1];
+
+const b = data[idx + 2];
+
+// 计算颜色与白色的距离
+
+const whiteDistance = Math.sqrt(
+
+Math.pow(255 - r, 2) +
+
+Math.pow(255 - g, 2) +
+
+Math.pow(255 - b, 2)
+
+);
+
+// 基本alpha值（0或1）
+
+alphaMap[y * width + x] = whiteDistance >= threshold ? 1.0 : 0.0;
+
+}
+
+}
+
+// 第二步：应用抗锯齿（TAA风格多重采样）
+
+if (antialiasLevel > 0) {
+
+applyTaaAntialias(alphaMap, width, height, antialiasLevel);
+
+}
+
+// 第三步：应用抗锯齿后的alpha值
+
+for (let y = 0; y < height; y++) {
+
+for (let x = 0; x < width; x++) {
+
+const idx = (y * width + x) * 4;
+
+const alpha = alphaMap[y * width + x];
+
+// 复制颜色
+
+resultData[idx] = data[idx];
+
+resultData[idx + 1] = data[idx + 1];
+
+resultData[idx + 2] = data[idx + 2];
+
+// 应用抗锯齿后的alpha
+
+resultData[idx + 3] = Math.round(alpha * 255);
+
+}
+
+}
+
+return result;
+
+}
+
+// 应用TAA风格抗锯齿
+
+function applyTaaAntialias(alphaMap, width, height, level) {
+
+// 根据抗锯齿级别确定采样次数
+
+const samples = level * 2 + 1;
+
+const radius = Math.floor(level / 2);
+
+// 创建临时数组
+
+const tempAlphaMap = new Float32Array(width * height);
+
+for (let y = 0; y < height; y++) {
+
+for (let x = 0; x < width; x++) {
+
+const idx = y * width + x;
+
+const currentAlpha = alphaMap[idx];
+
+// 如果当前像素已经是完全透明或完全不透明，跳过抗锯齿
+
+if (currentAlpha <= 0.01 || currentAlpha >= 0.99) {
+
+tempAlphaMap[idx] = currentAlpha;
+
+continue;
+
+}
+
+// 多重采样
+
+let totalAlpha = 0;
+
+let sampleCount = 0;
+
+for (let dy = -radius; dy <= radius; dy++) {
+
+for (let dx = -radius; dx <= radius; dx++) {
+
+const nx = Math.max(0, Math.min(width - 1, x + dx));
+
+const ny = Math.max(0, Math.min(height - 1, y + dy));
+
+const nIdx = ny * width + nx;
+
+// 使用高斯权重
+
+const distance = Math.sqrt(dx * dx + dy * dy);
+
+const weight = Math.exp(-distance * distance / (2 * radius * radius));
+
+totalAlpha += alphaMap[nIdx] * weight;
+
+sampleCount += weight;
+
+}
+
+}
+
+// 计算加权平均
+
+tempAlphaMap[idx] = sampleCount > 0 ? totalAlpha / sampleCount : currentAlpha;
+
+}
+
+}
+
+// 复制回原数组
+
+for (let i = 0; i < alphaMap.length; i++) {
+
+alphaMap[i] = tempAlphaMap[i];
+
+}
+
+// 边缘增强：对边缘区域进行轻微锐化
+
+for (let y = 1; y < height - 1; y++) {
+
+for (let x = 1; x < width - 1; x++) {
+
+const idx = y * width + x;
+
+const currentAlpha = tempAlphaMap[idx];
+
+// 只处理边缘区域
+
+if (currentAlpha > 0.1 && currentAlpha < 0.9) {
+
+// 计算周围像素的平均值
+
+let neighborSum = 0;
+
+let neighborCount = 0;
+
+for (let dy = -1; dy <= 1; dy++) {
+
+for (let dx = -1; dx <= 1; dx++) {
+
+if (dx === 0 && dy === 0) continue;
+
+const nIdx = (y + dy) * width + (x + dx);
+
+neighborSum += tempAlphaMap[nIdx];
+
+neighborCount++;
+
+}
+
+}
+
+const neighborAvg = neighborSum / neighborCount;
+
+// 如果当前像素与周围平均差异较大，稍微增强对比度
+
+const diff = currentAlpha - neighborAvg;
+
+if (Math.abs(diff) > 0.1) {
+
+alphaMap[idx] = Math.max(0, Math.min(1, currentAlpha + diff * 0.3));
+
+}
+
+}
+
+}
+
+}
+
+}
+
+// 绘制到canvas（保持宽高比）
+
+function drawToCanvas(imageData, targetCanvas, targetWidth, targetHeight) {
+
+const tempCanvas = document.createElement('canvas');
+
+const tempCtx = tempCanvas.getContext('2d', { alpha: true });
+
+tempCanvas.width = imageData.width;
+
+tempCanvas.height = imageData.height;
+
+tempCtx.putImageData(imageData, 0, 0);
+
+// 计算保持宽高比的尺寸
+
+const aspectRatio = imageData.width / imageData.height;
+
+let drawWidth = targetWidth;
+
+let drawHeight = targetHeight;
+
+if (drawWidth / drawHeight > aspectRatio) {
+
+drawWidth = drawHeight * aspectRatio;
+
+} else {
+
+drawHeight = drawWidth / aspectRatio;
+
+}
+
+const offsetX = (targetWidth - drawWidth) / 2;
+
+const offsetY = (targetHeight - drawHeight) / 2;
+
+const targetCtx = targetCanvas.getContext('2d', { alpha: true });
+
+targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+
+targetCtx.imageSmoothingEnabled = true;
+
+targetCtx.imageSmoothingQuality = 'high';
+
+targetCtx.drawImage(tempCanvas, offsetX, offsetY, drawWidth, drawHeight);
+
+}
+
+// 处理并导出完整分辨率图片
+
+async function processAndExportFullResolution(quality) {
+
+return new Promise((resolve, reject) => {
+
+try {
+
+// 创建离屏canvas
+
+const exportCanvas = document.createElement('canvas');
+
+const exportCtx = exportCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+
+// 使用原始分辨率
+
+exportCanvas.width = originalWidth;
+
+exportCanvas.height = originalHeight;
+
+// 绘制原始图片
+
+exportCtx.drawImage(originalImage, 0, 0);
+
+// 获取原始图片数据
+
+const imageData = exportCtx.getImageData(0, 0, originalWidth, originalHeight);
+
+// 使用当前参数处理图片
+
+const processedData = removeBackgroundWithAntialias(
+
+imageData,
+
+currentThreshold,
+
+currentAntialias
+
+);
+
+// 将处理后的数据绘制到canvas
+
+exportCtx.putImageData(processedData, 0, 0);
+
+// 导出为WebP
+
+const dataURL = exportCanvas.toDataURL('image/webp', quality);
+
+resolve(dataURL);
+
+} catch (error) {
+
+reject(error);
+
+}
+
+});
+
+}
+
+// 自动计算最佳阈值
+
+function calculateAutoThreshold(img) {
+
+// 创建临时canvas进行分析
+
+const tempCanvas = document.createElement('canvas');
+
+const tempCtx = tempCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+
+// 使用较小尺寸以提高性能
+
+const sampleSize = 200;
+
+let width = img.naturalWidth;
+
+let height = img.naturalHeight;
+
+const ratio = Math.min(sampleSize / width, sampleSize / height);
+
+tempCanvas.width = width * ratio;
+
+tempCanvas.height = height * ratio;
+
+// 绘制图片到临时canvas
+
+tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+
+// 获取图片数据
+
+const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+const data = imageData.data;
+
+// 分析图片，计算最佳阈值
+
+let whitePixels = 0;
+
+let totalPixels = 0;
+
+const whiteDistances = [];
+
+for (let i = 0; i < data.length; i += 4) {
+
+const r = data[i];
+
+const g = data[i + 1];
+
+const b = data[i + 2];
+
+// 计算与白色的距离
+
+const whiteDistance = Math.sqrt(
+
+Math.pow(255 - r, 2) +
+
+Math.pow(255 - g, 2) +
+
+Math.pow(255 - b, 2)
+
+);
+
+whiteDistances.push(whiteDistance);
+
+// 统计接近白色的像素
+
+if (whiteDistance < 100) {
+
+whitePixels++;
+
+}
+
+totalPixels++;
+
+}
+
+// 计算平均距离
+
+whiteDistances.sort((a, b) => a - b);
+
+const medianDistance = whiteDistances[Math.floor(whiteDistances.length / 2)];
+
+// 自适应阈值计算
+
+if (whitePixels / totalPixels > 0.3) {
+
+// 白色背景较多，使用较高阈值
+
+return Math.min(255, Math.max(100, medianDistance + 30));
+
+} else {
+
+// 白色背景较少，使用较低阈值
+
+return Math.min(255, Math.max(50, medianDistance - 20));
+
+}
+
+}
+
+// 初始化：添加示例图片
+
+window.addEventListener('load', () => {
+
+// 创建示例图片
+
+const sampleImage = new Image();
+
+sampleImage.crossOrigin = "anonymous";
+
+sampleImage.onload = () => {
+
+originalImage = sampleImage;
+
+originalWidth = sampleImage.naturalWidth;
+
+originalHeight = sampleImage.naturalHeight;
+
+displayImagePreview(sampleImage);
+
+processImageWithAntialias();
+
+};
+
+// 使用一个示例图片（白色背景的苹果图标）
+
+sampleImage.src = 'data:image/svg+xml;base64,' + btoa(`
+
+<svg xmlns=""http://www.w3.org/2000/svg" (http://www.w3.org/2000/svg)" width="200" height="200" viewBox="0 0 200 200">
+
+<rect width="200" height="200" fill="white"/>
+
+<path d="M150,100 C150,127.614 127.614,150 100,150 C72.386,150 50,127.614 50,100 C50,72.386 72.386,50 100,50 C127.614,50 150,72.386 150,100 Z" fill="red"/>
+
+<path d="M120,80 C120,91.046 111.046,100 100,100 C88.954,100 80,91.046 80,80 C80,68.954 88.954,60 100,60 C111.046,60 120,68.954 120,80 Z" fill="white"/>
+
+</svg>
+
+`);
+
+});
+
+</script>
+
+</body>
+
+</html>
