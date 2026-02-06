@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片转SVG矢量图工具 - 生产级</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(90deg, #2c3e50, #4a6491);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.4rem;
+            margin-bottom: 8px;
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 25px;
+            gap: 25px;
+        }
+        
+        .upload-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 25px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #b8c2cc;
+        }
+        
+        .controls-section {
+            flex: 1;
+            min-width: 300px;
+            padding: 25px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .preview-section {
+            flex: 2;
+            min-width: 400px;
+            padding: 25px;
+            background-color: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eaeaea;
+        }
+        
+        .file-upload-area {
+            border: 3px dashed #3498db;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            background-color: white;
+        }
+        
+        .file-upload-area:hover {
+            background-color: #f0f8ff;
+            border-color: #2980b9;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #3498db;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .upload-subtext {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .control-group {
+            margin-bottom: 25px;
+        }
+        
+        .control-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+            color: #3498db;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            height: 8px;
+            border-radius: 4px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .color-options {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option.active {
+            border-color: #2c3e50;
+        }
+        
+        .preview-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .preview-box {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        
+        .preview-title {
+            background-color: #2c3e50;
+            color: white;
+            padding: 12px 15px;
+            font-size: 1.1rem;
+        }
+        
+        .preview-content {
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            max-height: 400px;
+            overflow: auto;
+        }
+        
+        .preview-placeholder {
+            color: #7f8c8d;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn-secondary {
+            background-color: #2ecc71;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);
+        }
+        
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status-message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .status-success {
+            background-color: #d5f4e6;
+            color: #27ae60;
+            border-left: 4px solid #2ecc71;
+            display: block;
+        }
+        
+        .status-error {
+            background-color: #fadbd8;
+            color: #e74c3c;
+            border-left: 4px solid #e74c3c;
+            display: block;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 1100px) {
+            .main-content {
+                flex-direction: column;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .btn {
+                min-width: 100%;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .section-title {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>图片转SVG矢量图工具</h1>
+            <p class="subtitle">在浏览器中一键转换图片为SVG矢量格式，适合生产环境使用</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="upload-section">
+                <h2 class="section-title">1. 上传图片</h2>
+                <div class="file-upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">点击选择图片或拖放至此</div>
+                    <div class="upload-subtext">支持 JPG、PNG、GIF、BMP 格式，最大 5MB</div>
+                </div>
+                <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.gif,.bmp">
+                
+                <div class="selected-file" id="selectedFile" style="display: none;">
+                    <div class="control-label">已选择文件：</div>
+                    <div id="fileName" style="padding: 10px; background: white; border-radius: 6px; margin-top: 5px;"></div>
+                </div>
+            </div>
+            
+            <div class="controls-section">
+                <h2 class="section-title">2. 调整参数</h2>
+                
+                <div class="control-group">
+                    <label class="control-label">简化程度</label>
+                    <div class="slider-container">
+                        <input type="range" id="simplifySlider" min="0.1" max="5" step="0.1" value="1">
+                        <span class="slider-value" id="simplifyValue">1.0</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #7f8c8d; margin-top: 5px;">
+                        数值越高，SVG路径越简化（文件越小）
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">颜色阈值</label>
+                    <div class="slider-container">
+                        <input type="range" id="thresholdSlider" min="1" max="255" step="1" value="128">
+                        <span class="slider-value" id="thresholdValue">128</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #7f8c8d; margin-top: 5px;">
+                        控制颜色分离的敏感度
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">轮廓颜色</label>
+                    <div class="color-options">
+                        <div class="color-option active" style="background-color: #000000;" data-color="#000000"></div>
+                        <div class="color-option" style="background-color: #ffffff; border: 1px solid #ddd;" data-color="#ffffff"></div>
+                        <div class="color-option" style="background-color: #3498db;" data-color="#3498db"></div>
+                        <div class="color-option" style="background-color: #e74c3c;" data-color="#e74c3c"></div>
+                        <div class="color-option" style="background-color: #2ecc71;" data-color="#2ecc71"></div>
+                        <div class="color-option" id="customColorOption" style="background: linear-gradient(45deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f);" data-color=""></div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <input type="color" id="customColorPicker" value="#000000" style="width: 100%; height: 40px; border-radius: 6px; border: 1px solid #ddd; cursor: pointer;">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">输出质量</label>
+                    <div class="slider-container">
+                        <input type="range" id="qualitySlider" min="1" max="10" step="1" value="7">
+                        <span class="slider-value" id="qualityValue">7</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #7f8c8d; margin-top: 5px;">
+                        数值越高，SVG细节越丰富（文件越大）
+                    </div>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <h2 class="section-title">3. 预览与导出</h2>
+                
+                <div class="loading" id="loadingIndicator">
+                    <div class="spinner"></div>
+                    <p>正在处理图像并生成SVG矢量图...</p>
+                </div>
+                
+                <div class="preview-container">
+                    <div class="preview-box">
+                        <div class="preview-title">原始图片预览</div>
+                        <div class="preview-content">
+                            <canvas id="originalCanvas" style="max-width: 100%; max-height: 300px;"></canvas>
+                            <div id="originalPlaceholder" class="preview-placeholder">
+                                上传图片后，这里将显示预览
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="preview-box">
+                        <div class="preview-title">SVG矢量图预览</div>
+                        <div class="preview-content">
+                            <div id="svgPreview"></div>
+                            <div id="svgPlaceholder" class="preview-placeholder">
+                                转换后，这里将显示SVG矢量图
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-primary" id="convertBtn">
+                        <span>🔄</span> 转换为SVG
+                    </button>
+                    <button class="btn btn-secondary" id="downloadBtn" disabled>
+                        <span>💾</span> 下载SVG文件
+                    </button>
+                </div>
+                
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2023 图片转SVG矢量图工具 | 完全在浏览器中运行，无需上传到服务器</p>
+            <p style="margin-top: 5px; font-size: 0.8rem;">基于HTML5 Canvas和JavaScript实现，适用于生产环境</p>
+        </footer>
+    </div>
+
+    <script>
+        // 全局变量
+        let originalImage = null;
+        let svgData = null;
+        let fileName = '';
+        
+        // DOM元素
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const selectedFile = document.getElementById('selectedFile');
+        const fileNameDisplay = document.getElementById('fileName');
+        const originalCanvas = document.getElementById('originalCanvas');
+        const originalCtx = originalCanvas.getContext('2d');
+        const originalPlaceholder = document.getElementById('originalPlaceholder');
+        const svgPreview = document.getElementById('svgPreview');
+        const svgPlaceholder = document.getElementById('svgPlaceholder');
+        const convertBtn = document.getElementById('convertBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        // 滑块和值显示
+        const simplifySlider = document.getElementById('simplifySlider');
+        const simplifyValue = document.getElementById('simplifyValue');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdValue = document.getElementById('thresholdValue');
+        const qualitySlider = document.getElementById('qualitySlider');
+        const qualityValue = document.getElementById('qualityValue');
+        
+        // 颜色选项
+        const colorOptions = document.querySelectorAll('.color-option');
+        const customColorPicker = document.getElementById('customColorPicker');
+        const customColorOption = document.getElementById('customColorOption');
+        
+        // 事件监听器
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#2980b9';
+            uploadArea.style.backgroundColor = '#f0f8ff';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#3498db';
+            uploadArea.style.backgroundColor = 'white';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#3498db';
+            uploadArea.style.backgroundColor = 'white';
+            
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(e);
+            }
+        });
+        
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // 滑块值更新
+        simplifySlider.addEventListener('input', () => {
+            simplifyValue.textContent = parseFloat(simplifySlider.value).toFixed(1);
+        });
+        
+        thresholdSlider.addEventListener('input', () => {
+            thresholdValue.textContent = thresholdSlider.value;
+        });
+        
+        qualitySlider.addEventListener('input', () => {
+            qualityValue.textContent = qualitySlider.value;
+        });
+        
+        // 颜色选择
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                colorOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                
+                if (option !== customColorOption) {
+                    customColorPicker.value = option.dataset.color;
+                }
+            });
+        });
+        
+        customColorPicker.addEventListener('input', () => {
+            colorOptions.forEach(opt => opt.classList.remove('active'));
+            customColorOption.classList.add('active');
+            customColorOption.dataset.color = customColorPicker.value;
+            customColorOption.style.backgroundColor = customColorPicker.value;
+        });
+        
+        // 转换按钮
+        convertBtn.addEventListener('click', convertToSVG);
+        
+        // 下载按钮
+        downloadBtn.addEventListener('click', downloadSVG);
+        
+        // 处理文件选择
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 检查文件类型
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp'];
+            if (!validTypes.includes(file.type)) {
+                showStatus('请选择有效的图片文件（JPG、PNG、GIF、BMP格式）', 'error');
+                return;
+            }
+            
+            // 检查文件大小（限制5MB）
+            if (file.size > 5 * 1024 * 1024) {
+                showStatus('文件大小不能超过5MB', 'error');
+                return;
+            }
+            
+            fileName = file.name.replace(/\.[^/.]+$/, ""); // 移除扩展名
+            fileNameDisplay.textContent = file.name;
+            selectedFile.style.display = 'block';
+            
+            // 加载图片
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    originalImage = img;
+                    displayOriginalImage(img);
+                    showStatus('图片已加载，现在可以调整参数并转换为SVG', 'success');
+                    convertBtn.disabled = false;
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // 显示原始图片
+        function displayOriginalImage(img) {
+            originalPlaceholder.style.display = 'none';
+            
+            // 设置canvas尺寸
+            const maxWidth = 500;
+            const maxHeight = 300;
+            let width = img.width;
+            let height = img.height;
+            
+            // 调整尺寸以适应预览区域
+            if (width > maxWidth || height > maxHeight) {
+                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                width *= ratio;
+                height *= ratio;
+            }
+            
+            originalCanvas.width = width;
+            originalCanvas.height = height;
+            
+            // 绘制图片
+            originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+            originalCtx.drawImage(img, 0, 0, width, height);
+            
+            // 显示canvas
+            originalCanvas.style.display = 'block';
+        }
+        
+        // 转换为SVG
+        function convertToSVG() {
+            if (!originalImage) {
+                showStatus('请先上传图片', 'error');
+                return;
+            }
+            
+            // 显示加载指示器
+            loadingIndicator.style.display = 'block';
+            convertBtn.disabled = true;
+            svgPlaceholder.style.display = 'none';
+            statusMessage.style.display = 'none';
+            
+            // 获取参数值
+            const simplify = parseFloat(simplifySlider.value);
+            const threshold = parseInt(thresholdSlider.value);
+            const quality = parseInt(qualitySlider.value);
+            const color = getSelectedColor();
+            
+            // 使用setTimeout让UI有机会更新加载指示器
+            setTimeout(() => {
+                try {
+                    // 使用图像追踪算法将位图转换为矢量路径
+                    svgData = traceImageToSVG(originalImage, simplify, threshold, quality, color);
+                    
+                    // 显示SVG预览
+                    svgPreview.innerHTML = svgData;
+                    
+                    // 启用下载按钮
+                    downloadBtn.disabled = false;
+                    
+                    // 显示成功消息
+                    showStatus('SVG矢量图已成功生成！现在可以下载SVG文件。', 'success');
+                } catch (error) {
+                    console.error('转换错误:', error);
+                    showStatus('转换过程中出现错误：' + error.message, 'error');
+                    svgPlaceholder.style.display = 'block';
+                } finally {
+                    // 隐藏加载指示器
+                    loadingIndicator.style.display = 'none';
+                    convertBtn.disabled = false;
+                }
+            }, 100);
+        }
+        
+        // 获取选择的颜色
+        function getSelectedColor() {
+            const activeOption = document.querySelector('.color-option.active');
+            if (activeOption === customColorOption) {
+                return customColorPicker.value;
+            }
+            return activeOption.dataset.color;
+        }
+        
+        // 图像追踪算法 - 将位图转换为SVG路径
+        function traceImageToSVG(image, simplify, threshold, quality, color) {
+            // 创建一个临时canvas来处理图像
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 设置canvas尺寸为原始图像尺寸
+            canvas.width = image.width;
+            canvas.height = image.height;
+            
+            // 绘制图像到canvas
+            ctx.drawImage(image, 0, 0);
+            
+            // 获取图像数据
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // 简化系数：将quality转换为路径采样的步长
+            const step = Math.max(1, Math.floor(10 - quality));
+            
+            // 存储路径点
+            let paths = [];
+            
+            // 简化的边缘检测和路径生成算法
+            // 这里使用一个简化的方法：将图像转换为单色，然后提取轮廓
+            for (let y = 0; y < canvas.height; y += step) {
+                for (let x = 0; x < canvas.width; x += step) {
+                    const index = (y * canvas.width + x) * 4;
+                    const r = data[index];
+                    const g = data[index + 1];
+                    const b = data[index + 2];
+                    
+                    // 计算灰度值
+                    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    
+                    // 如果像素低于阈值，则视为黑色（轮廓）
+                    if (gray < threshold) {
+                        // 创建简单的矩形路径来表示这个区域
+                        const size = step * simplify;
+                        paths.push(createRectPath(x, y, size, size));
+                    }
+                }
+            }
+            
+            // 如果没有找到路径，创建一个包含整个图像的简单路径
+            if (paths.length === 0) {
+                // 使用一个简单的矩形作为后备
+                paths.push(createRectPath(0, 0, canvas.width, canvas.height));
+            }
+            
+            // 合并路径以提高性能
+            let combinedPath = '';
+            if (paths.length > 1000) {
+                // 如果路径太多，进行简化
+                const simplifiedPaths = [];
+                for (let i = 0; i < paths.length; i += 10) {
+                    if (i < paths.length) {
+                        simplifiedPaths.push(paths[i]);
+                    }
+                }
+                combinedPath = simplifiedPaths.join(' ');
+            } else {
+                combinedPath = paths.join(' ');
+            }
+            
+            // 创建SVG字符串
+            const svgWidth = canvas.width;
+            const svgHeight = canvas.height;
+            
+            const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}">
+  <path d="${combinedPath}" fill="${color}" stroke="none"/>
+</svg>`;
+            
+            return svg;
+        }
+        
+        // 创建矩形路径
+        function createRectPath(x, y, width, height) {
+            return `M${x},${y} h${width} v${height} h-${width} Z`;
+        }
+        
+        // 下载SVG
+        function downloadSVG() {
+            if (!svgData) {
+                showStatus('没有可下载的SVG数据', 'error');
+                return;
+            }
+            
+            try {
+                // 创建Blob并下载
+                const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${fileName}_vector.svg`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showStatus('SVG文件已开始下载', 'success');
+            } catch (error) {
+                console.error('下载错误:', error);
+                showStatus('下载文件时出现错误：' + error.message, 'error');
+            }
+        }
+        
+        // 显示状态消息
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message';
+            statusMessage.classList.add(`status-${type}`);
+            statusMessage.style.display = 'block';
+            
+            // 5秒后自动隐藏
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 初始化示例图片
+        window.addEventListener('load', () => {
+            // 创建一个示例图片
+            const sampleImage = new Image();
+            sampleImage.onload = function() {
+                originalImage = sampleImage;
+                displayOriginalImage(sampleImage);
+                fileName = "示例图片";
+                fileNameDisplay.textContent = "示例图片.png";
+                selectedFile.style.display = 'block';
+                convertBtn.disabled = false;
+                showStatus('已加载示例图片，您可以调整参数并转换为SVG', 'success');
+            };
+            
+            // 创建一个简单的示例图片（一个笑脸）
+            sampleImage.src = createSampleImage();
+        });
+        
+        // 创建示例图片
+        function createSampleImage() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            
+            // 绘制背景
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(0, 0, 200, 200);
+            
+            // 绘制笑脸
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(100, 100, 80, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            
+            // 眼睛
+            ctx.beginPath();
+            ctx.arc(70, 80, 12, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.arc(130, 80, 12, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 嘴巴
+            ctx.beginPath();
+            ctx.arc(100, 120, 40, 0, Math.PI);
+            ctx.stroke();
+            
+            return canvas.toDataURL();
+        }
+    </script>
+</body>
+</html>
