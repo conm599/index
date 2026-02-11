@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>双图合成 · 镂空Logo拖拽缩放 · 高清导出</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #1e2b3a 0%, #0f1722 100%);
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .app-container {
+            max-width: 1100px;
+            width: 100%;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            border-radius: 36px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .main-card {
+            background: #1e2a36;
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 2px 4px rgba(0,0,0,0.4);
+        }
+        h2 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-weight: 500;
+            font-size: 1.7rem;
+            letter-spacing: 1px;
+            color: #eef5ff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #3a4c5e;
+            padding-bottom: 12px;
+        }
+        h2 span {
+            background: #3dcc8c;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+            border-radius: 30px;
+            color: #0a1a1f;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .upload-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .upload-item {
+            background: #0f1a22;
+            border-radius: 18px;
+            padding: 18px 22px;
+            flex: 1 1 200px;
+            border: 1px solid #3e5668;
+            transition: all 0.2s;
+        }
+        .upload-item:hover {
+            border-color: #6ba8d6;
+            background: #13242e;
+        }
+        .upload-label {
+            display: block;
+            color: #b4d4f0;
+            font-weight: 500;
+            margin-bottom: 12px;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .upload-label i {
+            font-size: 1.3rem;
+        }
+        .file-input {
+            background: #263b47;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            width: 100%;
+            border: none;
+            cursor: pointer;
+        }
+        .file-input::-webkit-file-upload-button {
+            background: #3dcc8c;
+            border: none;
+            color: black;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 30px;
+            margin-right: 12px;
+            border: none;
+            transition: 0.2s;
+        }
+        .canvas-wrapper {
+            background: #101c24;
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #3e6f8c;
+            box-shadow: 0 8px 0 #0a1219;
+        }
+        canvas {
+            display: block;
+            width: 800px;
+            height: 500px;
+            border-radius: 12px;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.2), 0 10px 25px rgba(0,0,0,0.7);
+            cursor: default;
+            background: #18242e;
+        }
+        .control-bar {
+            background: #0e1a22;
+            border-radius: 48px;
+            padding: 20px 28px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border: 1px solid #3c6373;
+        }
+        .scale-slider-area {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            color: white;
+            flex-wrap: wrap;
+        }
+        .scale-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #1f3640;
+            padding: 8px 18px;
+            border-radius: 40px;
+        }
+        input[type=range] {
+            width: 200px;
+            height: 6px;
+            background: #2d4a57;
+            border-radius: 10px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3dcc8c;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #6ff0b0;
+            border: 2px solid white;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #263f4a;
+            border: none;
+            border-radius: 40px;
+            padding: 10px 22px;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 2px solid #0d1c22;
+            transition: 0.15s;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .btn-primary {
+            background: #3dcc8c;
+            color: #0c1c1c;
+            border-bottom-color: #1a6e4a;
+            font-weight: 700;
+        }
+        .btn:hover {
+            background: #517e8c;
+            border-bottom-width: 3px;
+        }
+        .btn-primary:hover {
+            background: #5ce3a2;
+        }
+        .export-group {
+            display: flex;
+            gap: 16px;
+            margin-left: auto;
+        }
+        .info-chip {
+            color: #a0d8f0;
+            background: #0e1e28;
+            padding: 8px 18px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            border: 1px solid #3e8896;
+        }
+        .footer-tip {
+            color: #b0d0e0;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="main-card">
+        <h2>
+            🎨 底图 + 镂空附图
+            <span>拖拽·缩放·高清导出</span>
+        </h2>
+        
+        <!-- 上传区域 -->
+        <div class="upload-panel">
+            <div class="upload-item">
+                <label class="upload-label">🖼️ 1. 上传底图</label>
+                <input type="file" id="bgUpload" accept="image/*" class="file-input">
+            </div>
+            <div class="upload-item">
+                <label class="upload-label">✨ 2. 上传附图 (抠图/Logo/透明PNG)</label>
+                <input type="file" id="overlayUpload" accept="image/*" class="file-input" disabled>
+            </div>
+        </div>
+
+        <!-- 画布区域：绘制底图+附图，支持拖拽缩放 -->
+        <div class="canvas-wrapper">
+            <canvas id="composeCanvas" width="800" height="500"></canvas>
+        </div>
+
+        <!-- 缩放控制条 + 快捷操作 -->
+        <div class="control-bar">
+            <div class="scale-slider-area">
+                <span style="color:#b3e4ff;">🔍 附图缩放</span>
+                <div class="scale-label">
+                    <span id="scaleValueDisplay">100%</span>
+                    <input type="range" id="scaleSlider" min="0.1" max="4.0" step="0.01" value="1.0" disabled>
+                </div>
+                <button id="resetPosBtn" class="btn" disabled>📍 居中重置</button>
+            </div>
+            <div class="export-group">
+                <button id="export1xBtn" class="btn btn-primary" disabled>⬇️ 原分辨率导出</button>
+                <button id="export2xBtn" class="btn btn-primary" disabled>🚀 2倍高清导出</button>
+            </div>
+        </div>
+        <div class="footer-tip">
+            💡 提示：拖拽附图移动 | 滑块缩放 | 滚轮亦可缩放 | 导出为PNG，保留透明镂空，原汁原味不模糊
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        "use strict";
+
+        // ---------- DOM 元素 ----------
+        const canvas = document.getElementById('composeCanvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+        const bgUpload = document.getElementById('bgUpload');
+        const overlayUpload = document.getElementById('overlayUpload');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleValueDisplay = document.getElementById('scaleValueDisplay');
+        const resetPosBtn = document.getElementById('resetPosBtn');
+        const export1xBtn = document.getElementById('export1xBtn');
+        const export2xBtn = document.getElementById('export2xBtn');
+
+        // ---------- 全局状态 ----------
+        // 底图资源
+        let bgImage = null;
+        let bgWidth = 0, bgHeight = 0;
+        
+        // 附图资源 (镂空/logo)
+        let overlayImage = null;
+        let overlayWidth = 0, overlayHeight = 0;
+        
+        // 附图变换参数 (基于底图原始像素坐标系)
+        let offsetX = 0, offsetY = 0;       // 附图左上角在底图上的坐标(原始像素)
+        let scaleFactor = 1.0;              // 相对于附图原始尺寸的缩放倍数
+
+        // 拖拽状态
+        let isDragging = false;
+        let dragStartRawX = 0, dragStartRawY = 0;   // 拖拽开始时鼠标所在的底图原始坐标
+        let dragStartOffsetX = 0, dragStartOffsetY = 0; // 拖拽开始时的offset
+
+        // 缓存画布变换参数(每次draw时重新计算，供鼠标交互使用)
+        let lastBgScale = 1, lastBgOffsetX = 0, lastBgOffsetY = 0;
+
+        // ---------- 辅助函数: 边界约束(防止附图完全拖出底图) ----------
+        function clampOverlayOffset() {
+            if (!bgImage || !overlayImage) return;
+            // 当前附图显示宽高 (原始像素)
+            const overlayDisplayW = overlayWidth * scaleFactor;
+            const overlayDisplayH = overlayHeight * scaleFactor;
+
+            // 水平边界：建议左上角在0 到 (bgWidth - overlayDisplayW)之间，允许附图小于底图时完整显示
+            let minX = 0;
+            let maxX = Math.max(0, bgWidth - overlayDisplayW);  // 若附图更大，maxX为0，即左对齐
+            // 垂直边界
+            let minY = 0;
+            let maxY = Math.max(0, bgHeight - overlayDisplayH);
+
+            // 但当附图完全大于底图时，允许左上角为0(显示左边/上边区域)，用户可拖动查看不同区域 —— 但尽量保留边缘不出现大片空白
+            // 但是maxX可能为负数，此时设置maxX = 0 (左边缘)
+            if (maxX < minX) maxX = minX;
+            if (maxY < minY) maxY = minY;
+
+            offsetX = Math.min(Math.max(offsetX, minX), maxX);
+            offsetY = Math.min(Math.max(offsetY, minY), maxY);
+        }
+
+        // ---------- 重置附图居中 ----------
+        function resetOverlayPosition() {
+            if (!bgImage || !overlayImage) return;
+            const overlayDisplayW = overlayWidth * scaleFactor;
+            const overlayDisplayH = overlayHeight * scaleFactor;
+            offsetX = (bgWidth - overlayDisplayW) / 2;
+            offsetY = (bgHeight - overlayDisplayH) / 2;
+            clampOverlayOffset();
+            drawCanvas();
+        }
+
+        // ---------- 计算底图在canvas(800x500)中的变换: 缩放比例、偏移(居中显示) ----------
+        function computeBgTransform() {
+            if (!bgImage) return { scale: 1, offsetX: 0, offsetY: 0 };
+            const canvasW = canvas.width;
+            const canvasH = canvas.height;
+            const scale = Math.min(canvasW / bgWidth, canvasH / bgHeight);
+            const offsetX = (canvasW - bgWidth * scale) / 2;
+            const offsetY = (canvasH - bgHeight * scale) / 2;
+            return { scale, offsetX, offsetY };
+        }
+
+        // ---------- 绘制画布 (预览) ----------
+        function drawCanvas() {
+            // 清除画布 (透明背景)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制底图 (如果存在)
+            if (bgImage) {
+                const transform = computeBgTransform();
+                lastBgScale = transform.scale;
+                lastBgOffsetX = transform.offsetX;
+                lastBgOffsetY = transform.offsetY;
+                
+                ctx.drawImage(
+                    bgImage,
+                    0, 0, bgWidth, bgHeight,
+                    transform.offsetX, transform.offsetY,
+                    bgWidth * transform.scale, bgHeight * transform.scale
+                );
+            } else {
+                // 没有底图：显示深色提示文字
+                ctx.font = '18px Inter, sans-serif';
+                ctx.fillStyle = '#aaccee';
+                ctx.textAlign = 'center';
+                ctx.fillText('⬆ 请上传一张底图', 400, 250);
+                return;
+            }
+
+            // 绘制附图 (如果存在)
+            if (bgImage && overlayImage) {
+                // 边界保护 (确保偏移合理)
+                clampOverlayOffset();
+
+                // 计算附图在canvas上的位置、尺寸
+                const overlayCanvasX = lastBgOffsetX + offsetX * lastBgScale;
+                const overlayCanvasY = lastBgOffsetY + offsetY * lastBgScale;
+                const overlayCanvasW = overlayWidth * scaleFactor * lastBgScale;
+                const overlayCanvasH = overlayHeight * scaleFactor * lastBgScale;
+
+                // 绘制附图 —— 完美支持透明镂空(直接drawImage)
+                ctx.drawImage(
+                    overlayImage,
+                    0, 0, overlayWidth, overlayHeight,
+                    overlayCanvasX, overlayCanvasY,
+                    overlayCanvasW, overlayCanvasH
+                );
+
+                // 绘制一个浅色虚框，表示附图范围 (提升拖拽可视性)
+                ctx.strokeStyle = '#d4faff';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 6]);
+                ctx.strokeRect(overlayCanvasX, overlayCanvasY, overlayCanvasW, overlayCanvasH);
+                ctx.setLineDash([]); // 重置
+            }
+        }
+
+        // ---------- 坐标转换：canvas坐标 -> 底图原始像素坐标 ----------
+        function canvasToRawImage(canvasX, canvasY) {
+            if (!bgImage) return { x: 0, y: 0 };
+            const transform = computeBgTransform(); // 实时计算，避免使用缓存
+            const rawX = (canvasX - transform.offsetX) / transform.scale;
+            const rawY = (canvasY - transform.offsetY) / transform.scale;
+            return { x: rawX, y: rawY };
+        }
+
+        // ---------- 检查是否点击到附图 (基于原始坐标系) ----------
+        function isHitOverlay(rawX, rawY) {
+            if (!overlayImage || !bgImage) return false;
+            const left = offsetX;
+            const right = offsetX + overlayWidth * scaleFactor;
+            const top = offsetY;
+            const bottom = offsetY + overlayHeight * scaleFactor;
+            return (rawX >= left && rawX <= right && rawY >= top && rawY <= bottom);
+        }
+
+        // ---------- 监听拖拽事件 ----------
+        function initDragEvents() {
+            canvas.addEventListener('mousedown', (e) => {
+                if (!bgImage || !overlayImage) return;
+                e.preventDefault();
+
+                // 获取鼠标在canvas上的坐标
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;   // canvas物理像素比
+                const scaleY = canvas.height / rect.height;
+                const canvasX = (e.clientX - rect.left) * scaleX;
+                const canvasY = (e.clientY - rect.top) * scaleY;
+
+                // 转换为底图原始坐标
+                const { x: rawX, y: rawY } = canvasToRawImage(canvasX, canvasY);
+                
+                // 检查是否在附图矩形内
+                if (isHitOverlay(rawX, rawY)) {
+                    isDragging = true;
+                    dragStartRawX = rawX;
+                    dragStartRawY = rawY;
+                    dragStartOffsetX = offsetX;
+                    dragStartOffsetY = offsetY;
+                    canvas.style.cursor = 'grabbing';
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const canvasX = (e.clientX - rect.left) * scaleX;
+                const canvasY = (e.clientY - rect.top) * scaleY;
+
+                const { x: currentRawX, y: currentRawY } = canvasToRawImage(canvasX, canvasY);
+
+                // 计算偏移差值 (原始坐标系)
+                const deltaRawX = currentRawX - dragStartRawX;
+                const deltaRawY = currentRawY - dragStartRawY;
+
+                // 更新offset
+                offsetX = dragStartOffsetX + deltaRawX;
+                offsetY = dragStartOffsetY + deltaRawY;
+
+                // 边界约束
+                clampOverlayOffset();
+                drawCanvas();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    canvas.style.cursor = 'default';
+                    drawCanvas();
+                }
+            });
+
+            // 防止画布内鼠标离开时还保持拖拽
+            canvas.addEventListener('mouseleave', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    canvas.style.cursor = 'default';
+                    drawCanvas();
+                }
+            });
+        }
+
+        // ---------- 滚轮缩放附图 (以鼠标指向位置为权重, 简化版整体缩放) ----------
+        function initWheelScale() {
+            canvas.addEventListener('wheel', (e) => {
+                if (!bgImage || !overlayImage) return;
+                e.preventDefault();
+                const delta = -Math.sign(e.deltaY) * 0.1; // 向上滚放大，向下滚缩小
+                let newScale = scaleFactor + delta;
+                newScale = Math.min(4.0, Math.max(0.1, newScale));
+                scaleFactor = newScale;
+                scaleSlider.value = scaleFactor;
+                scaleValueDisplay.innerText = Math.round(scaleFactor * 100) + '%';
+                clampOverlayOffset();
+                drawCanvas();
+            }, { passive: false });
+        }
+
+        // ---------- 上传底图 ----------
+        bgUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    bgImage = img;
+                    bgWidth = img.width;
+                    bgHeight = img.height;
+                    // 重置附图状态(如果有)
+                    overlayImage = null;
+                    overlayWidth = overlayHeight = 0;
+                    offsetX = offsetY = 0;
+                    scaleFactor = 1.0;
+                    
+                    // 启用附图上传按钮、滑块、重置、导出等
+                    overlayUpload.disabled = false;
+                    scaleSlider.disabled = false;
+                    resetPosBtn.disabled = false;
+                    export1xBtn.disabled = false;
+                    export2xBtn.disabled = false;
+                    scaleSlider.value = 1.0;
+                    scaleValueDisplay.innerText = '100%';
+
+                    drawCanvas();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // ---------- 上传附图(镂空/Logo) ----------
+        overlayUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!bgImage) {
+                alert('请先上传底图，再上传附图');
+                overlayUpload.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    overlayImage = img;
+                    overlayWidth = img.width;
+                    overlayHeight = img.height;
+                    
+                    // 初始化缩放系数为1.0
+                    scaleFactor = 1.0;
+                    scaleSlider.value = 1.0;
+                    scaleValueDisplay.innerText = '100%';
+                    
+                    // 居中显示附图
+                    resetOverlayPosition();  // 内部调用drawCanvas
+
+                    // 确保滑块导出等可用
+                    scaleSlider.disabled = false;
+                    resetPosBtn.disabled = false;
+                    export1xBtn.disabled = false;
+                    export2xBtn.disabled = false;
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // ---------- 滑块缩放监听 ----------
+        scaleSlider.addEventListener('input', function() {
+            if (!overlayImage || !bgImage) return;
+            scaleFactor = parseFloat(scaleSlider.value);
+            scaleValueDisplay.innerText = Math.round(scaleFactor * 100) + '%';
+            clampOverlayOffset();
+            drawCanvas();
+        });
+
+        // ---------- 重置位置按钮 ----------
+        resetPosBtn.addEventListener('click', function() {
+            if (!bgImage || !overlayImage) return;
+            resetOverlayPosition();
+        });
+
+        // ---------- 导出功能 (底图原始分辨率 / 2倍高清) ----------
+        function exportWithScale(multiplier = 1) {
+            if (!bgImage || !overlayImage) {
+                alert('请先上传底图和附图');
+                return;
+            }
+
+            // 创建导出canvas，尺寸为底图原始尺寸 * multiplier
+            const exportCanvas = document.createElement('canvas');
+            const exportCtx = exportCanvas.getContext('2d', { alpha: true });
+            exportCanvas.width = bgWidth * multiplier;
+            exportCanvas.height = bgHeight * multiplier;
+
+            // 绘制底图 (拉伸至全画布，清晰)
+            exportCtx.drawImage(bgImage, 0, 0, bgWidth, bgHeight, 0, 0, exportCanvas.width, exportCanvas.height);
+            
+            // 绘制附图: 位置、尺寸等比缩放 * multiplier
+            if (overlayImage) {
+                const drawX = offsetX * multiplier;
+                const drawY = offsetY * multiplier;
+                const drawW = overlayWidth * scaleFactor * multiplier;
+                const drawH = overlayHeight * scaleFactor * multiplier;
+                exportCtx.drawImage(overlayImage, 0, 0, overlayWidth, overlayHeight, drawX, drawY, drawW, drawH);
+            }
+
+            // 导出为PNG并下载
+            exportCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `synthesized_${multiplier}x.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+
+        export1xBtn.addEventListener('click', () => exportWithScale(1));
+        export2xBtn.addEventListener('click', () => exportWithScale(2));
+
+        // ---------- 初始化拖拽、滚轮、以及初始绘制 ----------
+        initDragEvents();
+        initWheelScale();
+
+        // 初始绘制 (画布灰色, 无底图时显示提示)
+        drawCanvas();
+
+        // 如果没有底图，禁用相关控件
+        if (!bgImage) {
+            overlayUpload.disabled = true;
+            scaleSlider.disabled = true;
+            resetPosBtn.disabled = true;
+            export1xBtn.disabled = true;
+            export2xBtn.disabled = true;
+        }
+    })();
+</script>
+
+<!-- 使用说明：完全支持透明镂空、高分辨率导出不模糊 -->
+</body>
+</html>
