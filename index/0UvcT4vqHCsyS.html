@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>图片叠加编辑器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background: #1e1e1e;
+      color: #fff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 10px 18px;
+      background: #0078d4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #106ebe;
+    }
+    .btn.export {
+      background: #107c10;
+    }
+    .btn.export:hover {
+      background: #0e6a0e;
+    }
+    .canvas-wrapper {
+      position: relative;
+      background: #2d2d2d;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    #mainCanvas {
+      display: block;
+      cursor: grab;
+    }
+    #mainCanvas:active {
+      cursor: grabbing;
+    }
+    .info {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #aaa;
+    }
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="toolbar">
+    <button class="btn" id="loadBase">上传底图</button>
+    <button class="btn" id="loadOverlay">上传附图（支持透明/镂空）</button>
+    <button class="btn export" id="export">导出高清图片</button>
+  </div>
+  <div class="canvas-wrapper">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+  <div class="info">
+    操作说明：拖动附图移动位置；滚轮缩放附图；导出时保持与画布同分辨率，避免模糊。
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+let baseImage = null;
+let overlayImage = null;
+let overlayX = 0, overlayY = 0;
+let overlayScale = 1;
+let isDragging = false;
+let lastX = 0, lastY = 0;
+
+// 上传底图
+document.getElementById('loadBase').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      baseImage = img;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      redraw();
+    };
+    img.src = URL.createObjectURL(file);
+  };
+  input.click();
+});
+
+// 上传附图（支持透明/镂空）
+document.getElementById('loadOverlay').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      overlayImage = img;
+      overlayX = (canvas.width - img.naturalWidth) / 2;
+      overlayY = (canvas.height - img.naturalHeight) / 2;
+      overlayScale = 1;
+      redraw();
+    };
+    img.src = URL.createObjectURL(file);
+  };
+  input.click();
+});
+
+// 重绘
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (baseImage) {
+    ctx.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+  }
+  if (overlayImage) {
+    const w = overlayImage.naturalWidth * overlayScale;
+    const h = overlayImage.naturalHeight * overlayScale;
+    ctx.drawImage(overlayImage, overlayX, overlayY, w, h);
+  }
+}
+
+// 鼠标拖动附图
+canvas.addEventListener('mousedown', e => {
+  if (!overlayImage) return;
+  isDragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+canvas.addEventListener('mousemove', e => {
+  if (!isDragging || !overlayImage) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  overlayX += dx;
+  overlayY += dy;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  redraw();
+});
+canvas.addEventListener('mouseup', () => {
+  isDragging = false;
+});
+canvas.addEventListener('mouseleave', () => {
+  isDragging = false;
+});
+
+// 滚轮缩放附图
+canvas.addEventListener('wheel', e => {
+  if (!overlayImage) return;
+  e.preventDefault();
+  const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
+  const newScale = overlayScale * scaleFactor;
+  if (newScale >= 0.1 && newScale <= 10) {
+    // 以鼠标位置为中心缩放
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const ox = overlayX + (overlayImage.naturalWidth * overlayScale) / 2;
+    const oy = overlayY + (overlayImage.naturalHeight * overlayScale) / 2;
+    const dx = (mx - ox) * (scaleFactor - 1);
+    const dy = (my - oy) * (scaleFactor - 1);
+    overlayX -= dx;
+    overlayY -= dy;
+    overlayScale = newScale;
+    redraw();
+  }
+});
+
+// 导出高清图片（与画布同分辨率）
+document.getElementById('export').addEventListener('click', () => {
+  if (!baseImage) return alert('请先上传底图');
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'composed.png';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, 'image/png', 1.0); // 1.0 最高质量
+});
+</script>
+</body>
+</html>
