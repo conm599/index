@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>图片等比例压缩分辨率</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+  body{padding:20px;max-width:500px;margin:0 auto;line-height:1.5}
+  .card{border:1px solid #ddd;border-radius:12px;padding:20px}
+  h3{margin-bottom:16px}
+  .item{margin:10px 0}
+  input[type=number]{width:100px;padding:6px;border-radius:6px;border:1px solid #ccc}
+  button{padding:8px 16px;background:#007bff;color:white;border:none;border-radius:6px;cursor:pointer;margin-right:6px}
+  #preview{max-width:100%;max-height:300px;margin:12px 0;border-radius:8px;display:none}
+  #download{background:#28a745}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>图片等比例压缩分辨率</h3>
+  <div class="item">
+    <input type="file" id="file" accept="image/*">
+  </div>
+  <div class="item">
+    宽度：<input type="number" id="w" placeholder="宽度"> px
+    高度：<input type="number" id="h" placeholder="高度"> px
+  </div>
+  <div class="item">
+    <button onclick="setRatio()">等比例</button>
+    <button onclick="compress()">生成</button>
+    <button id="download" onclick="down()">下载</button>
+  </div>
+  <img id="preview" />
+</div>
+
+<script>
+let imgBlob, imgOrigin;
+const img = new Image();
+const preview = document.getElementById('preview');
+const w = document.getElementById('w');
+const h = document.getElementById('h');
+
+document.getElementById('file').onchange = e => {
+  const f = e.target.files[0];
+  if(!f) return;
+  const url = URL.createObjectURL(f);
+  img.onload = () => {
+    imgOrigin = {w:img.width, h:img.height};
+    w.value = img.width;
+    h.value = img.height;
+  };
+  img.src = url;
+};
+
+// 等比例
+function setRatio(){
+  if(!imgOrigin) return alert('请先选图');
+  if(w.value){
+    h.value = Math.round(w.value * imgOrigin.h / imgOrigin.w);
+  }else if(h.value){
+    w.value = Math.round(h.value * imgOrigin.w / imgOrigin.h);
+  }
+}
+
+// 压缩
+function compress(){
+  const nw = Number(w.value), nh = Number(h.value);
+  if(!nw||!nh) return alert('填分辨率');
+  const canvas = document.createElement('canvas');
+  canvas.width = nw;
+  canvas.height = nh;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img,0,0,nw,nh);
+  canvas.toBlob(b=>{
+    imgBlob = b;
+    preview.src = URL.createObjectURL(b);
+    preview.style.display = 'block';
+  },'image/jpeg',0.9);
+}
+
+// 下载
+function down(){
+  if(!imgBlob) return alert('先生成');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(imgBlob);
+  a.download = 'compressed.jpg';
+  a.click();
+}
+</script>
+</body>
+</html>
