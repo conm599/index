@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎤 TXT → LRC 歌词打点器 · 开始/结束时间制作</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
+        body {
+            background: linear-gradient(145deg, #f6f9fc 0%, #e9f2f8 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+        .card {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 36px;
+            box-shadow: 0 25px 50px -12px rgba(0,20,40,0.4), inset 0 1px 2px rgba(255,255,255,0.8);
+            padding: 28px 30px;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        h1 {
+            font-size: 2.1rem;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+            color: #1a3e60;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1 small {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #3b6e9b;
+            margin-left: auto;
+            background: #d4e4f0;
+            padding: 5px 12px;
+            border-radius: 40px;
+            letter-spacing: 0.3px;
+        }
+        .sub {
+            color: #2c5779;
+            margin-top: -5px;
+            margin-bottom: 25px;
+            border-left: 4px solid #70b8ff;
+            padding-left: 18px;
+            font-weight: 350;
+            background: linear-gradient(to right, transparent, #d9e9ff30);
+            border-radius: 0 20px 20px 0;
+        }
+        .upload-grid {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+        .upload-box {
+            flex: 1 1 260px;
+            background: #ffffffc7;
+            border-radius: 26px;
+            padding: 18px 20px;
+            border: 1px solid #cdddee;
+            box-shadow: 0 6px 14px #c8d8e9a0;
+            transition: all 0.2s;
+        }
+        .upload-box:hover {
+            background: white;
+            border-color: #8bb9e0;
+        }
+        .upload-box label {
+            font-weight: 600;
+            color: #144a70;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            font-size: 1.1rem;
+        }
+        .upload-box input[type="file"] {
+            width: 100%;
+            padding: 10px 0;
+            font-size: 0.95rem;
+            color: #1f4970;
+            border: 1px dashed #7ca9d0;
+            border-radius: 18px;
+            background: #f0f7ff;
+            text-indent: 12px;
+            cursor: pointer;
+        }
+        .upload-box input[type="file"]::file-selector-button {
+            background: #3773a5;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 30px;
+            margin-right: 15px;
+            font-weight: 500;
+            transition: 0.15s;
+            cursor: pointer;
+        }
+        .filename {
+            font-size: 0.9rem;
+            margin-top: 10px;
+            color: #2c4d6e;
+            background: #dbeafe;
+            padding: 5px 15px;
+            border-radius: 30px;
+            word-break: break-all;
+        }
+        .player-section {
+            background: #d5e6f5c0;
+            border-radius: 100px;
+            padding: 16px 25px;
+            margin: 25px 0 20px 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px;
+            backdrop-filter: blur(4px);
+            border: 1px solid white;
+        }
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .player-controls audio {
+            width: 320px;
+            min-width: 200px;
+            height: 40px;
+        }
+        .time-badge {
+            background: #1f3f5c;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 60px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            box-shadow: inset 0 -2px 0 #abbacd;
+        }
+        .action-btn {
+            background: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #1c4b77;
+            box-shadow: 0 6px 12px #b0c9dd;
+            cursor: pointer;
+            transition: 0.1s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid #ffffff;
+        }
+        .action-btn:hover {
+            background: #e7f0ff;
+            box-shadow: 0 8px 16px #9cb9d4;
+            transform: scale(0.98);
+        }
+        .action-btn.danger {
+            background: #ffe8e8;
+            color: #aa3c3c;
+        }
+        .lyrics-table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 24px;
+            background: #ecf3fa90;
+            padding: 5px 5px 5px 5px;
+            box-shadow: inset 0 2px 8px #bacddc;
+            margin: 20px 0;
+            scrollbar-width: thin;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        th {
+            background: #2e5f88;
+            color: white;
+            font-weight: 500;
+            padding: 15px 6px;
+            font-size: 0.95rem;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            white-space: nowrap;
+        }
+        td {
+            padding: 12px 6px;
+            border-bottom: 1px solid #cbdae7;
+            vertical-align: middle;
+            background: #ffffffd4;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .line-number {
+            font-weight: 600;
+            color: #256ba0;
+            width: 50px;
+            text-align: center;
+            background: #e3f0fc;
+        }
+        .lyric-text {
+            max-width: 300px;
+            word-break: break-word;
+            font-weight: 500;
+            color: #153e5a;
+        }
+        .placeholder {
+            color: #949fb0;
+            font-style: italic;
+            font-size: 0.95rem;
+        }
+        .time-input {
+            width: 95px;
+            padding: 8px 6px;
+            border-radius: 20px;
+            border: 1px solid #b9cfec;
+            background: #f5faff;
+            text-align: center;
+            font-family: monospace;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #113955;
+            outline: none;
+            transition: 0.1s;
+        }
+        .time-input:focus {
+            border-color: #3080d0;
+            box-shadow: 0 0 0 3px #b2d5ff;
+        }
+        .btn-set {
+            background: #c5dfff;
+            border: none;
+            border-radius: 30px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #0d3b60;
+            cursor: pointer;
+            margin: 0 2px;
+            box-shadow: 0 2px 4px #a6c1db;
+            white-space: nowrap;
+            transition: 0.1s;
+            border: 1px solid white;
+        }
+        .btn-set:hover {
+            background: #a3c6f0;
+            transform: scale(0.96);
+        }
+        .footer-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 25px;
+            gap: 15px;
+        }
+        .export-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .export-btn {
+            background: #1e6b4c;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            padding: 14px 32px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            box-shadow: 0 10px 18px #48745f;
+            cursor: pointer;
+            border: 1px solid #9fd3b6;
+            transition: 0.1s;
+        }
+        .export-btn:hover {
+            background: #14855a;
+            transform: scale(1.02);
+        }
+        .reset-btn {
+            background: #adc5dd;
+            color: #1a3b50;
+            padding: 12px 26px;
+        }
+        .note {
+            color: #28638b;
+            font-size: 0.9rem;
+            background: #ecf3fa;
+            border-radius: 30px;
+            padding: 8px 18px;
+        }
+        i { opacity: 0.7; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>
+        📄 TXT → 🎶 LRC 时间戳工坊
+        <small>暂停·开始·结束</small>
+    </h1>
+    <div class="sub">上传音频 + 歌词文本，播放时点击【设开始/结束】为每一行打点 (可手动修正)</div>
+
+    <!-- 上传区 -->
+    <div class="upload-grid">
+        <div class="upload-box">
+            <label>🎵 1. 上传音频 (MP3, M4A...)</label>
+            <input type="file" id="audioUpload" accept="audio/*">
+            <div id="audioFileName" class="filename">未选择音频</div>
+        </div>
+        <div class="upload-box">
+            <label>📃 2. 上传TXT歌词 (每行一句)</label>
+            <input type="file" id="txtUpload" accept=".txt, text/plain">
+            <div id="txtFileName" class="filename">未选择TXT</div>
+        </div>
+    </div>
+
+    <!-- 播放器 + 当前时间显示 + 停止 -->
+    <div class="player-section">
+        <div class="player-controls">
+            <audio id="audioPlayer" controls style="width:300px;"></audio>
+            <button class="action-btn" id="stopBtn">⏹️ 停止</button>
+        </div>
+        <div class="time-badge" id="currentTimeDisplay">00:00.00</div>
+    </div>
+
+    <!-- 歌词表格区域 -->
+    <div class="lyrics-table-container">
+        <table id="lyricsTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>歌词原文</th>
+                    <th>⏱️ 开始时间 (mm:ss.xx)</th>
+                    <th>⏱️ 结束时间 (mm:ss.xx)</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- 动态生成行 -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 底部工具条 -->
+    <div class="footer-bar">
+        <div class="note">
+            💡 点击【设开始/结束】自动填入当前播放时间<br>可手动编辑格式 mm:ss.xx (例如 01:14.25)
+        </div>
+        <div class="export-buttons">
+            <button class="action-btn" id="clearAllTimes">🧹 清除所有时间</button>
+            <button class="export-btn" id="exportLrc">⬇️ 导出标准 LRC (开始+结束双标签)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // DOM 元素
+    const audioFile = document.getElementById('audioUpload');
+    const txtFile = document.getElementById('txtUpload');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const audioNameSpan = document.getElementById('audioFileName');
+    const txtNameSpan = document.getElementById('txtFileName');
+    const tableBody = document.getElementById('tableBody');
+    const currentTimeSpan = document.getElementById('currentTimeDisplay');
+    const stopBtn = document.getElementById('stopBtn');
+    const clearTimesBtn = document.getElementById('clearAllTimes');
+    const exportBtn = document.getElementById('exportLrc');
+
+    // 存储原始歌词行 (真实文本)
+    let lyricsLines = [];
+
+    // --- 辅助: 格式化时间为 mm:ss.xx (秒 -> 字符串)
+    function formatTime(seconds) {
+        if (isNaN(seconds) || seconds < 0) return "00:00.00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        const cent = Math.floor((seconds - Math.floor(seconds)) * 100);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${cent.toString().padStart(2, '0')}`;
+    }
+
+    // --- 解析 mm:ss.xx 字符串 -> 秒数 (用于校验, 这里暂不需要转换, 保留用于扩展)
+    // function parseTimeToSeconds(tStr) { ... } (暂不使用)
+
+    // --- 更新当前时间显示
+    audioPlayer.addEventListener('timeupdate', () => {
+        const t = audioPlayer.currentTime || 0;
+        currentTimeSpan.innerText = formatTime(t);
+    });
+
+    // --- 停止按钮
+    stopBtn.addEventListener('click', () => {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+    });
+
+    // --- 上传音频
+    audioFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        audioNameSpan.innerText = file.name;
+        const url = URL.createObjectURL(file);
+        audioPlayer.src = url;
+        audioPlayer.load();
+        // 释放之前的blob
+        audioPlayer.onloadeddata = () => URL.revokeObjectURL(url);
+    });
+
+    // --- 上传TXT并解析
+    txtFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        txtNameSpan.innerText = file.name;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const content = ev.target.result;
+            // 按行分割 (保留空行)
+            let lines = content.split(/\r?\n/);
+            // 保留原始行 (不trim, 保留空格? 但歌词通常不需要保留首尾空格，但为了原样，保留原始内容)
+            // 但为了显示整洁，可trimEnd? 决定保留原始(包括可能空格) 用户自己看
+            lyricsLines = lines;   // 原样存储
+
+            renderTable(lyricsLines);
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+
+    // --- 渲染表格
+    function renderTable(lines) {
+        if (!tableBody) return;
+        let html = '';
+        for (let i = 0; i < lines.length; i++) {
+            const lineText = lines[i];
+            const lineNum = i + 1;
+            // 占位符逻辑：如果原始文本为空字符串，显示灰色斜体占位符，但数据存储仍为''
+            let displayText = lineText === '' ? '<span class="placeholder">(空行)</span>' : escapeHtml(lineText);
+
+            html += `<tr data-index="${i}">
+                <td class="line-number">${lineNum}</td>
+                <td class="lyric-text">${displayText}</td>
+                <td><input type="text" class="time-input start-input" placeholder="00:00.00" value=""></td>
+                <td><input type="text" class="time-input end-input" placeholder="00:00.00" value=""></td>
+                <td>
+                    <button class="btn-set set-start">🎬 设开始</button>
+                    <button class="btn-set set-end">⏹️ 设结束</button>
+                </td>
+            </tr>`;
+        }
+        tableBody.innerHTML = html;
+
+        // 绑定每行内的两个按钮 (采用事件代理更优, 但简单直接绑定)
+        document.querySelectorAll('.set-start').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const row = btn.closest('tr');
+                if (!row) return;
+                const startInput = row.querySelector('.start-input');
+                if (startInput) {
+                    const currentTime = audioPlayer.currentTime;
+                    if (isFinite(currentTime) && audioPlayer.readyState >= 1) {
+                        startInput.value = formatTime(currentTime);
+                    } else {
+                        alert('⏳ 音频未加载或尚未播放，请先加载音频并播放/暂停');
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll('.set-end').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const row = btn.closest('tr');
+                if (!row) return;
+                const endInput = row.querySelector('.end-input');
+                if (endInput) {
+                    const currentTime = audioPlayer.currentTime;
+                    if (isFinite(currentTime) && audioPlayer.readyState >= 1) {
+                        endInput.value = formatTime(currentTime);
+                    } else {
+                        alert('⏳ 音频未加载或尚未播放，请先加载音频并播放/暂停');
+                    }
+                }
+            });
+        });
+    }
+
+    // 简单的转义防止XSS (歌词文本显示安全)
+    function escapeHtml(unsafe) {
+        return unsafe.replace(/[&<>"']/g, function(m) {
+            if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;';
+            if(m === '"') return '&quot;'; return '&#039;';
+        });
+    }
+
+    // --- 清除所有时间输入框
+    clearTimesBtn.addEventListener('click', () => {
+        document.querySelectorAll('.start-input, .end-input').forEach(inp => inp.value = '');
+    });
+
+    // --- 导出LRC (标准格式: 每行开始标签 [mm:ss.xx] 紧接着结束标签 [mm:ss.xx] (如果有) 再跟歌词)
+    exportBtn.addEventListener('click', () => {
+        if (lyricsLines.length === 0) {
+            alert('请先上传TXT歌词文件');
+            return;
+        }
+
+        const rows = document.querySelectorAll('#tableBody tr');
+        if (rows.length === 0) {
+            alert('没有歌词行可导出');
+            return;
+        }
+
+        let lrcContent = '[ti:Converted from TXT]\n[ar:]\n[al:]\n[by: Txt2Lrc Tool]\n\n';
+
+        // 遍历所有行
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const startInput = row.querySelector('.start-input');
+            const endInput = row.querySelector('.end-input');
+            const originalText = lyricsLines[i] !== undefined ? lyricsLines[i] : '';   // 原始文本
+
+            let startVal = startInput ? startInput.value.trim() : '';
+            let endVal = endInput ? endInput.value.trim() : '';
+
+            // 简单校验格式: 如果非空但不符合 mm:ss.xx 则忽略该标签并给个提示 (也可直接尝试修正，但这里只做提示)
+            // 只导出看起来像 [mm:ss.xx] 的标签, 宽松一点: 只要匹配 数字:数字.数字 就保留
+            const timeRegex = /^\d{1,2}:\d{1,2}\.\d{1,2}$/;
+
+            let startTag = '';
+            if (startVal && timeRegex.test(startVal)) {
+                // 确保mm为2位, ss 2位, xx 2位, 可以用补零但不需要太严格
+                startTag = '[' + startVal + ']';
+            } else if (startVal) {
+                console.warn(`行 ${i+1} 开始时间格式非 mm:ss.xx, 已忽略: "${startVal}"`);
+            }
+
+            let endTag = '';
+            if (endVal && timeRegex.test(endVal)) {
+                endTag = '[' + endVal + ']';
+            } else if (endVal) {
+                console.warn(`行 ${i+1} 结束时间格式非 mm:ss.xx, 已忽略: "${endVal}"`);
+            }
+
+            // 拼接: 开始标签 + 结束标签 + 歌词 (保留原始文本)
+            const lineLyric = originalText === '' ? '' : originalText;  // 空行保留空
+            lrcContent += startTag + endTag + lineLyric + '\n';
+        }
+
+        // 下载文件
+        const blob = new Blob([lrcContent], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        // 获取原txt文件名作为基础
+        let txtBase = 'converted';
+        if (txtFile.files[0]) {
+            txtBase = txtFile.files[0].name.replace(/\.txt$/i, '') || 'lyrics';
+        } else {
+            txtBase = 'lyrics_from_txt';
+        }
+        link.download = txtBase + '.lrc';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+
+        // 简单成功提示
+        alert(`✅ 已导出 LRC (包含 ${rows.length} 行, 有效时间标签已保留)`);
+    });
+
+    // 初始空白表格 (可选显示提示行)
+    window.addEventListener('load', () => {
+        // 显示一行提示
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#4f6f8f;">⬆️ 请上传 .txt 歌词文件，表格将自动出现</td></tr>`;
+    });
+})();
+</script>
+</body>
+</html>
