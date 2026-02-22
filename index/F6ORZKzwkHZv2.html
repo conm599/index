@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LRC Studio - 歌词时间轴编辑器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --bg-hover: #22222e;
+            --border: #2a2a3a;
+            --text-primary: #f0f0f5;
+            --text-secondary: #8888a0;
+            --text-muted: #555566;
+            --accent: #00d4aa;
+            --accent-dim: #00d4aa33;
+            --warning: #ffaa00;
+            --danger: #ff4466;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* 背景动效 */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.5;
+            transition: transform 0.3s ease-out;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* 歌词行 */
+        .lyric-line {
+            display: grid;
+            grid-template-columns: 80px 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .lyric-line:hover {
+            background: var(--bg-hover);
+        }
+
+        .lyric-line.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+        }
+
+        .lyric-line.marked {
+            border-left: 3px solid var(--accent);
+        }
+
+        .lyric-line.current-play {
+            background: linear-gradient(90deg, var(--accent-dim), transparent);
+        }
+
+        /* 时间输入 */
+        .time-input {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            width: 70px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .time-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
+
+        /* 按钮 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--text-muted);
+        }
+
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+        }
+
+        .btn-play {
+            width: 56px;
+            height: 56px;
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .btn-play:hover {
+            filter: brightness(1.1);
+            transform: scale(1.05);
+        }
+
+        /* 进度条 */
+        .progress-container {
+            position: relative;
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #00ffcc);
+            border-radius: 4px;
+            transition: width 0.1s linear;
+        }
+
+        .progress-container:hover .progress-bar {
+            filter: brightness(1.2);
+        }
+
+        /* 文件上传区 */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        /* LRC预览 */
+        .lrc-preview {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: var(--text-secondary);
+        }
+
+        /* 动画 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.4s ease forwards;
+        }
+
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+
+        /* 波形动画 */
+        .waveform {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 20px;
+        }
+
+        .waveform span {
+            width: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+
+        .waveform span:nth-child(1) { animation-delay: 0s; height: 40%; }
+        .waveform span:nth-child(2) { animation-delay: 0.1s; height: 70%; }
+        .waveform span:nth-child(3) { animation-delay: 0.2s; height: 50%; }
+        .waveform span:nth-child(4) { animation-delay: 0.3s; height: 80%; }
+        .waveform span:nth-child(5) { animation-delay: 0.4s; height: 60%; }
+
+        @keyframes wave {
+            0%, 100% { transform: scaleY(0.5); }
+            50% { transform: scaleY(1); }
+        }
+
+        .waveform.paused span {
+            animation-play-state: paused;
+        }
+
+        /* 快捷键提示 */
+        .kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 24px;
+            padding: 2px 6px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* 状态标签 */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-badge.ready {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .status-badge.waiting {
+            background: rgba(255, 170, 0, 0.15);
+            color: var(--warning);
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .lyric-line {
+                grid-template-columns: 60px 1fr;
+                gap: 8px;
+                padding: 10px 12px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景效果 -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow" id="bgGlow" style="top: -200px; left: -200px;"></div>
+
+    <!-- 主容器 -->
+    <div class="relative z-10 max-w-6xl mx-auto px-4 py-8">
+        <!-- 头部 -->
+        <header class="mb-8 animate-in">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight flex items-center gap-3">
+                        <svg class="w-8 h-8 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 18V5l12-2v13"/>
+                            <circle cx="6" cy="18" r="3"/>
+                            <circle cx="18" cy="16" r="3"/>
+                        </svg>
+                        LRC Studio
+                    </h1>
+                    <p class="text-sm text-[var(--text-secondary)] mt-1">歌词时间轴编辑器 · TXT to LRC Converter</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="status-badge waiting" id="statusBadge">
+                        <span class="w-2 h-2 rounded-full bg-current"></span>
+                        等待输入
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主布局 -->
+        <div class="grid lg:grid-cols-5 gap-6">
+            <!-- 左侧：输入与控制 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 文本输入 -->
+                <section class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 animate-in stagger-1">
+                    <h2 class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                        </svg>
+                        文本输入
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div class="upload-zone" id="txtUploadZone">
+                            <input type="file" id="txtFileInput" accept=".txt" class="hidden">
+                            <svg class="w-10 h-10 mx-auto mb-3 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <p class="text-sm text-[var(--text-secondary)]">点击或拖拽上传 TXT 文件</p>
+                            <p class="text-xs text-[var(--text-muted)] mt-1">或直接在下方粘贴文本</p>
+                        </div>
+                        
+                        <textarea 
+                            id="textInput" 
+                            placeholder="在此粘贴歌词文本，每行一句..."
+                            class="w-full h-40 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4 text-sm resize-none focus:outline-none focus:border-[var(--accent)] transition-colors"
+                        ></textarea>
+                        
+                        <button class="btn btn-primary w-full" id="parseBtn">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="13 17 18 12 13 7"/>
+                                <polyline points="6 17 11 12 6 7"/>
+                            </svg>
+                            解析文本
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 音频控制 -->
+                <section class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 animate-in stagger-2">
+                    <h2 class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                        音频控制
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <div class="upload-zone" id="audioUploadZone" style="padding: 24px;">
+                            <input type="file" id="audioFileInput" accept="audio/*" class="hidden">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M9 18V5l12-2v13"/>
+                                <circle cx="6" cy="18" r="3"/>
+                                <circle cx="18" cy="16" r="3"/>
+                            </svg>
+                            <p class="text-sm text-[var(--text-secondary)]" id="audioFileName">上传音频文件</p>
+                        </div>
+                        
+                        <audio id="audioPlayer" class="hidden"></audio>
+                        
+                        <!-- 播放控制 -->
+                        <div class="flex items-center justify-center gap-4 py-2">
+                            <button class="btn btn-icon btn-secondary" id="skipBackBtn" title="后退5秒">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="11 19 2 12 11 5 11 19"/>
+                                    <polygon points="22 19 13 12 22 5 22 19"/>
+                                </svg>
+                            </button>
+                            
+                            <button class="btn btn-play btn-icon" id="playBtn" title="播放/暂停 (空格)">
+                                <svg class="w-6 h-6 play-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                                <svg class="w-6 h-6 pause-icon hidden" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="4" width="4" height="16"/>
+                                    <rect x="14" y="4" width="4" height="16"/>
+                                </svg>
+                            </button>
+                            
+                            <button class="btn btn-icon btn-secondary" id="skipForwardBtn" title="前进5秒">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="13 19 22 12 13 5 13 19"/>
+                                    <polygon points="2 19 11 12 2 5 2 19"/>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div class="space-y-2">
+                            <div class="progress-container" id="progressBar">
+                                <div class="progress-bar" id="progressFill" style="width: 0%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs mono text-[var(--text-muted)]">
+                                <span id="currentTime">00:00.00</span>
+                                <span id="totalTime">00:00.00</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 波形指示 -->
+                        <div class="flex items-center justify-center">
+                            <div class="waveform paused" id="waveform">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 快捷键 -->
+                <section class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 animate-in stagger-3">
+                    <h2 class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">快捷键</h2>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="kbd">Space</span>
+                            <span class="text-[var(--text-secondary)]">播放/暂停</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="kbd">Enter</span>
+                            <span class="text-[var(--text-secondary)]">标记当前行</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="kbd">←</span>
+                            <span class="text-[var(--text-secondary)]">后退5秒</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="kbd">→</span>
+                            <span class="text-[var(--text-secondary)]">前进5秒</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="kbd">↑</span>
+                            <span class="text-[var(--text-secondary)]">上一行</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="kbd">↓</span>
+                            <span class="text-[var(--text-secondary)]">下一行</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 右侧：歌词编辑 -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- 歌词列表 -->
+                <section class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 animate-in stagger-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="8" y1="6" x2="21" y2="6"/>
+                                <line x1="8" y1="12" x2="21" y2="12"/>
+                                <line x1="8" y1="18" x2="21" y2="18"/>
+                                <line x1="3" y1="6" x2="3.01" y2="6"/>
+                                <line x1="3" y1="12" x2="3.01" y2="12"/>
+                                <line x1="3" y1="18" x2="3.01" y2="18"/>
+                            </svg>
+                            歌词时间轴
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <button class="btn btn-secondary text-xs py-2 px-3" id="clearAllBtn">
+                                清除全部时间
+                            </button>
+                            <button class="btn btn-primary text-xs py-2 px-3" id="markCurrentBtn">
+                                标记当前行
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-1 max-h-[400px] overflow-y-auto pr-2" id="lyricsList">
+                        <div class="text-center py-12 text-[var(--text-muted)]">
+                            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <p>请先输入或上传歌词文本</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- LRC 预览 -->
+                <section class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 animate-in stagger-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 18 22 12 16 6"/>
+                                <polyline points="8 6 2 12 8 18"/>
+                            </svg>
+                            LRC 预览
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <button class="btn btn-secondary text-xs py-2 px-3" id="copyLrcBtn">
+                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                                复制
+                            </button>
+                            <button class="btn btn-primary text-xs py-2 px-3" id="downloadLrcBtn">
+                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                下载 LRC
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="lrc-preview" id="lrcPreview">
+                        等待歌词输入...
+                    </div>
+                </section>
+
+                <!-- 歌曲信息 -->
+                <section class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 animate-in stagger-3">
+                    <h2 class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">歌曲信息 (可选)</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-[var(--text-muted)] mb-1 block">标题</label>
+                            <input type="text" id="songTitle" placeholder="歌曲名称" 
+                                class="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent)] transition-colors">
+                        </div>
+                        <div>
+                            <label class="text-xs text-[var(--text-muted)] mb-1 block">艺术家</label>
+                            <input type="text" id="songArtist" placeholder="歌手/乐队" 
+                                class="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent)] transition-colors">
+                        </div>
+                        <div>
+                            <label class="text-xs text-[var(--text-muted)] mb-1 block">专辑</label>
+                            <input type="text" id="songAlbum" placeholder="专辑名称" 
+                                class="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent)] transition-colors">
+                        </div>
+                        <div>
+                            <label class="text-xs text-[var(--text-muted)] mb-1 block">制作</label>
+                            <input type="text" id="songAuthor" placeholder="LRC制作者" 
+                                class="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent)] transition-colors">
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[var(--bg-card)] border border-[var(--border)] px-4 py-3 rounded-lg shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2">
+        <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        // =====================
+        // 状态管理
+        // =====================
+        const state = {
+            lyrics: [],           // { time: null, text: string }
+            currentLine: 0,       // 当前选中行
+            isPlaying: false,
+            audioLoaded: false,
+            audioFile: null
+        };
+
+        // =====================
+        // DOM 元素引用
+        // =====================
+        const elements = {
+            textInput: document.getElementById('textInput'),
+            parseBtn: document.getElementById('parseBtn'),
+            lyricsList: document.getElementById('lyricsList'),
+            lrcPreview: document.getElementById('lrcPreview'),
+            audioPlayer: document.getElementById('audioPlayer'),
+            audioFileInput: document.getElementById('audioFileInput'),
+            audioUploadZone: document.getElementById('audioUploadZone'),
+            audioFileName: document.getElementById('audioFileName'),
+            playBtn: document.getElementById('playBtn'),
+            skipBackBtn: document.getElementById('skipBackBtn'),
+            skipForwardBtn: document.getElementById('skipForwardBtn'),
+            progressBar: document.getElementById('progressBar'),
+            progressFill: document.getElementById('progressFill'),
+            currentTime: document.getElementById('currentTime'),
+            totalTime: document.getElementById('totalTime'),
+            markCurrentBtn: document.getElementById('markCurrentBtn'),
+            clearAllBtn: document.getElementById('clearAllBtn'),
+            copyLrcBtn: document.getElementById('copyLrcBtn'),
+            downloadLrcBtn: document.getElementById('downloadLrcBtn'),
+            waveform: document.getElementById('waveform'),
+            statusBadge: document.getElementById('statusBadge'),
+            txtFileInput: document.getElementById('txtFileInput'),
+            txtUploadZone: document.getElementById('txtUploadZone'),
+            toast: document.getElementById('toast'),
+            toastMessage: document.getElementById('toastMessage'),
+            songTitle: document.getElementById('songTitle'),
+            songArtist: document.getElementById('songArtist'),
+            songAlbum: document.getElementById('songAlbum'),
+            songAuthor: document.getElementById('songAuthor'),
+            bgGlow: document.getElementById('bgGlow')
+        };
+
+        // =====================
+        // 工具函数
+        // =====================
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds === null) return '00:00.00';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toFixed(2).padStart(5, '0')}`;
+        }
+
+        function parseTimeToSeconds(timeStr) {
+            if (!timeStr) return null;
+            const match = timeStr.match(/^(\d+):(\d+\.?\d*)$/);
+            if (match) {
+                return parseInt(match[1]) * 60 + parseFloat(match[2]);
+            }
+            return null;
+        }
+
+        function showToast(message) {
+            elements.toastMessage.textContent = message;
+            elements.toast.style.opacity = '1';
+            elements.toast.style.pointerEvents = 'auto';
+            setTimeout(() => {
+                elements.toast.style.opacity = '0';
+                elements.toast.style.pointerEvents = 'none';
+            }, 2500);
+        }
+
+        function updateStatus(status, text) {
+            elements.statusBadge.className = `status-badge ${status}`;
+            elements.statusBadge.innerHTML = `
+                <span class="w-2 h-2 rounded-full bg-current"></span>
+                ${text}
+            `;
+        }
+
+        // =====================
+        // 歌词解析与渲染
+        // =====================
+        function parseLyrics(text) {
+            const lines = text.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            
+            state.lyrics = lines.map(text => ({
+                time: null,
+                text: text
+            }));
+            state.currentLine = 0;
+            renderLyricsList();
+            updateLrcPreview();
+            updateStatus('ready', `已加载 ${state.lyrics.length} 行`);
+        }
+
+        function renderLyricsList() {
+            if (state.lyrics.length === 0) {
+                elements.lyricsList.innerHTML = `
+                    <div class="text-center py-12 text-[var(--text-muted)]">
+                        <svg class="w-12 h-12 mx-auto mb-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <p>请先输入或上传歌词文本</p>
+                    </div>
+                `;
+                return;
+            }
+
+            elements.lyricsList.innerHTML = state.lyrics.map((lyric, index) => `
+                <div class="lyric-line ${lyric.time !== null ? 'marked' : ''} ${index === state.currentLine ? 'active' : ''}" 
+                     data-index="${index}" data-time="${lyric.time || ''}">
+                    <input type="text" 
+                           class="time-input" 
+                           value="${lyric.time !== null ? formatTime(lyric.time) : ''}" 
+                           placeholder="--:--.--"
+                           data-index="${index}">
+                    <span class="text-sm">${escapeHtml(lyric.text)}</span>
+                    <button class="btn btn-icon btn-secondary w-8 h-8 mark-btn" data-index="${index}" title="标记当前时间">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+
+            // 绑定事件
+            elements.lyricsList.querySelectorAll('.lyric-line').forEach(line => {
+                line.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('time-input') || e.target.closest('.mark-btn')) return;
+                    const index = parseInt(line.dataset.index);
+                    setCurrentLine(index);
+                });
+            });
+
+            elements.lyricsList.querySelectorAll('.time-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    const time = parseTimeToSeconds(e.target.value);
+                    state.lyrics[index].time = time;
+                    renderLyricsList();
+                    updateLrcPreview();
+                });
+                input.addEventListener('focus', (e) => {
+                    const index = parseInt(e.target.dataset.index);
+                    setCurrentLine(index);
+                });
+            });
+
+            elements.lyricsList.querySelectorAll('.mark-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(btn.dataset.index);
+                    setCurrentLine(index);
+                    markCurrentTime();
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function setCurrentLine(index) {
+            if (index < 0 || index >= state.lyrics.length) return;
+            state.currentLine = index;
+            renderLyricsList();
+            
+            // 滚动到当前行
+            const line = elements.lyricsList.querySelector(`[data-index="${index}"]`);
+            if (line) {
+                line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function markCurrentTime() {
+            if (!state.audioLoaded || state.lyrics.length === 0) {
+                showToast('请先上传音频文件');
+                return;
+            }
+
+            const currentTime = elements.audioPlayer.currentTime;
+            state.lyrics[state.currentLine].time = currentTime;
+            
+            // 自动跳到下一行
+            if (state.currentLine < state.lyrics.length - 1) {
+                state.currentLine++;
+            }
+            
+            renderLyricsList();
+            updateLrcPreview();
+            showToast(`已标记: ${formatTime(currentTime)}`);
+        }
+
+        // =====================
+        // LRC 预览与导出
+        // =====================
+        function updateLrcPreview() {
+            if (state.lyrics.length === 0) {
+                elements.lrcPreview.textContent = '等待歌词输入...';
+                return;
+            }
+
+            let lrcContent = '';
+            
+            // 添加元数据
+            const title = elements.songTitle.value.trim();
+            const artist = elements.songArtist.value.trim();
+            const album = elements.songAlbum.value.trim();
+            const author = elements.songAuthor.value.trim();
+
+            if (title) lrcContent += `[ti:${title}]\n`;
+            if (artist) lrcContent += `[ar:${artist}]\n`;
+            if (album) lrcContent += `[al:${album}]\n`;
+            if (author) lrcContent += `[by:${author}]\n`;
+            
+            lrcContent += '[tool:LRC Studio]\n\n';
+
+            state.lyrics.forEach(lyric => {
+                if (lyric.time !== null) {
+                    const mins = Math.floor(lyric.time / 60);
+                    const secs = (lyric.time % 60).toFixed(2);
+                    lrcContent += `[${mins.toString().padStart(2, '0')}:${secs.padStart(5, '0')}]${lyric.text}\n`;
+                } else {
+                    lrcContent += `[-:--.--]${lyric.text}\n`;
+                }
+            });
+
+            elements.lrcPreview.textContent = lrcContent;
+        }
+
+        function downloadLrc() {
+            if (state.lyrics.length === 0) {
+                showToast('没有歌词可导出');
+                return;
+            }
+
+            const title = elements.songTitle.value.trim() || 'lyrics';
+            let lrcContent = '';
+            
+            const artist = elements.songArtist.value.trim();
+            const album = elements.songAlbum.value.trim();
+            const author = elements.songAuthor.value.trim();
+
+            if (title) lrcContent += `[ti:${title}]\n`;
+            if (artist) lrcContent += `[ar:${artist}]\n`;
+            if (album) lrcContent += `[al:${album}]\n`;
+            if (author) lrcContent += `[by:${author}]\n`;
+            lrcContent += '[tool:LRC Studio]\n\n';
+
+            state.lyrics.forEach(lyric => {
+                if (lyric.time !== null) {
+                    const mins = Math.floor(lyric.time / 60);
+                    const secs = (lyric.time % 60).toFixed(2);
+                    lrcContent += `[${mins.toString().padStart(2, '0')}:${secs.padStart(5, '0')}]${lyric.text}\n`;
+                } else {
+                    lrcContent += `${lyric.text}\n`;
+                }
+            });
+
+            const blob = new Blob([lrcContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}.lrc`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast('LRC 文件已下载');
+        }
+
+        function copyLrc() {
+            const text = elements.lrcPreview.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已复制到剪贴板');
+            }).catch(() => {
+                showToast('复制失败');
+            });
+        }
+
+        // =====================
+        // 音频控制
+        // =====================
+        function togglePlay() {
+            if (!state.audioLoaded) {
+                showToast('请先上传音频文件');
+                return;
+            }
+
+            if (state.isPlaying) {
+                elements.audioPlayer.pause();
+            } else {
+                elements.audioPlayer.play();
+            }
+        }
+
+        function updatePlayButton(playing) {
+            state.isPlaying = playing;
+            const playIcon = elements.playBtn.querySelector('.play-icon');
+            const pauseIcon = elements.playBtn.querySelector('.pause-icon');
+            
+            if (playing) {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+                elements.waveform.classList.remove('paused');
+            } else {
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+                elements.waveform.classList.add('paused');
+            }
+        }
+
+        function seekAudio(seconds) {
+            if (!state.audioLoaded) return;
+            elements.audioPlayer.currentTime = Math.max(0, Math.min(elements.audioPlayer.duration, elements.audioPlayer.currentTime + seconds));
+        }
+
+        function updateProgress() {
+            if (!state.audioLoaded) return;
+            const progress = (elements.audioPlayer.currentTime / elements.audioPlayer.duration) * 100;
+            elements.progressFill.style.width = `${progress}%`;
+            elements.currentTime.textContent = formatTime(elements.audioPlayer.currentTime);
+
+            // 更新当前播放行高亮
+            const currentTime = elements.audioPlayer.currentTime;
+            for (let i = state.lyrics.length - 1; i >= 0; i--) {
+                if (state.lyrics[i].time !== null && state.lyrics[i].time <= currentTime) {
+                    // 移除之前的播放高亮
+                    elements.lyricsList.querySelectorAll('.current-play').forEach(el => {
+                        el.classList.remove('current-play');
+                    });
+                    // 添加新的播放高亮
+                    const line = elements.lyricsList.querySelector(`[data-index="${i}"]`);
+                    if (line) {
+                        line.classList.add('current-play');
+                    }
+                    break;
+                }
+            }
+        }
+
+        // =====================
+        // 文件处理
+        // =====================
+        function handleTxtFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                elements.textInput.value = e.target.result;
+                parseLyrics(e.target.result);
+                showToast('TXT 文件已加载');
+            };
+            reader.readAsText(file);
+        }
+
+        function handleAudioFile(file) {
+            state.audioFile = file;
+            const url = URL.createObjectURL(file);
+            elements.audioPlayer.src = url;
+            elements.audioFileName.textContent = file.name;
+            elements.audioUploadZone.style.borderColor = 'var(--accent)';
+            showToast('音频文件已加载');
+        }
+
+        // =====================
+        // 事件绑定
+        // =====================
+        function initEventListeners() {
+            // 解析按钮
+            elements.parseBtn.addEventListener('click', () => {
+                parseLyrics(elements.textInput.value);
+            });
+
+            // 文本输入
+            elements.textInput.addEventListener('input', () => {
+                // 可选：实时解析
+            });
+
+            // TXT 文件上传
+            elements.txtUploadZone.addEventListener('click', () => elements.txtFileInput.click());
+            elements.txtFileInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) handleTxtFile(e.target.files[0]);
+            });
+            
+            elements.txtUploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.txtUploadZone.classList.add('drag-over');
+            });
+            elements.txtUploadZone.addEventListener('dragleave', () => {
+                elements.txtUploadZone.classList.remove('drag-over');
+            });
+            elements.txtUploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.txtUploadZone.classList.remove('drag-over');
+                if (e.dataTransfer.files[0]) handleTxtFile(e.dataTransfer.files[0]);
+            });
+
+            // 音频文件上传
+            elements.audioUploadZone.addEventListener('click', () => elements.audioFileInput.click());
+            elements.audioFileInput.addEventListener('change', (e) => {
+                if (e.target.files[0]) handleAudioFile(e.dataTransfer ? e.dataTransfer.files[0] : e.target.files[0]);
+            });
+
+            elements.audioUploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.audioUploadZone.classList.add('drag-over');
+            });
+            elements.audioUploadZone.addEventListener('dragleave', () => {
+                elements.audioUploadZone.classList.remove('drag-over');
+            });
+            elements.audioUploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.audioUploadZone.classList.remove('drag-over');
+                if (e.dataTransfer.files[0]) handleAudioFile(e.dataTransfer.files[0]);
+            });
+
+            // 音频事件
+            elements.audioPlayer.addEventListener('loadedmetadata', () => {
+                state.audioLoaded = true;
+                elements.totalTime.textContent = formatTime(elements.audioPlayer.duration);
+                updateStatus('ready', '音频就绪');
+            });
+
+            elements.audioPlayer.addEventListener('play', () => updatePlayButton(true));
+            elements.audioPlayer.addEventListener('pause', () => updatePlayButton(false));
+            elements.audioPlayer.addEventListener('ended', () => updatePlayButton(false));
+            elements.audioPlayer.addEventListener('timeupdate', updateProgress);
+
+            // 播放控制
+            elements.playBtn.addEventListener('click', togglePlay);
+            elements.skipBackBtn.addEventListener('click', () => seekAudio(-5));
+            elements.skipForwardBtn.addEventListener('click', () => seekAudio(5));
+
+            // 进度条点击
+            elements.progressBar.addEventListener('click', (e) => {
+                if (!state.audioLoaded) return;
+                const rect = elements.progressBar.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                elements.audioPlayer.currentTime = percent * elements.audioPlayer.duration;
+            });
+
+            // 标记按钮
+            elements.markCurrentBtn.addEventListener('click', markCurrentTime);
+
+            // 清除时间
+            elements.clearAllBtn.addEventListener('click', () => {
+                state.lyrics.forEach(l => l.time = null);
+                renderLyricsList();
+                updateLrcPreview();
+                showToast('已清除所有时间标记');
+            });
+
+            // 导出
+            elements.downloadLrcBtn.addEventListener('click', downloadLrc);
+            elements.copyLrcBtn.addEventListener('click', copyLrc);
+
+            // 歌曲信息输入
+            [elements.songTitle, elements.songArtist, elements.songAlbum, elements.songAuthor].forEach(input => {
+                input.addEventListener('input', updateLrcPreview);
+            });
+
+            // 键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                // 忽略在输入框中的按键
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                switch (e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        togglePlay();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        markCurrentTime();
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        seekAudio(-5);
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        seekAudio(5);
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        setCurrentLine(state.currentLine - 1);
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        setCurrentLine(state.currentLine + 1);
+                        break;
+                }
+            });
+
+            // 背景光效跟随鼠标
+            document.addEventListener('mousemove', (e) => {
+                const x = e.clientX - 300;
+                const y = e.clientY - 300;
+                elements.bgGlow.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        }
+
+        // =====================
+        // 初始化
+        // =====================
+        function init() {
+            initEventListeners();
+            updateStatus('waiting', '等待输入');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
