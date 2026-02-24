@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>静态代码托管</title>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160/build/three.min.js"></script>
+<script>
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ alpha:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const texture = new THREE.TextureLoader().load("star.png");
+
+const geometry = new THREE.BoxGeometry(2, 2, 0.4); // 加厚
+const material = new THREE.MeshStandardMaterial({ 
+    map: texture,
+    metalness: 0.6,
+    roughness: 0.3
+});
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5,5,5);
+scene.add(light);
+
+camera.position.z = 5;
+
+function animate() {
+  requestAnimationFrame(animate);
+  cube.rotation.y += 0.02;
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
