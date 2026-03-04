@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>番茄小说下载工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('https://swebp.naxid.top') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.3s;
+        }
+        .tab-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+        }
+        .tab-content {
+            background: white;
+            border-radius: 0 0 10px 10px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        .card {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .form-row .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .info-text {
+            color: #666;
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        .results-section {
+            margin-top: 20px;
+        }
+        .results-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .results-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .book-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .book-item:hover {
+            background: #f0f0f0;
+        }
+        .book-item.selected {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .book-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        .book-info {
+            flex: 1;
+        }
+        .book-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        .book-author {
+            color: #666;
+            font-size: 14px;
+        }
+        .book-read-count {
+            color: #999;
+            font-size: 12px;
+        }
+        .settings-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .settings-panel h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .progress-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .progress-info {
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: bold;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .log-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .log-panel h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .log-content {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .status-log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        @media (max-width: 768px) {
+            .tabs {
+                flex-direction: column;
+            }
+            .form-row {
+                flex-direction: column;
+            }
+            .form-row .form-group {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍅 番茄小说下载工具</h1>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="single">指定ID下载</button>
+            <button class="tab-btn" data-tab="search">搜索批量下载</button>
+            <button class="tab-btn" data-tab="batch">批量关键词下载</button>
+        </div>
+
+        <div class="tab-content">
+            <div class="tab-pane active" id="single">
+                <div class="card">
+                    <h2>指定ID下载</h2>
+                    <div class="form-group">
+                        <label>小说ID:</label>
+                        <input type="text" id="singleId" placeholder="例如：7217764397710576678">
+                    </div>
+                    <button class="btn btn-primary" onclick="downloadSingle()">开始下载</button>
+                </div>
+            </div>
+
+            <div class="tab-pane" id="search">
+                <div class="card">
+                    <h2>搜索批量下载</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>关键词:</label>
+                            <input type="text" id="searchKeyword" placeholder="输入搜索关键词">
+                        </div>
+                        <div class="form-group">
+                            <label>每次加载:</label>
+                            <input type="number" id="searchLoadCount" value="100" min="1" max="500">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="searchBooks()">搜索</button>
+                        <button class="btn btn-secondary" onclick="selectAll()">全选</button>
+                        <button class="btn btn-secondary" onclick="deselectAll()">取消全选</button>
+                        <button class="btn btn-success" onclick="downloadSelected()">下载选中</button>
+                    </div>
+                    
+                    <div class="results-section">
+                        <h3>搜索结果:</h3>
+                        <div class="results-list" id="searchResults"></div>
+                        <button class="btn btn-secondary" id="loadMoreBtn" onclick="loadMore()" style="display:none;">加载更多</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane" id="batch">
+                <div class="card">
+                    <h2>批量关键词下载</h2>
+                    <p class="info-text">输入多个关键词，用逗号分隔，自动依次搜索并下载</p>
+                    <div class="form-group">
+                        <label>关键词列表:</label>
+                        <textarea id="batchKeywords" rows="4" placeholder="1,2">1,2</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>每次加载:</label>
+                        <input type="number" id="batchLoadCount" value="100" min="1" max="500">
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-warning" onclick="startBatchDownload()">开始批量搜索下载</button>
+                        <button class="btn btn-danger" onclick="stopBatchDownload()">停止批量下载</button>
+                    </div>
+                    
+                    <div class="results-section">
+                        <h3>批量状态:</h3>
+                        <div class="status-log" id="batchStatus"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-panel">
+            <h3>设置</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>下载目录:</label>
+                    <input type="text" id="downloadDir" placeholder="默认: 浏览器默认下载目录">
+                </div>
+                <div class="form-group">
+                    <label>线程数:</label>
+                    <input type="number" id="threadCount" value="32" min="1" max="64" disabled>
+                    <small style="color: #999;">浏览器下载不支持多线程</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="progress-panel">
+            <div class="progress-info">
+                <span id="progressText">进度: 0/0</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <h3>日志</h3>
+            <div class="log-content" id="logContent"></div>
+            <button class="btn btn-secondary" onclick="clearLog()">清空日志</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://101.35.133.34:5000/';
+
+        let searchResults = [];
+        let selectedBooks = [];
+        let currentOffset = 0;
+        let hasMore = false;
+        let isBatchRunning = false;
+        let batchKeywords = [];
+
+        function setRandomBackground() {
+            const randomNum = Math.floor(Math.random() * 3000) + 1;
+            document.body.style.backgroundImage = 'url(https://swebp.naxid.top/1/' + randomNum + ')';
+        }
+
+        setRandomBackground();
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            
+            document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                switchTab(this.dataset.tab);
+            });
+        });
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContent = document.getElementById('logContent');
+            logContent.innerHTML += '[' + timestamp + '] ' + message + '<br>';
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logContent').innerHTML = '';
+        }
+
+        function updateProgress(current, total) {
+            const percentage = total > 0 ? (current / total) * 100 : 0;
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = '进度: ' + current + '/' + total;
+        }
+
+        async function downloadSingle() {
+            const bookId = document.getElementById('singleId').value.trim();
+            if (!bookId) {
+                alert('请输入小说ID');
+                return;
+            }
+            
+            addLog('开始下载小说 ID: ' + bookId);
+            updateProgress(0, 1);
+            
+            try {
+                await downloadBook(bookId);
+                updateProgress(1, 1);
+                addLog('下载成功');
+            } catch (error) {
+                addLog('下载失败: ' + error.message);
+            }
+        }
+
+        async function searchBooks() {
+            const keyword = document.getElementById('searchKeyword').value.trim();
+            const loadCount = parseInt(document.getElementById('searchLoadCount').value) || 100;
+            
+            if (!keyword) {
+                alert('请输入搜索关键词');
+                return;
+            }
+            
+            addLog('正在搜索: ' + keyword);
+            currentOffset = 0;
+            searchResults = [];
+            selectedBooks = [];
+            
+            try {
+                const books = await searchAPI(keyword, 3, currentOffset, loadCount);
+                searchResults = books;
+                displaySearchResults(books);
+                
+                hasMore = books.length >= loadCount;
+                document.getElementById('loadMoreBtn').style.display = hasMore ? 'block' : 'none';
+                
+                addLog('搜索完成，找到 ' + books.length + ' 个结果');
+            } catch (error) {
+                addLog('搜索失败: ' + error.message);
+            }
+        }
+
+        async function loadMore() {
+            const keyword = document.getElementById('searchKeyword').value.trim();
+            const loadCount = parseInt(document.getElementById('searchLoadCount').value) || 100;
+            
+            if (!hasMore) return;
+            
+            currentOffset += loadCount;
+            addLog('正在加载更多... (偏移: ' + currentOffset + ')');
+            
+            try {
+                const books = await searchAPI(keyword, 3, currentOffset, loadCount);
+                searchResults.push(...books);
+                displaySearchResults(searchResults);
+                
+                hasMore = books.length >= loadCount;
+                document.getElementById('loadMoreBtn').style.display = hasMore ? 'block' : 'none';
+                
+                addLog('加载完成，共 ' + searchResults.length + ' 个结果');
+            } catch (error) {
+                addLog('加载失败: ' + error.message);
+            }
+        }
+
+        async function searchAPI(keyword, tabType, offset, count) {
+            const url = API_BASE_URL + '/api/search?key=' + encodeURIComponent(keyword) + '&tab_type=' + tabType + '&offset=' + offset;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.code !== 200) {
+                throw new Error(data.message || '搜索失败');
+            }
+            
+            const books = [];
+            const searchTabs = data.data && data.data.search_tabs ? data.data.search_tabs : [];
+            
+            for (let i = 0; i < searchTabs.length; i++) {
+                const tab = searchTabs[i];
+                if (tab.tab_type === tabType && tab.data) {
+                    for (let j = 0; j < tab.data.length; j++) {
+                        const item = tab.data[j];
+                        const bookData = item.book_data && item.book_data[0] ? item.book_data[0] : null;
+                        if (bookData) {
+                            books.push({
+                                book_id: bookData.book_id,
+                                book_name: bookData.book_name,
+                                author: bookData.author,
+                                abstract: (bookData.abstract || '').substring(0, 100) + '...',
+                                read_count: bookData.read_cnt_text || ''
+                            });
+                        }
+                    }
+                    break;
+                }
+            }
+            
+            return books;
+        }
+
+        function displaySearchResults(books) {
+            const resultsList = document.getElementById('searchResults');
+            resultsList.innerHTML = '';
+            
+            for (let i = 0; i < books.length; i++) {
+                const book = books[i];
+                const item = document.createElement('div');
+                item.className = 'book-item';
+                item.innerHTML = '<input type="checkbox" id="book-' + i + '" onchange="toggleBook(' + i + ')">' +
+                    '<div class="book-info">' +
+                    '<div class="book-name">' + book.book_name + '</div>' +
+                    '<div class="book-author">作者: ' + book.author + '</div>' +
+                    '<div class="book-read-count">' + book.read_count + '</div>' +
+                    '</div>';
+                resultsList.appendChild(item);
+            }
+        }
+
+        function toggleBook(index) {
+            const checkbox = document.getElementById('book-' + index);
+            const item = checkbox.closest('.book-item');
+            
+            if (checkbox.checked) {
+                item.classList.add('selected');
+                selectedBooks.push(searchResults[index]);
+            } else {
+                item.classList.remove('selected');
+                selectedBooks = selectedBooks.filter(function(b) {
+                    return b.book_id !== searchResults[index].book_id;
+                });
+            }
+        }
+
+        function selectAll() {
+            const checkboxes = document.querySelectorAll('.book-item input[type="checkbox"]');
+            for (let i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = true;
+                toggleBook(i);
+            }
+            addLog('已全选 ' + selectedBooks.length + ' 个结果');
+        }
+
+        function deselectAll() {
+            const checkboxes = document.querySelectorAll('.book-item input[type="checkbox"]');
+            for (let i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = false;
+                toggleBook(i);
+            }
+            addLog('已取消全选');
+        }
+
+        async function downloadSelected() {
+            if (selectedBooks.length === 0) {
+                alert('请先选择要下载的小说');
+                return;
+            }
+            
+            addLog('开始批量下载 ' + selectedBooks.length + ' 个小说...');
+            updateProgress(0, selectedBooks.length);
+            
+            let successCount = 0;
+            for (let i = 0; i < selectedBooks.length; i++) {
+                try {
+                    await downloadBook(selectedBooks[i].book_id);
+                    successCount++;
+                    updateProgress(i + 1, selectedBooks.length);
+                } catch (error) {
+                    addLog('下载失败 ID ' + selectedBooks[i].book_id + ': ' + error.message);
+                }
+            }
+            
+            addLog('批量下载完成: 成功 ' + successCount + '/' + selectedBooks.length);
+        }
+
+        async function downloadBook(bookId) {
+            const url = API_BASE_URL + '/api/content?tab=下载&book_id=' + bookId + '&download=1';
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            
+            const content = await response.blob();
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = '番茄小说-' + bookId + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+        }
+
+        async function startBatchDownload() {
+            const keywordsText = document.getElementById('batchKeywords').value.trim();
+            if (!keywordsText) {
+                alert('请输入关键词');
+                return;
+            }
+            
+            batchKeywords = keywordsText.split(',').map(function(k) {
+                return k.trim();
+            }).filter(function(k) {
+                return k;
+            });
+            if (batchKeywords.length === 0) {
+                alert('请输入有效的关键词');
+                return;
+            }
+            
+            const loadCount = parseInt(document.getElementById('batchLoadCount').value) || 100;
+            isBatchRunning = true;
+            
+            document.getElementById('batchStatus').innerHTML = '';
+            addLog('开始批量下载，共 ' + batchKeywords.length + ' 个关键词');
+            
+            for (let i = 0; i < batchKeywords.length; i++) {
+                if (!isBatchRunning) {
+                    addBatchStatus('批量下载已停止');
+                    break;
+                }
+                
+                const keyword = batchKeywords[i];
+                addBatchStatus('\\n[' + (i+1) + '/' + batchKeywords.length + '] 正在搜索关键词: ' + keyword);
+                
+                try {
+                    const books = await searchAPI(keyword, 3, 0, loadCount);
+                        
+                    if (books.length === 0) {
+                        addBatchStatus('  未找到结果');
+                        continue;
+                    }
+                    
+                    addBatchStatus('  找到 ' + books.length + ' 个结果，开始下载...');
+                    
+                    let successCount = 0;
+                    for (let j = 0; j < books.length; j++) {
+                        try {
+                            await downloadBook(books[j].book_id);
+                            successCount++;
+                        } catch (error) {
+                            addLog('下载失败 ID ' + books[j].book_id + ': ' + error.message);
+                        }
+                    }
+                    
+                    addBatchStatus('  下载完成: ' + successCount + '/' + books.length);
+                    
+                    await new Promise(function(resolve) {
+                        setTimeout(resolve, 2000);
+                    });
+                } catch (error) {
+                    addBatchStatus('  搜索失败: ' + error.message);
+                }
+            }
+            
+            if (isBatchRunning) {
+                addBatchStatus('\\n批量下载全部完成！共处理 ' + batchKeywords.length + ' 个关键词');
+            }
+            
+            isBatchRunning = false;
+        }
+
+        function stopBatchDownload() {
+            isBatchRunning = false;
+            addBatchStatus('\\n正在停止批量下载...');
+        }
+
+        function addBatchStatus(message) {
+            const statusLog = document.getElementById('batchStatus');
+            statusLog.innerHTML += message + '<br>';
+            statusLog.scrollTop = statusLog.scrollHeight;
+        }
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"5de8b878244b4a71a8ed17953868ca3c","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
