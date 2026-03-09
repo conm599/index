@@ -1,0 +1,590 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>硅基流动 API 余额查询 (带历史记录)</title>
+
+    <!-- Vue.js 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+    <!-- Tailwind CSS (for utility classes used in the template) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Enable class-based dark mode
+        }
+    </script>
+
+    <!-- Custom Logo SVG -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%233B82F6;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%2310B981;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23grad)' d='M50,5 C74.85,5 95,25.15 95,50 C95,74.85 74.85,95 50,95 C25.15,95 5,74.85 5,50 C5,25.15 25.15,5 50,5 Z M50,15 C30.67,15 15,30.67 15,50 C15,69.33 30.67,85 50,85 C69.33,85 85,69.33 85,50 C85,30.67 69.33,15 50,15 Z' /%3E%3Cpath fill='white' d='M50,25 C63.81,25 75,36.19 75,50 C75,63.81 63.81,75 50,75 C36.19,75 25,63.81 25,50 C25,36.19 36.19,25 50,25 Z'/%3E%3C/svg%3E">
+
+    <style>
+        :root {
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+            --color-bg: #f3f4f6;
+            --color-card-bg: #ffffff;
+            --color-text-primary: #111827;
+            --color-text-secondary: #4b5563;
+            --color-border: #e5e7eb;
+            --color-primary: #3b82f6;
+            --color-primary-hover: #2563eb;
+            --color-success: #10b981;
+            --color-success-bg: #ecfdf5;
+            --color-warning: #f59e0b;
+            --color-warning-bg: #fffbeb;
+            --color-error: #ef4444;
+            --color-error-bg: #fef2f2;
+            --color-info: #3b82f6;
+            --color-info-bg: #eff6ff;
+        }
+
+        html.dark {
+            --color-bg: #111827;
+            --color-card-bg: #1f2937;
+            --color-text-primary: #f9fafb;
+            --color-text-secondary: #9ca3af;
+            --color-border: #374151;
+            --color-success-bg: rgba(16, 185, 129, 0.1);
+            --color-warning-bg: rgba(245, 158, 11, 0.1);
+            --color-error-bg: rgba(239, 68, 68, 0.1);
+            --color-info-bg: rgba(59, 130, 246, 0.1);
+        }
+
+        /* Base & Layout */
+        html { scroll-behavior: smooth; }
+        body { font-family: var(--font-sans); background-color: var(--color-bg); color: var(--color-text-primary); transition: background-color 0.3s ease, color 0.3s ease; }
+        #app { padding: 2rem 1rem; min-height: 100vh; }
+        .page-container { max-width: 64rem; margin: 0 auto; }
+        [v-cloak] { display: none; }
+
+        /* Components */
+        .content-card { background-color: var(--color-card-bg); border-radius: 0.75rem; border: 1px solid var(--color-border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05); padding: 2rem; transition: background-color 0.3s ease, border-color 0.3s ease; }
+        .navbar { margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .navbar-brand { display: flex; align-items: center; gap: 0.75rem; }
+        .navbar-logo { height: 2.5rem; width: 2.5rem; }
+        .navbar-title { font-size: 1.25rem; font-weight: 600; }
+        .navbar-actions { display: flex; align-items: center; gap: 1rem; }
+        .theme-toggle-btn { position: relative; width: 2.5rem; height: 2.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; background-color: var(--color-card-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); transition: all 0.3s ease; }
+        .theme-toggle-btn:hover { color: var(--color-primary); border-color: var(--color-primary); }
+        .theme-toggle-btn svg { position: absolute; transition: opacity 0.3s ease, transform 0.3s ease; width: 1.25rem; height: 1.25rem; }
+        .theme-icon-light { opacity: 0; transform: scale(0.5) rotate(-90deg); }
+        html.dark .theme-icon-light { opacity: 1; transform: scale(1) rotate(0deg); }
+        .theme-icon-dark { opacity: 1; transform: scale(1) rotate(0deg); }
+        html.dark .theme-icon-dark { opacity: 0; transform: scale(0.5) rotate(90deg); }
+
+        .page-title { font-size: 1.875rem; font-weight: 700; text-align: center; margin-bottom: 1.5rem; }
+        .info-notice { background-color: var(--color-info-bg); border-left: 4px solid var(--color-primary); padding: 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 0.75rem; color: var(--color-text-secondary); }
+        html.dark .info-notice { color: #bfdbfe; }
+        .info-notice svg { flex-shrink: 0; width: 1.25rem; height: 1.25rem; color: var(--color-primary); margin-top: 0.125rem; }
+
+        .input-label { display: block; font-weight: 500; margin-bottom: 0.5rem; }
+        .api-input { width: 100%; border-radius: 0.5rem; border: 1px solid var(--color-border); padding: 0.75rem 1rem; background-color: var(--color-bg); color: var(--color-text-primary); transition: border-color 0.2s ease, box-shadow 0.2s ease; resize: vertical; }
+        .api-input::placeholder { color: var(--color-text-secondary); opacity: 0.7; }
+        .api-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+
+        .query-btn { width: 100%; padding: 0.75rem 1rem; margin-top: 1.5rem; background-color: var(--color-primary); color: white; font-weight: 600; border-radius: 0.5rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: background-color 0.2s ease; }
+        .query-btn:hover:not(:disabled) { background-color: var(--color-primary-hover); }
+        .query-btn:disabled { background-color: #9ca3af; cursor: not-allowed; opacity: 0.7; }
+
+        .error-message { margin-top: 1rem; padding: 0.75rem 1rem; background-color: var(--color-error-bg); color: var(--color-error); border-radius: 0.5rem; text-align: center; font-weight: 500; }
+
+        /* Results & History Section */
+        #results-area, #history-section { animation: fadeInUp 0.5s ease-out forwards; }
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+
+        .stat-card { padding: 1.5rem; border-radius: 0.75rem; text-align: center; border: 1px solid var(--color-border); cursor: pointer; transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -8px rgba(0,0,0,0.1); }
+        .stat-card-total { background-color: var(--color-info-bg); border-color: var(--color-info); }
+        .stat-card-success { background-color: var(--color-success-bg); border-color: var(--color-success); }
+        .stat-card-success:hover { border-color: var(--color-success); box-shadow: 0 8px 25px -8px rgba(16, 185, 129, 0.3); }
+        .stat-card-warning { background-color: var(--color-warning-bg); border-color: var(--color-warning); }
+        .stat-card-warning:hover { border-color: var(--color-warning); box-shadow: 0 8px 25px -8px rgba(245, 158, 11, 0.3); }
+        .stat-card-error { background-color: var(--color-error-bg); border-color: var(--color-error); }
+        .stat-card-error:hover { border-color: var(--color-error); box-shadow: 0 8px 25px -8px rgba(239, 68, 68, 0.3); }
+
+        .stat-number { font-size: 2.25rem; font-weight: 700; line-height: 1; }
+        .stat-number-total { color: var(--color-info); }
+        .stat-number-success { color: var(--color-success); }
+        .stat-number-warning { color: var(--color-warning); }
+        .stat-number-error { color: var(--color-error); }
+        .stat-label { margin-top: 0.5rem; font-weight: 500; color: var(--color-text-secondary); }
+
+        /* Dialog Styles */
+        .dialog-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.3s ease-out; }
+        .dialog-content { background-color: var(--color-card-bg); border-radius: 0.75rem; border: 1px solid var(--color-border); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); padding: 2rem; max-width: 90vw; width: 600px; max-height: 80vh; overflow-y: auto; animation: slideIn 0.3s ease-out; }
+        .dialog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .dialog-title { font-size: 1.25rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
+        .dialog-title-success { color: var(--color-success); }
+        .dialog-title-warning { color: var(--color-warning); }
+        .dialog-title-error { color: var(--color-error); }
+        .dialog-close-btn { width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; background-color: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; transition: all 0.2s ease; }
+        .dialog-close-btn:hover { background-color: var(--color-error); color: white; border-color: var(--color-error); }
+        .dialog-keys-container { margin-bottom: 1.5rem; }
+        .dialog-key-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background-color: var(--color-bg); border: 1px solid var(--color-border); border-radius: 0.5rem; margin-bottom: 0.5rem; }
+        .dialog-key-text { font-family: 'Courier New', Courier, monospace; font-size: 0.875rem; word-break: break-all; flex-grow: 1; margin-right: 1rem; }
+        .dialog-actions { display: flex; gap: 1rem; justify-content: flex-end; }
+        .dialog-copy-all-btn { padding: 0.5rem 1rem; background-color: var(--color-primary); color: white; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s ease; }
+        .dialog-copy-all-btn:hover { background-color: var(--color-primary-hover); }
+        .dialog-copy-all-btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+
+        .copy-btn { padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s ease; }
+        .copy-btn-success { background-color: var(--color-success); color: white; }
+        .copy-btn-success:hover { background-color: #059669; }
+        .copy-feedback { font-style: italic; opacity: 0.8; }
+
+        /* Table Styles */
+        .results-table-wrapper { overflow-x: auto; }
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+        .results-table th, .results-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: middle; }
+        .results-table th { font-weight: 600; color: var(--color-text-secondary); background-color: var(--color-bg); }
+        html.dark .results-table th { background-color: #374151; }
+        .results-table tbody tr:hover { background-color: var(--color-info-bg); }
+        .results-table td { font-size: 0.9rem; }
+        .key-col { font-family: 'Courier New', Courier, monospace; word-break: break-all; }
+        .status-valid-with-balance { color: var(--color-success); font-weight: 600; }
+        .status-valid-no-balance { color: var(--color-warning); font-weight: 600; }
+        .status-invalid { color: var(--color-error); font-weight: 600; }
+        .balance-change-positive { color: var(--color-success); }
+        .balance-change-negative { color: var(--color-error); }
+
+        .copy-single-btn { padding: 0.25rem 0.625rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; background-color: var(--color-card-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; transition: all 0.2s ease; }
+        .copy-single-btn:hover { background-color: var(--color-primary); color: white; border-color: var(--color-primary); }
+
+        /* History Styles */
+        #history-section { margin-top: 2.5rem; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .history-title { font-size: 1.25rem; font-weight: 600; }
+        .clear-history-btn { padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-weight: 500; font-size: 0.875rem; border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; transition: all 0.2s ease; }
+        .clear-history-btn:hover { border-color: var(--color-error); color: var(--color-error); background-color: var(--color-error-bg); }
+
+        .history-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background-color: var(--color-card-bg); border: 1px solid var(--color-border); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s ease; }
+        .history-item:hover { border-color: var(--color-primary); background-color: var(--color-info-bg); }
+        .history-item.active { border-color: var(--color-primary); background-color: var(--color-info-bg); box-shadow: 0 0 0 2px var(--color-primary); }
+        .history-item-details { display: flex; flex-direction: column; gap: 0.25rem; flex-grow: 1; min-width: 0; }
+        .history-item-keys { font-size: 0.8rem; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-item-summary { font-weight: 500; font-size: 0.875rem;}
+        .history-summary-balance { color: var(--color-info); }
+        .history-item-actions { display: flex; align-items: center; gap: 0.5rem; }
+        .re-query-btn { padding: 0.375rem 0.75rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.375rem; background-color: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-secondary); cursor: pointer; transition: all 0.2s ease; }
+        .re-query-btn:hover { background-color: var(--color-primary); color: white; border-color: var(--color-primary); }
+
+        /* Animations */
+        .loading-spinner { width: 1.25rem; height: 1.25rem; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak>
+        <div class="page-container">
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="content-card">
+                    <h2 class="page-title">硅基流动 API 余额查询</h2>
+                    <div class="info-notice">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <div>
+                            <strong class="font-semibold text-sm" :class="isDark ? 'text-blue-300' : 'text-blue-800'">隐私与高级历史记录：</strong>
+                            <p class="text-sm">所有数据均保存在本地。当您使用相同的 Key 组合查询时，系统会记录每次查询的余额变化。</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="api-keys" class="input-label">API Key（可批量，一行一个或逗号分隔）</label>
+                        <textarea id="api-keys" v-model="apiKeysInput" rows="5" placeholder="支持两种输入方式：
+1. 一行一个API Key
+2. 用英文逗号分隔多个API Key" class="api-input"></textarea>
+                    </div>
+                    <button @click="fetchBalances" :disabled="loading || !apiKeysInput.trim()" class="query-btn">
+                        <span v-if="loading" class="loading-spinner"></span>
+                        <span v-if="loading">查询中...</span>
+                        <span v-else>批量查询余额</span>
+                    </button>
+                    <div v-if="error" class="error-message">{{ error }}</div>
+                </div>
+
+                <!-- Results Section -->
+                <div v-if="results.length" id="results-area" class="content-card mt-8">
+                    <div class="stats-grid">
+                        <div class="stat-card stat-card-total">
+                            <div class="stat-number stat-number-total">{{ totalBalance.toFixed(4) }}</div>
+                            <div class="stat-label">总余额 (元)</div>
+                        </div>
+                        <div class="stat-card stat-card-success" @click="openDialog('success')" :class="{ 'cursor-pointer': validWithBalanceCount > 0 }">
+                            <div class="stat-number stat-number-success">{{ validWithBalanceCount }}</div>
+                            <div class="stat-label">有余额 {{ validWithBalanceCount > 0 ? '(点击查看)' : '' }}</div>
+                        </div>
+                        <div class="stat-card stat-card-warning" @click="openDialog('warning')" :class="{ 'cursor-pointer': validNoBalanceCount > 0 }">
+                            <div class="stat-number stat-number-warning">{{ validNoBalanceCount }}</div>
+                            <div class="stat-label">无余额 {{ validNoBalanceCount > 0 ? '(点击查看)' : '' }}</div>
+                        </div>
+                        <div class="stat-card stat-card-error" @click="openDialog('error')" :class="{ 'cursor-pointer': invalidCount > 0 }">
+                            <div class="stat-number stat-number-error">{{ invalidCount }}</div>
+                            <div class="stat-label">无效 {{ invalidCount > 0 ? '(点击查看)' : '' }}</div>
+                        </div>
+                    </div>
+
+                    <div class="results-table-wrapper">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>API Key</th>
+                                    <th>状态</th>
+                                    <th>余额 (元)</th>
+                                    <th>余额变化</th>
+                                    <th>用户信息</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(result, idx) in results" :key="result.apiKey">
+                                    <td>{{ idx + 1 }}</td>
+                                    <td class="key-col">{{ maskKey(result.apiKey) }}</td>
+                                    <td><span :class="getStatusInfo(result).class">{{ getStatusInfo(result).text }}</span></td>
+                                    <td><span v-if="!result.error">{{ result.balance }}</span><span v-else>N/A</span></td>
+                                    <td>
+                                        <span v-if="!result.error" :class="getBalanceChange(result.apiKey).class">{{ getBalanceChange(result.apiKey).text }}</span>
+                                        <span v-else>N/A</span>
+                                    </td>
+                                    <td>
+                                        <div v-if="!result.error" class="text-xs text-gray-500">
+                                            <div>ID: {{ result.userInfo?.id || 'N/A' }}</div>
+                                            <div>邮箱: {{ result.userInfo?.email || 'N/A' }}</div>
+                                        </div>
+                                        <div v-else class="text-xs text-red-500">{{ result.error }}</div>
+                                    </td>
+                                    <td>
+                                        <button @click="copyToClipboard(result.apiKey, 'single' + idx)" class="copy-single-btn">
+                                            {{ copied === 'single' + idx ? '已复制!' : '复制' }}
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Dialog Modal -->
+                <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
+                    <div class="dialog-content" @click.stop>
+                        <div class="dialog-header">
+                            <h3 class="dialog-title" :class="getDialogTitleClass()">
+                                <svg v-if="dialogType === 'success'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <svg v-else-if="dialogType === 'warning'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                </svg>
+                                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                {{ dialogTitle }}
+                            </h3>
+                            <button class="dialog-close-btn" @click="closeDialog">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="dialog-keys-container">
+                            <div v-for="(key, index) in dialogKeys" :key="index" class="dialog-key-item">
+                                <div class="dialog-key-text">{{ key }}</div>
+                                <button @click="copyToClipboard(key, 'dialog' + index)" class="copy-single-btn">
+                                    {{ copied === 'dialog' + index ? '已复制!' : '复制' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="dialog-actions">
+                            <button @click="copyDialogKeys" class="dialog-copy-all-btn">
+                                {{ copied === 'dialogAll' ? '已复制!' : '复制全部' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <section v-if="sortedHistory.length" id="history-section">
+                    <div class="history-header">
+                        <h2 class="history-title">查询历史</h2>
+                        <button @click="clearHistory" class="clear-history-btn">清空历史记录</button>
+                    </div>
+                    <ul class="history-list">
+                        <li v-for="item in sortedHistory" :key="item.id" @click="loadFromHistory(item)" :class="['history-item', { 'active': item.id === activeHistoryId }]">
+                            <div class="history-item-details">
+                                <span class="history-item-keys">{{ item.apiKeys.length }} Keys: {{ item.apiKeys.map(maskKey).join(', ') }}</span>
+                                <span class="history-item-summary">
+                                    <span class="font-mono text-xs">{{ new Date(item.snapshots[0].date).toLocaleString('zh-CN') }}</span>
+                                    | 总余额: <span class="history-summary-balance font-semibold">{{ item.snapshots[0].totalBalance.toFixed(4) }}</span>
+                                    ({{ item.snapshots.length }} 次查询)
+                                </span>
+                            </div>
+                            <div class="history-item-actions">
+                               <button @click.stop="reQueryFromHistory(item)" class="re-query-btn">重新查询</button>
+                            </div>
+                        </li>
+                    </ul>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+        const HISTORY_KEY = 'siliconflow_balance_query_history_v2';
+        const MAX_HISTORY_GROUPS = 30;
+
+        createApp({
+            setup() {
+                const apiKeysInput = ref('');
+                const results = ref([]);
+                const error = ref('');
+                const loading = ref(false);
+                const isDark = ref(false);
+                const copied = ref(null);
+                const history = ref({});
+                const activeHistoryId = ref(null);
+
+                // Dialog state
+                const showDialog = ref(false);
+                const dialogType = ref('');
+                const dialogTitle = ref('');
+                const dialogKeys = ref([]);
+
+                // --- Computed Properties ---
+                const validApiKeysWithBalance = computed(() => results.value.filter(r => !r.error && Number(r.balance) > 0).map(r => r.apiKey));
+                const validApiKeysNoBalance = computed(() => results.value.filter(r => !r.error && Number(r.balance) === 0).map(r => r.apiKey));
+                const invalidApiKeys = computed(() => results.value.filter(r => r.error).map(r => r.apiKey));
+
+                const validWithBalanceCount = computed(() => validApiKeysWithBalance.value.length);
+                const validNoBalanceCount = computed(() => validApiKeysNoBalance.value.length);
+                const invalidCount = computed(() => invalidApiKeys.value.length);
+
+                const totalBalance = computed(() =>
+                    results.value
+                        .filter(r => !r.error)
+                        .reduce((sum, r) => sum + parseFloat(r.balance || 0), 0)
+                );
+
+                const sortedHistory = computed(() => {
+                    return Object.values(history.value).sort((a, b) => {
+                        const dateA = new Date(a.snapshots[0].date);
+                        const dateB = new Date(b.snapshots[0].date);
+                        return dateB - dateA;
+                    });
+                });
+
+                // --- Dialog Functions ---
+                const openDialog = (type) => {
+                    if (type === 'success' && validWithBalanceCount.value === 0) return;
+                    if (type === 'warning' && validNoBalanceCount.value === 0) return;
+                    if (type === 'error' && invalidCount.value === 0) return;
+
+                    dialogType.value = type;
+
+                    if (type === 'success') {
+                        dialogTitle.value = `有余额的 Key (${validWithBalanceCount.value} 个)`;
+                        dialogKeys.value = validApiKeysWithBalance.value;
+                    } else if (type === 'warning') {
+                        dialogTitle.value = `无余额的 Key (${validNoBalanceCount.value} 个)`;
+                        dialogKeys.value = validApiKeysNoBalance.value;
+                    } else if (type === 'error') {
+                        dialogTitle.value = `无效的 Key (${invalidCount.value} 个)`;
+                        dialogKeys.value = invalidApiKeys.value;
+                    }
+
+                    showDialog.value = true;
+                };
+
+                const closeDialog = () => {
+                    showDialog.value = false;
+                    dialogType.value = '';
+                    dialogTitle.value = '';
+                    dialogKeys.value = [];
+                };
+
+                const getDialogTitleClass = () => {
+                    if (dialogType.value === 'success') return 'dialog-title-success';
+                    if (dialogType.value === 'warning') return 'dialog-title-warning';
+                    if (dialogType.value === 'error') return 'dialog-title-error';
+                    return '';
+                };
+
+                const copyDialogKeys = () => {
+                    if (dialogKeys.value.length === 0) return;
+                    copyToClipboard(dialogKeys.value.join(','), 'dialogAll');
+                };
+
+                // --- Helper Functions ---
+                async function copyToClipboard(text, id) {
+                    if (!text) return;
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        copied.value = id;
+                        setTimeout(() => {
+                            if (copied.value === id) copied.value = null;
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Copy failed:', err);
+                    }
+                }
+
+                function maskKey(key) {
+                    if (!key || key.length <= 8) return key;
+                    return `${key.slice(0, 4)}...${key.slice(-4)}`;
+                }
+
+                function getStatusInfo(result) {
+                    if (result.error) return { text: '无效', class: 'status-invalid' };
+                    if (result.balance > 0) return { text: '有效 | 有余额', class: 'status-valid-with-balance' };
+                    return { text: '有效 | 无余额', class: 'status-valid-no-balance' };
+                }
+
+                const toggleDarkMode = () => {
+                    isDark.value = !isDark.value;
+                    localStorage.setItem('darkMode', String(isDark.value));
+                    document.documentElement.classList.toggle('dark', isDark.value);
+                };
+
+                // --- Balance Change Calculation ---
+                const getBalanceChange = (apiKey) => {
+                    if (!activeHistoryId.value || !history.value[activeHistoryId.value]) return { text: 'N/A', class: '' };
+
+                    const historyGroup = history.value[activeHistoryId.value];
+                    if (historyGroup.snapshots.length < 2) return { text: '首次查询', class: '' };
+
+                    const currentSnapshot = historyGroup.snapshots[0];
+                    const previousSnapshot = historyGroup.snapshots[1];
+
+                    const currentResult = currentSnapshot.results.find(r => r.apiKey === apiKey);
+                    const previousResult = previousSnapshot.results.find(r => r.apiKey === apiKey);
+
+                    if (!currentResult || currentResult.error || !previousResult || previousResult.error) return { text: 'N/A', class: '' };
+
+                    const change = parseFloat(currentResult.balance) - parseFloat(previousResult.balance);
+
+                    if (change > 0) return { text: `+${change.toFixed(4)}`, class: 'balance-change-positive' };
+                    if (change < 0) return { text: `${change.toFixed(4)}`, class: 'balance-change-negative' };
+                    return { text: '无变化', class: '' };
+                };
+
+                // --- Core Logic ---
+                async function fetchBalances() {
+                    error.value = '';
+                    loading.value = true;
+                    const keys = [...new Set(apiKeysInput.value.split(/[\n,]/).map(k => k.trim()).filter(Boolean))];
+                    if (!keys.length) { error.value = '请输入至少一个 API Key'; loading.value = false; return; }
+
+                    const fetchedResults = await Promise.all(keys.map(async (apiKey) => {
+                        try {
+                            const res = await fetch('https://api.siliconflow.cn/v1/user/info', { headers: { 'Authorization': 'Bearer ' + apiKey } });
+                            if (res.status === 401) throw new Error('API Key 无效或认证失败');
+                            if (!res.ok) throw new Error(`请求失败, 状态码: ${res.status}`);
+                            const data = await res.json();
+                            if (data && data.data) return { apiKey, balance: data.data.balance, userInfo: data.data, error: null };
+                            throw new Error('返回数据格式异常');
+                        } catch (e) { return { apiKey, balance: null, userInfo: null, error: e.message || '查询失败' }; }
+                    }));
+
+                    loading.value = false;
+                    results.value = fetchedResults;
+
+                    // --- Advanced History Management ---
+                    const groupId = keys.sort().join('|');
+                    const currentTotalBalance = fetchedResults
+                        .filter(r => !r.error)
+                        .reduce((sum, r) => sum + parseFloat(r.balance || 0), 0);
+
+                    const newSnapshot = {
+                        date: new Date().toISOString(),
+                        results: fetchedResults,
+                        totalBalance: currentTotalBalance
+                    };
+
+                    if (history.value[groupId]) {
+                        history.value[groupId].snapshots.unshift(newSnapshot);
+                    } else {
+                        history.value[groupId] = {
+                            id: groupId,
+                            apiKeys: keys,
+                            snapshots: [newSnapshot]
+                        };
+                    }
+
+                    const historyGroups = Object.values(history.value).sort((a,b) => new Date(b.snapshots[0].date) - new Date(a.snapshots[0].date));
+                    if(historyGroups.length > MAX_HISTORY_GROUPS) {
+                        const oldestGroupId = historyGroups[historyGroups.length - 1].id;
+                        delete history.value[oldestGroupId];
+                    }
+
+                    activeHistoryId.value = groupId;
+                }
+
+                // --- History Interaction ---
+                const loadFromHistory = (item) => {
+                    results.value = item.snapshots[0].results;
+                    activeHistoryId.value = item.id;
+                    error.value = '';
+                    document.getElementById('results-area')?.scrollIntoView({ behavior: 'smooth' });
+                }
+
+                const reQueryFromHistory = (item) => {
+                    apiKeysInput.value = item.apiKeys.join('\n');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    fetchBalances();
+                }
+
+                const clearHistory = () => {
+                    if (confirm('您确定要清除所有本地存储的历史记录吗？此操作无法撤销。')) {
+                        history.value = {};
+                        results.value = [];
+                        activeHistoryId.value = null;
+                    }
+                }
+
+                // --- Lifecycle & Watchers ---
+                onMounted(() => {
+                    const storedDarkMode = localStorage.getItem('darkMode');
+                    isDark.value = storedDarkMode !== null ? storedDarkMode === 'true' : window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+                    document.documentElement.classList.toggle('dark', isDark.value);
+
+                    const savedHistory = localStorage.getItem(HISTORY_KEY);
+                    if (savedHistory) {
+                        try {
+                           const parsedHistory = JSON.parse(savedHistory);
+                           if (typeof parsedHistory === 'object' && !Array.isArray(parsedHistory)) {
+                               history.value = parsedHistory;
+                           }
+                        } catch(e) {
+                            console.error("Failed to parse history, clearing.", e);
+                            localStorage.removeItem(HISTORY_KEY);
+                        }
+                    }
+                });
+
+                watch(history, (newHistory) => {
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+                }, { deep: true });
+
+                return {
+                    apiKeysInput, results, error, loading, isDark, copied, history, sortedHistory, activeHistoryId,
+                    validApiKeysWithBalance, validWithBalanceCount, validNoBalanceCount, invalidCount, totalBalance,
+                    fetchBalances, maskKey, toggleDarkMode, copyToClipboard, getStatusInfo, getBalanceChange,
+                    loadFromHistory, clearHistory, reQueryFromHistory,
+                    // Dialog related
+                    showDialog, dialogType, dialogTitle, dialogKeys,
+                    openDialog, closeDialog, getDialogTitleClass, copyDialogKeys
+                };
+            }
+        }).mount('#app');
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"8d7c954cbf5749a4baf9edb506ec38b7","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
