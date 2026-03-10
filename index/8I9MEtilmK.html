@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>简单环境分贝仪 · 实时声音测量</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(145deg, #f5f7fa 0%, #e9ecf0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 40px;
+            box-shadow: 0 25px 40px -10px rgba(0, 20, 30, 0.3), inset 0 0 0 1px rgba(255,255,255,0.6);
+            width: 100%;
+            max-width: 500px;
+            padding: 32px 24px;
+            transition: all 0.2s;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 500;
+            letter-spacing: -0.5px;
+            margin: 0 0 8px 0;
+            color: #1a2e3b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        h1 span {
+            background: #2d4a5e;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 400;
+            padding: 4px 12px;
+            border-radius: 40px;
+            letter-spacing: 0.3px;
+        }
+        .sub {
+            color: #2e4a5e;
+            opacity: 0.7;
+            font-size: 0.95rem;
+            margin: 0 0 24px 0;
+            border-left: 3px solid #4b9eb0;
+            padding-left: 16px;
+            background: rgba(75, 158, 176, 0.05);
+            border-radius: 0 12px 12px 0;
+        }
+        .db-readout {
+            background: #1e2f3a;
+            border-radius: 80px;
+            padding: 30px 20px;
+            margin-bottom: 30px;
+            box-shadow: inset 0 6px 10px rgba(0,0,0,0.3), 0 10px 20px rgba(0,30,40,0.3);
+            border: 1px solid #587b8c;
+        }
+        .db-value {
+            font-size: 5.5rem;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1;
+            color: #d5f0ff;
+            text-shadow: 0 0 12px #6dc9ff;
+            letter-spacing: 2px;
+            font-feature-settings: "tnum";
+        }
+        .db-unit {
+            font-size: 1.6rem;
+            margin-left: 8px;
+            color: #9bbfd0;
+            font-weight: 300;
+        }
+        .db-range {
+            display: flex;
+            justify-content: space-between;
+            color: #9cb6c5;
+            font-size: 0.85rem;
+            padding: 0 10px;
+            margin-top: 8px;
+        }
+        .meter-bar-container {
+            width: 100%;
+            height: 32px;
+            background: #253b46;
+            border-radius: 40px;
+            margin: 24px 0 28px;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.5);
+            overflow: hidden;
+            border: 1px solid #50798d;
+        }
+        .meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3fbc9d, #9fe07a, #f9e75c, #ffaa5e, #ff7b6b);
+            border-radius: 40px;
+            box-shadow: 0 0 15px #9fe07a;
+            transition: width 0.08s ease-out;
+        }
+        .button-group {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #eef3f7;
+            border: none;
+            border-radius: 60px;
+            padding: 16px 32px;
+            font-size: 1.2rem;
+            font-weight: 520;
+            color: #0e2a36;
+            box-shadow: 0 6px 0 #b0c3cf, 0 12px 20px -10px #1e3b48;
+            cursor: pointer;
+            transition: all 0.08s linear;
+            flex: 1 1 auto;
+            min-width: 140px;
+            border: 1px solid rgba(255,255,255,0.6);
+            letter-spacing: 0.5px;
+        }
+        button:active {
+            transform: translateY(6px);
+            box-shadow: 0 2px 0 #9aafbc, 0 10px 18px -8px #1e3b48;
+        }
+        button:disabled {
+            opacity: 0.4;
+            transform: translateY(3px);
+            box-shadow: 0 3px 0 #9aafbc;
+            pointer-events: none;
+            filter: grayscale(0.3);
+        }
+        .stop-btn {
+            background: #ffe3db;
+            color: #6f2e1f;
+            box-shadow: 0 6px 0 #cbaca3;
+        }
+        .status-box {
+            background: #dbe6ed;
+            border-radius: 40px;
+            padding: 14px 22px;
+            font-size: 1rem;
+            color: #1a3949;
+            border: 1px solid #b1d0de;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .status-msg {
+            font-weight: 450;
+            word-break: break-word;
+        }
+        .status-led {
+            width: 16px;
+            height: 16px;
+            border-radius: 16px;
+            background: #6e8f9b;
+            box-shadow: inset 0 0 5px #1f3d4a;
+            transition: background 0.15s;
+        }
+        .status-led.active {
+            background: #3fe0a0;
+            box-shadow: 0 0 15px #61e8b3;
+        }
+        .footnote {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #385b6b;
+            text-align: center;
+            background: rgba(255,255,255,0.4);
+            padding: 10px;
+            border-radius: 36px;
+        }
+        .error-msg {
+            color: #c03c2b;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            background: #ffe9e5;
+            padding: 8px 16px;
+            border-radius: 40px;
+            border: 1px solid #f5b3a5;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>
+        🌿 环境分贝仪
+        <span>简单版</span>
+    </h1>
+    <div class="sub">点击「开始」允许麦克风，实时测量声音分贝 (模拟量程 0–120 dB)</div>
+
+    <!-- 实时读数面板 -->
+    <div class="db-readout">
+        <div class="db-value">
+            <span id="dbDisplay">0.0</span><span class="db-unit">dB</span>
+        </div>
+        <div class="db-range">
+            <span>🫧 安静</span>
+            <span>⚡ 响亮</span>
+        </div>
+    </div>
+
+    <!-- 动态光条 -->
+    <div class="meter-bar-container">
+        <div id="meterFill" class="meter-fill" style="width: 0%;"></div>
+    </div>
+
+    <!-- 控制按钮组 -->
+    <div class="button-group">
+        <button id="startBtn" class="start-btn">▶ 开始测量</button>
+        <button id="stopBtn" class="stop-btn" disabled>⏹ 停止</button>
+    </div>
+
+    <!-- 状态 & 指示器 -->
+    <div class="status-box">
+        <span class="status-msg" id="statusText">就绪，点击“开始”</span>
+        <span class="status-led" id="statusLed"></span>
+    </div>
+
+    <!-- 错误或提示区域 -->
+    <div id="errorMsg" class="error-msg" style="display: none;"></div>
+
+    <div class="footnote">
+        ⓘ 未经校准，数值仅供参考 · 基于麦克风相对能量映射0–120 dB
+    </div>
+</div>
+
+<script>
+    (function() {
+        // --- DOM 元素 ---
+        const dbDisplay = document.getElementById('dbDisplay');
+        const meterFill = document.getElementById('meterFill');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusText = document.getElementById('statusText');
+        const statusLed = document.getElementById('statusLed');
+        const errorDiv = document.getElementById('errorMsg');
+
+        // --- 音频相关全局变量 ---
+        let audioContext = null;          // AudioContext 实例
+        let analyser = null;              // AnalyserNode
+        let source = null;                // MediaStreamSource
+        let gainNode = null;              // 用于静音输出 (防回声)
+        let stream = null;                // MediaStream (来自麦克风)
+        let animationId = null;           // requestAnimationFrame id
+        let dataArray = null;              // Uint8Array 用于频域数据
+
+        // --- 辅助函数：隐藏错误信息 ---
+        function hideError() {
+            errorDiv.style.display = 'none';
+            errorDiv.innerText = '';
+        }
+
+        // --- 显示错误信息 (同时停止一切) ---
+        function showError(msg, permanent = true) {
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = '❌ ' + msg;
+            if (permanent) {
+                // 确保按钮状态复位
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusLed.className = 'status-led';
+                statusText.innerText = '出错，点击开始重试';
+            }
+        }
+
+        // --- 完全停止麦克风、音频上下文和动画 (幂等) ---
+        function stopMicrophone() {
+            // 1. 取消动画
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+
+            // 2. 断开/释放音频节点
+            if (source) {
+                try {
+                    source.disconnect();
+                } catch (e) {}
+                source = null;
+            }
+
+            if (gainNode) {
+                try {
+                    gainNode.disconnect();
+                } catch (e) {}
+                gainNode = null;
+            }
+
+            analyser = null;  // 节点不能重复用，直接丢弃
+
+            // 3. 关闭 AudioContext (必须)
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close().catch(e => console.warn('close 异常', e));
+                audioContext = null;
+            }
+
+            // 4. 停止所有媒体轨道
+            if (stream) {
+                stream.getTracks().forEach(track => {
+                    try { track.stop(); } catch (e) {}
+                });
+                stream = null;
+            }
+
+            // 5. UI 复位 (但不重置显示数值, 交给开始或手动)
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusLed.className = 'status-led';  // 灰色灯
+            statusText.innerText = '已停止';
+
+            // 注意：不在这里清空数值，以免停止时数值跳动。但可以保留上次数值，更好。
+            // 也可以将数值置0以示区别——这里选择置0，更符合停止状态
+            dbDisplay.innerText = '0.0';
+            meterFill.style.width = '0%';
+        }
+
+        // --- 更新分贝数值 + 光条 (在requestAnimationFrame中调用) ---
+        function updateMeter() {
+            if (!analyser || !dataArray) {
+                // 如果分析器没了，停止递归
+                return;
+            }
+
+            try {
+                // 获取频域幅值数据 (0-255)
+                analyser.getByteFrequencyData(dataArray);
+
+                // 计算平均值 (简单能量)
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                let avg = sum / dataArray.length;      // 0 ~ 255
+
+                // 转换为 0~1 之间
+                let rms = avg / 255;                    // 极小声时接近0，最大1
+
+                // 避免 log10(0) 加极小值 (对应 -160dB 以下)
+                const MIN_VAL = 0.00001;
+                let safeRms = Math.max(rms, MIN_VAL);
+
+                // 计算 dBFS (相对满量程) 范围大约 -100dB ~ 0dB (接近无声时极低)
+                let dbFS = 20 * Math.log10(safeRms);      // 结果 <= 0
+
+                // 限制 dBFS 不低于 -100 (因为 -100 以下基本静音，映射为 0)
+                dbFS = Math.max(dbFS, -100);
+
+                // 映射到显示 0 ~ 120 dB （模拟环境分贝）
+                // dBFS = -100  -> 0 dB显示
+                // dBFS = 0     -> 120 dB显示
+                let displayDB = (dbFS + 100) * 1.2;       // 范围 0 ~ 120
+
+                // 再次限制边界
+                displayDB = Math.min(120, Math.max(0, displayDB));
+
+                // 更新UI (保留1位小数)
+                dbDisplay.innerText = displayDB.toFixed(1);
+
+                // 更新光条宽度 (占120的百分比)
+                let percent = (displayDB / 120) * 100;
+                meterFill.style.width = percent + '%';
+
+                // 循环
+                animationId = requestAnimationFrame(updateMeter);
+            } catch (e) {
+                console.warn('更新计量时出错', e);
+                // 如果出错，停止整个测量以防无限循环
+                stopMicrophone();
+                showError('内部处理错误，已停止', true);
+            }
+        }
+
+        // --- 开始采集麦克风并初始化音频图 ---
+        async function startMicrophone() {
+            hideError();
+
+            // 先确保关闭之前的资源
+            stopMicrophone();
+
+            // 检查浏览器支持
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError('您的浏览器不支持麦克风访问，请更新或使用Chrome/Edge/Safari', true);
+                return;
+            }
+
+            statusText.innerText = '⏳ 请求麦克风权限...';
+            statusLed.className = 'status-led';  // 保持灰色
+
+            try {
+                // 1. 获取用户媒体流 (仅音频)
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+                // 2. 初始化 AudioContext (支持前缀)
+                const AudioCtor = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioCtor();
+
+                // 必须由用户手势启动，这里调用 resume (通常新context是suspended)
+                await audioContext.resume();
+
+                // 3. 创建源节点
+                source = audioContext.createMediaStreamSource(stream);
+
+                // 4. 创建 Analyser 用于获取音量
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;                      // 快速响应
+                const bufferLength = analyser.frequencyBinCount;  // = fftSize/2 = 128
+                dataArray = new Uint8Array(bufferLength);    // 存放频域数据
+
+                // 5. 创建 Gain 节点并将音量设为零，避免输出到扬声器（防止回声/哨叫）
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0;                      // 完全静音
+
+                // 6. 连接：源 -> 分析器 -> 增益(静音) -> 目的地 (扬声器)
+                source.connect(analyser);
+                analyser.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // 7. 启动更新循环
+                animationId = requestAnimationFrame(updateMeter);
+
+                // 8. 更新按钮/状态
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusLed.className = 'status-led active';
+                statusText.innerText = '🎤 监听中 (实时分贝)';
+
+                // 可选：在停止之前保持激活
+            } catch (err) {
+                console.error('getUserMedia 或初始化错误:', err);
+                // 清理可能的部分资源
+                stopMicrophone();
+
+                // 用户拒绝或没有麦克风
+                let errorMsg = err.message || '';
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    errorMsg = '麦克风权限被拒绝。请允许访问后重试。';
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMsg = '未检测到麦克风设备。请插入麦克风。';
+                } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+                    errorMsg = '麦克风正被其他应用占用，请关闭后重试。';
+                } else {
+                    errorMsg = '无法访问麦克风: ' + (err.message || '未知错误');
+                }
+                showError(errorMsg, true);
+            }
+        }
+
+        // --- 事件绑定 ---
+        startBtn.addEventListener('click', function() {
+            // 防止快速双击导致多次实例
+            startMicrophone();
+        });
+
+        stopBtn.addEventListener('click', function() {
+            stopMicrophone();
+            // 额外确保显示复位
+            dbDisplay.innerText = '0.0';
+            meterFill.style.width = '0%';
+            statusText.innerText = '已手动停止';
+            statusLed.className = 'status-led';
+            hideError(); // 清除错误显示
+        });
+
+        // 页面关闭/刷新前释放资源（非必须，但干净）
+        window.addEventListener('beforeunload', function() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+            }
+        });
+
+        // 额外兼容: 如果用户通过某些手势再次点击开始, 确保stop重置
+        // 一切就绪
+        statusLed.className = 'status-led';
+    })();
+</script>
+</body>
+</html>
