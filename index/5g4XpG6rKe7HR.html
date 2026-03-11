@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>静态代码托管</title>
+</head>
+<body>
+    接口来调用 **openai-fast**（GPT‑OSS 20B）模型。  
+页面包含：
+
+| 功能 | 说明 |
+|------|------|
+| **思维链** | 通过 `reasoning=true` 让模型返回完整的推理过程（思维链）。 |
+| **流式输出** | 通过 `stream=true` 让接口把答案分段推送给前端，页面即时显示。 |
+| **历史记录** | 记录每次问答，点击即可查看。 |
+| **思考预算（思考模式）** | 三种预设：低 / 中 / 高，分别对应不同的 `max_tokens` 与 `temperature`。 |
+| **现代极简 UI** | 纯 CSS，简洁无多余装饰。 |
+
+> **注意**  
+> 1. 你需要把 `API_KEY` 换成你自己的密钥（如果有的话）。  
+> 2. 该示例使用 `fetch` 与 `ReadableStream`，请在现代浏览器中打开。  
+> 3. 如需在移动端更好体验，可加上 `meta viewport`。
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>GPT-OSS 20B Demo（极简版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body{font-family:system-ui,Arial,sans-serif;background:#f4f4f4;margin:0;padding:0;}
+  .container{max-width:800px;margin:2rem auto;background:#fff;padding:1.5rem;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  h1{font-size:1.8rem;margin:0 0 1rem;}
+  textarea{width:100%;height:80px;border:1px solid #ddd;border-radius:4px;padding:8px;font-size:1rem;}
+  button{padding:0.6rem 1.2rem;font-size:1rem;border:none;background:#007bff;color:#fff;border-radius:4px;cursor:pointer;}
+  button:hover{background:#0069d9;}
+  .mode{margin:0.5rem 0;}
+  .mode select{padding:0.4rem;font-size:1rem;}
+  .output{margin-top:1rem;padding:1rem;background:#fafafa;border-radius:4px;min-height:80px;white-space:pre-wrap;}
+  .history{margin-top:1rem;}
+  .history button{background:#28a745;margin:0.2rem 0.2rem 0 0;font-size:0.9rem;}
+  .loading{color:#777;font-style:italic;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>GPT‑OSS 20B 极简 Demo</h1>
+  <div class="mode">
+    <label>思考预算：</label>
+    <select id="modeSelect">
+      <option value="low">低</option>
+      <option value="medium" selected>中</option>
+      <option value="high">高</option>
+    </select>
+  </div>
+  <textarea id="prompt" placeholder="请输入你的问题…"></textarea>
+  <button id="submitBtn">发送</button>
+  <div id="loading" class="loading" style="display:none;">正在思考…</div>
+  <div class="output" id="output"></div>
+
+  <div class="history" id="history">
+    <h3>历史记录</h3>
+  </div>
+</div>
+
+<script>
+const apiUrl = 'https://text.pollinations.ai/openai';
+const model = 'openai-fast'; // or 'openai', 'gpt-oss-20b', etc.
+const apiKey = ''; // 如有需要请填入密钥，若无可留空
+
+const modeConfig = {
+  low:    {max_tokens: 200, temperature: 0.3},
+  medium: {max_tokens: 400, temperature: 0.6},
+  high:   {max_tokens: 800, temperature: 0.9}
+};
+
+const promptEl = document.getElementById('prompt');
+const outputEl = document.getElementById('output');
+const submitBtn = document.getElementById('submitBtn');
+const loadingEl = document.getElementById('loading');
+const historyEl = document.getElementById('history');
+const modeSelect = document.getElementById('modeSelect');
+
+let history = [];
+
+async function sendRequest() {
+  const prompt = promptEl.value.trim();
+  if (!prompt) return;
+  
+  const {max_tokens, temperature} = modeConfig[modeSelect.value];
+  outputEl.textContent = '';
+  loadingEl.style.display = 'block';
+
+  const payload = {
+    model,
+    messages: [{role: 'user', content: prompt}],
+    max_tokens,
+    temperature,
+    reasoning: true,   // 让模型返回思维链
+    stream: true       // 流式输出
+  };
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    outputEl.textContent = `错误 ${response.status}: ${response.statusText}`;
+    loadingEl.style.display = 'none';
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let accumulated = '';
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, {stream:true});
+    // Pollinations API 采用 Stream 的格式：逐行 JSON
+    // 只保留 content 字段
+    const lines = chunk.split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (obj.choices && obj.choices[0] && obj.choices[0].delta && obj.choices[0].delta.content) {
+          const part = obj.choices[0].delta.content;
+          accumulated += part;
+          outputEl.textContent = accumulated;
+        }
+      } catch (e) {
+        console.warn('解析错误', e);
+      }
+    }
+  }
+  loadingEl.style.display = 'none';
+  // 记录历史
+  history.unshift({prompt, answer: accumulated});
+  renderHistory();
+}
+
+function renderHistory
+</body>
+</html>
