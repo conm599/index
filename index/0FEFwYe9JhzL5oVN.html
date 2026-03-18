@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的个人主页</title>
+    <!-- 引入 Tailwind CSS 用于快速布局 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 AOS 动画库 -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        .gradient-text {
+            background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+
+    <!-- 导航栏 -->
+    <nav class="fixed w-full z-50 bg-gray-900/80 backdrop-blur-md">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="text-2xl font-bold gradient-text">Dola Portfolio</div>
+            <div class="space-x-8 hidden md:flex">
+                <a href="#home" class="hover:text-indigo-400 transition">首页</a>
+                <a href="#projects" class="hover:text-indigo-400 transition">项目</a>
+                <a href="#contact" class="hover:text-indigo-400 transition">联系我</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主视觉区 (Hero Section) -->
+    <section id="home" class="h-screen flex items-center justify-center text-center px-4">
+        <div data-aos="fade-up">
+            <h1 class="text-5xl md:text-7xl font-extrabold mb-6">
+                你好, 我是 <span class="gradient-text">你的名字</span>
+            </h1>
+            <p class="text-gray-400 text-xl md:text-2xl mb-8">一名专注于 网页设计 与 全栈开发 的创意者</p>
+            <a href="#projects" class="bg-indigo-600 hover:bg-indigo-700 px-8 py-3 rounded-full font-medium transition duration-300 transform hover:scale-105 inline-block">
+                查看我的作品集
+            </a>
+        </div>
+    </section>
+
+    <!-- 项目展示区 -->
+    <section id="projects" class="py-20 bg-gray-800">
+        <div class="max-w-6xl mx-auto px-4">
+            <h2 class="text-3xl font-bold mb-12 text-center" data-aos="fade-right">我的作品</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- 项目卡片 1 -->
+                <div class="bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-indigo-500 transition" data-aos="zoom-in" data-aos-delay="100">
+                    <div class="h-48 bg-indigo-500 flex items-center justify-center text-4xl">💻</div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">电商平台重构</h3>
+                        <p class="text-gray-400 text-sm">使用 React 和 Tailwind 构建的高性能电商前端。</p>
+                    </div>
+                </div>
+                <!-- 项目卡片 2 -->
+                <div class="bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-indigo-500 transition" data-aos="zoom-in" data-aos-delay="200">
+                    <div class="h-48 bg-purple-500 flex items-center justify-center text-4xl">🎨</div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">UI 设计组件库</h3>
+                        <p class="text-gray-400 text-sm">一套基于 Vue3 的简约玻璃拟态设计规范。</p>
+                    </div>
+                </div>
+                <!-- 项目卡片 3 -->
+                <div class="bg-gray-900 rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-indigo-500 transition" data-aos="zoom-in" data-aos-delay="300">
+                    <div class="h-48 bg-pink-500 flex items-center justify-center text-4xl">📱</div>
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold mb-2">跨平台移动应用</h3>
+                        <p class="text-gray-400 text-sm">Flutter 开发的高效个人财务管理应用。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 联系方式 -->
+    <section id="contact" class="py-20">
+        <div class="max-w-2xl mx-auto px-4 text-center" data-aos="fade-up">
+            <h2 class="text-3xl font-bold mb-6">感兴趣合作吗？</h2>
+            <p class="text-gray-400 mb-10">我一直在寻找新的机会和挑战。如果你有任何想法，请随时联系我！</p>
+            <form class="space-y-4">
+                <input type="email" placeholder="你的邮箱" class="w-full p-4 rounded-lg bg-gray-800 border border-gray-700 focus:border-indigo-500 focus:outline-none">
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-pink-600 p-4 rounded-lg font-bold hover:opacity-90 transition">发送信息</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="py-10 border-t border-gray-800 text-center text-gray-500 text-sm">
+        <p>© 2024 YourName. All rights reserved.</p>
+    </footer>
+
+    <!-- 引入 AOS 库 JS -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // 初始化动画
+        AOS.init({
+            duration: 1000,
+            once: true
+        });
+    </script>
+</body>
+</html>
