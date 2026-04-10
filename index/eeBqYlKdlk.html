@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>极致真实地球模拟</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- 引入 Three.js -->
+<script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+
+    // 1. 初始化场景
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 3;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // 2. 添加光源
+    const light = new THREE.DirectionalLight(0xffffff, 2);
+    light.position.set(5, 3, 5);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0x333333)); // 环境光
+
+    // 3. 加载纹理 (使用 Three.js 官方示例资源)
+    const loader = new THREE.TextureLoader();
+    const earthMap = loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+    const earthNormal = loader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg');
+    const earthSpecular = loader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg');
+    const cloudMap = loader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
+
+    // 4. 创建地球
+    const geometry = new THREE.SphereGeometry(1, 64, 64);
+    const material = new THREE.MeshPhongMaterial({
+        map: earthMap,
+        normalMap: earthNormal,       // 法线贴图：增加凹凸感
+        specularMap: earthSpecular,   // 高光贴图：让海洋反光，陆地不反光
+        specular: new THREE.Color(0x333333),
+        shininess: 25
+    });
+    const earth = new THREE.Mesh(geometry, material);
+    scene.add(earth);
+
+    // 5. 创建云层 (稍微大一点的球体)
+    const cloudGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+        map: cloudMap,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false
+    });
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    scene.add(clouds);
+
+    // 6. 交互控制
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // 7. 动画循环
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        // 地球自转
+        earth.rotation.y += 0.001;
+        // 云层自转（速度稍快，增加真实感）
+        clouds.rotation.y += 0.0015;
+        
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    // 窗口自适应
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+</script>
+</body>
+</html>
