@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>模拟地球（Three.js）</title>
+<style>
+    /* 页面全屏、去掉滚动条 */
+    html, body { margin:0; height:100%; overflow:hidden; background:#000; }
+    canvas { display:block; }   /* three.js 会把渲染器的 canvas 加到 body */
+</style>
+</head>
+<body>
+
+<!-- three.js 主库（使用 0.158 版，可自行替换为最新） -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+<!-- 鼠标轨道控制（拖拽、滚轮） -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+/* -------------------------------------------------
+   1️⃣ 初始化场景、相机、渲染器
+------------------------------------------------- */
+const scene    = new THREE.Scene();
+
+// 相机：视野 45°、宽高比、近远裁剪面
+const camera   = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+camera.position.set(0, 0, 5);   // 拉远一点，方便观察
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio); // 高清屏适配
+document.body.appendChild(renderer.domElement);
+
+/* -------------------------------------------------
+   2️⃣ 添加光源
+      - 环境光（柔和的全局光）
+      - 平行光（模拟太阳光）
+------------------------------------------------- */
+const ambientLight = new THREE.AmbientLight(0x404040, 1.2); // 柔和的灰白光
+scene.add(ambientLight);
+
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+sunLight.position.set(5, 3, 5);   // 从右上方照射
+scene.add(sunLight);
+
+/* -------------------------------------------------
+   3️⃣ 创建地球球体并贴图
+      - 使用高分辨率的地球贴图、凹凸贴图、光照贴图
+------------------------------------------------- */
+const sphereGeometry = new THREE.SphereGeometry(1, 64, 64);
+const loader = new THREE.TextureLoader();
+
+// 下面的 URL 均来自公开 CDN（可直接访问），如果网络受限请自行下载后改为相对路径
+const earthMap    = loader.load('https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/earthmap1k.jpg');
+const earthBump   = loader.load('https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/earthbump1k.jpg');
+const earthSpec   = loader.load('https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/earthspec1k.jpg');
+
+const earthMaterial = new THREE.MeshPhongMaterial({
+    map:        earthMap,
+    bumpMap:    earthBump,
+    bumpScale:  0.05,                // 凹凸强度
+    specularMap: earthSpec,
+    specular:   new THREE.Color('grey')
+});
+
+const earthMesh = new THREE.Mesh(sphereGeometry, earthMaterial);
+scene.add(earthMesh);
+
+/* -------------------------------------------------
+   4️⃣ 添加云层（半透明球体）
+------------------------------------------------- */
+const cloudMap = loader.load('https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/earthclouds.png');
+const cloudMaterial = new THREE.MeshLambertMaterial({
+    map: cloudMap,
+    transparent: true,
+    opacity: 0.8,
+    depthWrite: false   // 防止云层写入深度缓冲导致渲染错误
+});
+const cloudGeometry = new THREE.SphereGeometry(1.01, 64, 64); // 稍微大一点
+const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+scene.add(cloudMesh);
+
+/* -------------------------------------------------
+   5️⃣ 添加星空背景（一个大球内部贴星图）
+------------------------------------------------- */
+const starGeometry = new THREE.SphereGeometry(90, 64, 64);
+const starTexture = loader.load('https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/starmap1k.jpg');
+const starMaterial = new THREE.MeshBasicMaterial({
+    map: starTexture,
+    side: THREE.BackSide   // 只渲染内部面
+});
+const starMesh = new THREE.Mesh(starGeometry, starMaterial);
+scene.add(starMesh);
+
+/* -------------------------------------------------
+   6️⃣ 鼠标轨道控制（拖拽、滚轮缩放）
+------------------------------------------------- */
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;          // 惯性滚动
+controls.dampingFactor = 0.05;
+controls.minDistance = 2;              // 最近距离
+controls.maxDistance = 30;             // 最远距离
+controls.rotateSpeed = 0.5;            // 旋转灵敏度
+
+/* -------------------------------------------------
+   7️⃣ 动画循环
+      - 地球自转（约 24h 对应 1 圈）
+      - 云层略快一点，制造动感
+------------------------------------------------- */
+function animate() {
+    requestAnimationFrame(animate);
+
+    // 自转速度：0.001 rad/frame ≈ 0.057°/frame
+    earthMesh.rotation.y += 0.001;
+    cloudMesh.rotation.y += 0.0012; // 云层稍快
+
+    controls.update();      // 轨道控制的阻尼需要在每帧调用
+    renderer.render(scene, camera);
+}
+animate();
+
+/* -------------------------------------------------
+   8️⃣ 响应窗口大小变化
+------------------------------------------------- */
+window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+});
+</script>
+
+</body>
+</html>
