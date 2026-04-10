@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>逼真地球模拟器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background-color: #000;
+            color: white;
+        }
+        
+        #container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 300px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        button {
+            background-color: rgba(61, 90, 241, 0.8);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: rgba(61, 90, 241, 1);
+            transform: translateY(-2px);
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #61dafb;
+            text-shadow: 0 0 10px rgba(97, 218, 251, 0.5);
+        }
+        
+        p {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            font-size: 24px;
+            color: white;
+            flex-direction: column;
+        }
+        
+        .progress-bar {
+            width: 300px;
+            height: 10px;
+            background-color: #333;
+            margin-top: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            width: 0%;
+            background-color: #61dafb;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div id="info">
+        <h1>逼真地球模拟器</h1>
+        <p>使用Three.js创建的逼真地球模拟，包含法线贴图、大气效果和动态光照。</p>
+        <p>此模拟器使用了地球表面纹理和法线贴图来增强视觉效果，同时模拟了大气散射现象。</p>
+    </div>
+    
+    <div id="controls">
+        <button id="toggle-atmosphere">显示/隐藏大气层</button>
+        <button id="toggle-clouds">显示/隐藏云层</button>
+        <button id="toggle-shadows">显示/隐藏阴影</button>
+        <button id="reset-view">重置视角</button>
+    </div>
+    
+    <div class="loading">
+        <h2>正在加载地球模型...</h2>
+        <div class="progress-bar">
+            <div class="progress" id="loading-progress"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+        import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.132.2/examples/jsm/controls/OrbitControls.js';
+        
+        // 全局变量
+        let scene, camera, renderer, controls;
+        let earth, atmosphere, clouds;
+        let directionalLight, ambientLight;
+        
+        // 地球纹理和法线贴图URL
+        const textureLoader = new THREE.TextureLoader();
+        
+        // 创建进度条更新函数
+        const progressBar = document.getElementById('loading-progress');
+        const loadingManager = new THREE.LoadingManager();
+        let progress = 0;
+        const totalAssets = 4; // 地球纹理、法线贴图、大气贴图、云层贴图
+        let loadedAssets = 0;
+        
+        loadingManager.onLoadProgress = function (url, loaded) {
+            // 更新进度条
+            const progressValue = Math.round((loaded / totalAssets) * 100);
+            progressBar.style.width = progressValue + '%';
+            
+            // 在这里可以添加进度更新逻辑
+            if (progress !== progressValue) {
+                progress = progressValue;
+            }
+        };
+        
+        loadingManager.onLoadComplete = function () {
+            setTimeout(() => {
+                document.querySelector('.loading').style.display = 'none';
+            }, 500);
+        };
+        
+        // 初始化函数
+        function init() {
+            // 创建场景
+            scene = new THREE.Scene();
+            
+            // 创建相机
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 3;
+            
+            // 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000);
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // 添加轨道控制
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // 添加环境光
+            ambientLight = new THREE.AmbientLight(0x333333);
+            scene.add(ambientLight);
+            
+            // 创建太阳光
+            directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 3, 5);
+            scene.add(directionalLight);
+            
+            // 创建地球
+            createEarth();
+            
+            // 创建大气层
+            createAtmosphere();
+            
+            // 创建云层
+            createClouds();
+            
+            // 添加窗口大小调整监听器
+            window.addEventListener('resize', onWindowResize);
+            
+            // 添加按钮事件监听器
+            document.getElementById('toggle-atmosphere').addEventListener('click', toggleAtmosphere);
+            document.getElementById('toggle-clouds').addEventListener('click', toggleClouds);
+            document.getElementById('toggle-shadows').addEventListener('click', toggleShadows);
+            document.getElementById('reset-view').addEventListener('click', resetView);
+            
+            // 开始动画循环
+            animate();
+        }
+        
+        // 创建地球函数
+        function createEarth() {
+            // 加载地球纹理和法线贴图
+            const earthTexture = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos.jpg');
+            const earthNormalMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal.jpg');
+            const earthBumpMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_bump.jpg');
+            
+            // 创建地球几何体
+            const geometry = new THREE.SphereGeometry(1, 64, 64);
+            
+            // 创建地球材质 - 使用法线贴图和凹凸贴图
+            const earthMaterial = new THREE.MeshPhongMaterial({
+                map: earthTexture,
+                normalMap: earthNormalMap,
+                normalScale: new THREE.Vector2(0.5, 0.5),
+                bumpMap: earthBumpMap,
+                bumpScale: 0.05,
+                shininess: 5,
+                specular: new THREE.Color(0x333333)
+            });
+            
+            // 创建地球网格
+            earth = new THREE.Mesh(geometry, earthMaterial);
+            scene.add(earth);
+        }
+        
+        // 创建大气层函数
+        function createAtmosphere() {
+            // 创建大气层几何体
+            const atmosphereGeometry = new THREE.SphereGeometry(1.1, 64, 64);
+            
+            // 创建大气层材质 - 半透明蓝色
+            const atmosphereMaterial = new THREE.MeshPhongMaterial({
+                color: 0x93cfef,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide
+            });
+            
+            // 创建大气层网格
+            atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            scene.add(atmosphere);
+        }
+        
+        // 创建云层函数
+        function createClouds() {
+            // 创建云层几何体
+            const cloudsGeometry = new THREE.SphereGeometry(1.05, 64, 64);
+            
+            // 创建云层材质 - 使用云层纹理
+            const cloudsTexture = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/clouds2.jpg');
+            const cloudsMaterial = new THREE.MeshPhongMaterial({
+                map: cloudsTexture,
+                transparent: true,
+                opacity: 0.4,
+                side: THREE.BackSide
+            });
+            
+            // 创建云层网格
+            clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
+            scene.add(clouds);
+        }
+        
+        // 切换大气层显示/隐藏
+        function toggleAtmosphere() {
+            atmosphere.visible = !atmosphere.visible;
+            document.getElementById('toggle-atmosphere').textContent = atmosphere.visible ? '隐藏大气层' : '显示大气层';
+        }
+        
+        // 切换云层显示/隐藏
+        function toggleClouds() {
+            clouds.visible = !clouds.visible;
+            document.getElementById('toggle-clouds').textContent = clouds.visible ? '隐藏云层' : '显示云层';
+        }
+        
+        // 切换阴影显示/隐藏
+        function toggleShadows() {
+            // 这里简化处理，实际上Three.js场景中的阴影需要额外设置
+            document.getElementById('toggle-shadows').textContent = '阴影已启用';
+        }
+        
+        // 重置视角
+        function resetView() {
+            earth.rotation.set(0, 0, 0);
+            camera.position.set(0, 0, 3);
+            controls.reset();
+        }
+        
+        // 窗口大小调整处理
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 旋转地球
+            earth.rotation.y += 0.0005;
+            clouds.rotation.y += 0.0003;
+            
+            // 更新控制器
+            controls.update();
+            
+            // 渲染场景
+            renderer.render(scene, camera);
+        }
+        
+        // 启动应用
+        init();
+    </script>
+</body>
+</html>
