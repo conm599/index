@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 模拟地球 - 支持交互</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: sans-serif;
+            font-size: 20px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">正在加载纹理...</div>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // 1. 场景设置
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. 控制器设置
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // 启用阻尼效果，使旋转更平滑
+        controls.dampingFactor = 0.05; // 阻尼系数
+        controls.minDistance = 8; // 最小距离
+        controls.maxDistance = 20; // 最大距离
+
+        // 3. 加载纹理
+        const textureLoader = new THREE.TextureLoader();
+        const loadManager = new THREE.LoadingManager();
+
+        loadManager.onLoad = () => {
+            document.getElementById('loading').style.display = 'none';
+        };
+
+        const loader = new THREE.TextureLoader(loadManager);
+
+        const earthMap = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
+        const earthSpecular = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg');
+        const earthNormal = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg');
+        const cloudMap = loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png');
+
+        // 4. 创建地球 Mesh
+        const earthGeometry = new THREE.SphereGeometry(5, 64, 64);
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            map: earthMap,
+            specularMap: earthSpecular,
+            normalMap: earthNormal,
+            specular: new THREE.Color(0x333333),
+            shininess: 15
+        });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+
+        // 5. 创建云层 Mesh
+        const cloudGeometry = new THREE.SphereGeometry(5.08, 64, 64);
+        const cloudMaterial = new THREE.MeshPhongMaterial({
+            map: cloudMap,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide
+        });
+        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        scene.add(clouds);
+
+        // 6. 创建星空背景
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 2000;
+        const starPositions = new Float32Array(starCount * 3);
+
+        for(let i = 0; i < starCount * 3; i++) {
+            starPositions[i] = (Math.random() - 0.5) * 200;
+        }
+
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMaterial = new THREE.PointsMaterial({color: 0xffffff, size: 0.2});
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        // 7. 灯光设置
+        const ambientLight = new THREE.AmbientLight(0x333333);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(10, 3, 5);
+        scene.add(sunLight);
+
+        // 8. 摄像机初始位置
+        camera.position.z = 15;
+
+        // 9. 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 更新控制器 (必须在渲染循环中调用)
+            controls.update();
+
+            // 地球自转 (相对于场景，不影响交互)
+            earth.rotation.y += 0.001;
+            
+            // 云层自转
+            clouds.rotation.y += 0.0015;
+            clouds.rotation.x += 0.0001;
+
+            // 星空缓慢旋转
+            stars.rotation.y -= 0.0002;
+
+            renderer.render(scene, camera);
+        }
+
+        // 窗口大小调整适配
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
