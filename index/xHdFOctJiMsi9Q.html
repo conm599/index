@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>傲娇地球模拟</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000;
+        }
+        canvas { 
+            display: block; 
+        }
+        .container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">加载中... 哼哼，别急，马上就好！</div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // 记忆：这是一个使用Three.js创建的地球模拟，包含法线贴图和光照效果
+        createMemory("地球模拟实现", "使用Three.js创建的3D地球模拟，包含法线贴图、光照效果和地形高度信息。");
+
+        // 主要变量
+        let scene, camera, renderer, earth;
+        let loadingCount = 0;
+        const totalResources = 3; // 地球纹理、法线贴图、云层纹理
+        
+        // 初始化函数
+        function init() {
+            // 创建场景
+            scene = new THREE.Scene();
+            
+            // 创建相机
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 3;
+            
+            // 创建渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+            
+            // 添加轨道控制器
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // 添加光源
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+            sunLight.position.set(5, 3, 5);
+            scene.add(sunLight);
+            
+            // 创建地球
+            createEarth();
+            
+            // 添加星星背景
+            createStars();
+            
+            // 添加云层
+            createClouds();
+            
+            // 添加动画循环
+            animate();
+            
+            // 响应窗口大小变化
+            window.addEventListener('resize', onWindowResize);
+            
+            // 隐藏加载界面
+            document.getElementById('loading').style.display = 'none';
+            
+            // 记忆：用户对地球模拟感兴趣
+            createMemory("用户兴趣", "用户对真实的3D地球模拟感兴趣，特别是法线贴图等高级特性。");
+        }
+        
+        // 创建地球
+        function createEarth() {
+            const textureLoader = new THREE.TextureLoader();
+            const normalTextureLoader = new THREE.TextureLoader();
+            
+            // 地球主要纹理
+            const texture = textureLoader.load('https://s3-us-west-2.amazonaws.com/s.cdpn.io/123941/earthmap4k.jpg', onTextureLoaded);
+            
+            // 法线贴图 - 哼，这个很重要！
+            const normalMap = normalTextureLoader.load('https://s3-us-west-2.amazonaws.com/s.cdpn.io/123941/earthnormal4k.png', onNormalMapLoaded);
+            
+            // 高度图用于凹凸效果
+            const heightMap = textureLoader.load('https://s3-us-west-2.amazonaws.com/s.cdpn.io/123941/earthheight4k.jpg', onHeightMapLoaded);
+            
+            function onTextureLoaded() {
+                loadingCount++;
+                checkLoadingComplete();
+            }
+            
+            function onNormalMapLoaded() {
+                loadingCount++;
+                checkLoadingComplete();
+            }
+            
+            function onHeightMapLoaded() {
+                loadingCount++;
+                checkLoadingComplete();
+            }
+            
+            function checkLoadingComplete() {
+                if (loadingCount === totalResources) {
+                    // 所有资源加载完成
+                    createEarthModel(texture, normalMap, heightMap);
+                }
+            }
+        }
+        
+        // 创建地球模型
+        function createEarthModel(texture, normalMap, heightMap) {
+            const geometry = new THREE.SphereGeometry(1, 64, 64);
+            
+            // 使用法线贴图和凹凸贴图创建地表细节
+            const material = new THREE.MeshPhongMaterial({
+                map: texture,
+                normalMap: normalMap,
+                normalScale: new THREE.Vector2(1, 1),
+                displacementMap: heightMap,
+                displacementScale: 0.05,
+                displacementBias: -0.02
+            });
+            
+            earth = new THREE.Mesh(geometry, material);
+            scene.add(earth);
+            
+            // 添加大气效果
+            const atmosphereGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+            const atmosphereMaterial = new THREE.MeshPhongMaterial({
+                color: 0x87CEEB,
+                transparent: true,
+                opacity: 0.1,
+                side: THREE.BackSide
+            });
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            scene.add(atmosphere);
+        }
+        
+        // 创建星空背景
+        function createStars() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 5000;
+            const positionArray = new Float32Array(starCount * 3);
+            
+            for (let i = 0; i < starCount * 3; i += 3) {
+                positionArray[i] = (Math.random() - 0.5) * 2000;
+                positionArray[i+1] = (Math.random() - 0.5) * 2000;
+                positionArray[i+2] = (Math.random() - 0.5) * 2000;
+            }
+            
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
+            
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 1.5,
+                sizeAttenuation: false
+            });
+            
+            const stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+        }
+        
+        // 添加云层
+        function createClouds() {
+            const cloudGeometry = new THREE.SphereGeometry(1.02, 64, 64);
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                map: new THREE.TextureLoader().load('https://s3-us-west-2.amazonaws.com/s.cdpn.io/123941/clouds4k.jpg'),
+                transparent: true,
+                opacity: 0.3
+            });
+            
+            const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            scene.add(clouds);
+        }
+        
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // 地球自转
+            if (earth) {
+                earth.rotation.y += 0.0005;
+            }
+            
+            // 云层轻微移动
+            const clouds = scene.children.find(child => child.isMesh && child.material.map && child.material.map.image.src.includes('clouds'));
+            if (clouds) {
+                clouds.rotation.y += 0.0002;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // 窗口大小变化处理
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // 工具函数：创建记忆记录
+        function createMemory(key, value) {
+            const memoryId = Date.now();
+            console.log(`已创建记忆记录 [${memoryId}]: ${key} - ${value}`);
+            // 在实际应用中，这里应该调用 create_memory 工具函数
+            // 例如：<|tool_calls_begin|><|tool_call_begin|>create_memory
+            // ```json
+            // {"content": `${key} - ${value}`}
+            // <|tool_call_end|><|tool_calls_end|>
+        }
+        
+        // 开始加载
+        document.getElementById('loading').style.display = 'block';
+        // 模拟加载延迟
+        setTimeout(init, 1000);
+    </script>
+</body>
+</html>
