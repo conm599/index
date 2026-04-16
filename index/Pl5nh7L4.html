@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中文域名转换器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/punycode/2.3.1/punycode.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 50px;
+            text-align: center;
+        }
+        input {
+            padding: 8px;
+            width: 250px;
+            font-size: 16px;
+        }
+        button {
+            padding: 8px 15px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #d93025;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>中文域名转英文 (Punycode)</h2>
+    
+    <input type="text" id="domainInput" placeholder="例如：中文.cn">
+    <button onclick="convert()">转换</button>
+
+    <div id="result"></div>
+
+    <script>
+        function convert() {
+            // 获取输入框里的内容
+            var input = document.getElementById('domainInput').value.trim();
+            var resultDiv = document.getElementById('result');
+            
+            if (!input) {
+                resultDiv.innerText = "请先输入一个中文域名！";
+                resultDiv.style.color = "gray";
+                return;
+            }
+
+            try {
+                // 使用 punycode.js 进行转换
+                var asciiDomain = punycode.toASCII(input);
+                resultDiv.innerText = "转换结果: " + asciiDomain;
+                resultDiv.style.color = "#d93025";
+            } catch (e) {
+                resultDiv.innerText = "转换失败，请检查域名格式。";
+            }
+        }
+    </script>
+
+</body>
+</html>
