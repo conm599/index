@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极简网络测速 - 进阶版</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-light: #e0e7ff;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 500px;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: var(--text-main);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--bg-color);
+            padding: 1.5rem 1rem;
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 0.5rem;
+            background: var(--primary-light);
+            border-radius: 9999px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status-text {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            min-height: 1.25rem;
+        }
+
+        /* 新增：高阶统计数据区域 */
+        .advanced-stats {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 1.5rem;
+            margin-bottom: 2rem;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .stat-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .stat-col span:first-child {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .stat-val {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #4338ca;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.3);
+        }
+
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>网络性能测速</h1>
+    
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <span class="metric-label">延迟 (Ping)</span>
+            <div class="metric-value">
+                <span id="ping-val">--</span>
+                <span class="metric-unit">ms</span>
+            </div>
+        </div>
+        <div class="metric-card">
+            <span class="metric-label">实时速度</span>
+            <div class="metric-value">
+                <span id="speed-val">0.00</span>
+                <span class="metric-unit">Mbps</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="status-text" id="status-text">准备就绪，点击下方按钮开始测试</div>
+
+    <div class="advanced-stats">
+        <div class="stat-col">
+            <span>最慢(抖动)</span>
+            <div class="stat-val"><span id="min-speed">0.00</span> Mbps</div>
+        </div>
+        <div class="stat-col">
+            <span>最快速度</span>
+            <div class="stat-val"><span id="max-speed">0.00</span> Mbps</div>
+        </div>
+        <div class="stat-col">
+            <span>全程平均</span>
+            <div class="stat-val"><span id="avg-speed">0.00</span> Mbps</div>
+        </div>
+    </div>
+    
+    <button id="start-btn" onclick="startSpeedTest()">开始测速 (24线程持续压测)</button>
+</div>
+
+<script>
+    const TEST_URL = 'https://fmv.vpnmnm.ggff.net/200m';
+    const THREAD_COUNT = 24;      
+    const TEST_DURATION = 15000;  // 测试时长：15秒
+
+    let abortController = null;
+    let speedInterval = null;
+
+    async function startSpeedTest() {
+        const btn = document.getElementById('start-btn');
+        const pingVal = document.getElementById('ping-val');
+        const speedVal = document.getElementById('speed-val');
+        const progressBar = document.getElementById('progress-bar');
+        const statusText = document.getElementById('status-text');
+        
+        // 重置进阶数据 UI
+        document.getElementById('min-speed').innerText = '0.00';
+        document.getElementById('max-speed').innerText = '0.00';
+        document.getElementById('avg-speed').innerText = '0.00';
+
+        btn.disabled = true;
+        btn.innerText = '测速中...';
+        pingVal.innerText = '--';
+        speedVal.innerText = '0.00';
+        progressBar.style.width = '0%';
+        
+        if (abortController) abortController.abort();
+        abortController = new AbortController();
+        const signal = abortController.signal;
+
+        try {
+            statusText.innerText = '正在测试延迟...';
+            const ping = await measurePing(signal);
+            pingVal.innerText = ping;
+
+            statusText.innerText = `正在分配 ${THREAD_COUNT} 个线程...`;
+            await runDownloadThreads(signal);
+
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                statusText.innerText = '测速圆满完成。';
+            } else {
+                statusText.innerText = '测速发生错误，请检查网络设置。';
+                console.error(err);
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerText = '重新测速';
+            if (speedInterval) clearInterval(speedInterval);
+        }
+    }
+
+    async function measurePing(signal) {
+        const start = performance.now();
+        try {
+            await fetch(`${TEST_URL}?ping=${Date.now()}`, { method: 'HEAD', mode: 'cors', signal });
+        } catch (e) {}
+        return Math.round(performance.now() - start);
+    }
+
+    async function runDownloadThreads(signal) {
+        let totalBytesLoaded = 0;
+        let lastBytesLoaded = 0;
+        const startTime = performance.now();
+        let lastTime = startTime;
+
+        // 测速统计指标
+        let minSpeed = Infinity;
+        let maxSpeed = 0;
+
+        const speedElement = document.getElementById('speed-val');
+        const progressElement = document.getElementById('progress-bar');
+        const statusElement = document.getElementById('status-text');
+        const minElem = document.getElementById('min-speed');
+        const maxElem = document.getElementById('max-speed');
+        const avgElem = document.getElementById('avg-speed');
+
+        speedInterval = setInterval(() => {
+            const now = performance.now();
+            const elapsed = now - startTime;
+            const timeDiff = (now - lastTime) / 1000; 
+            const bytesDiff = totalBytesLoaded - lastBytesLoaded;
+            
+            if (timeDiff > 0) {
+                // 当前每秒实时速度 (Mbps)
+                const speedMbps = (bytesDiff * 8) / 1024 / 1024 / timeDiff;
+                speedElement.innerText = speedMbps.toFixed(2);
+
+                // 动态更新最快速度
+                if (speedMbps > maxSpeed) {
+                    maxSpeed = speedMbps;
+                    maxElem.innerText = maxSpeed.toFixed(2);
+                }
+
+                // 动态更新最慢速度 (跳过前1.5秒的预热期，避免连接初期的零碎流量干扰)
+                if (elapsed > 1500 && speedMbps < minSpeed) {
+                    minSpeed = speedMbps;
+                    minElem.innerText = minSpeed.toFixed(2);
+                }
+
+                // 动态更新全程平均速度
+                const currentAvg = (totalBytesLoaded * 8 / 1024 / 1024) / (elapsed / 1000);
+                avgElem.innerText = currentAvg.toFixed(2);
+            }
+
+            lastBytesLoaded = totalBytesLoaded;
+            lastTime = now;
+
+            const progress = Math.min((elapsed / TEST_DURATION) * 100, 100);
+            progressElement.style.width = `${progress}%`;
+            
+            const downloadedMB = (totalBytesLoaded / 1024 / 1024).toFixed(1);
+            statusElement.innerText = `多线程动态续传中... 已接收 ${downloadedMB} MB`;
+
+        }, 500);
+
+        // 创建智能断线重连的线程
+        const createSmartThread = async () => {
+            // 当总开关没有被掐断时，持续循环
+            while (!signal.aborted) {
+                try {
+                    // 发起请求，利用随机数避免缓存
+                    const response = await fetch(`${TEST_URL}?t=${Math.random()}`, { signal });
+                    if (!response.ok) break; 
+                    
+                    const reader = response.body.getReader();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        // 如果服务器文件下发完毕（done），跳出读取循环，外层while会立即重新发起Fetch请求
+                        if (done) break; 
+                        if (value) {
+                            totalBytesLoaded += value.length;
+                        }
+                    }
+                } catch (e) {
+                    // 如果被 AbortController 掐断，或者遇到网络中断，跳出循环销毁线程
+                    break;
+                }
+            }
+        };
+
+        // 启动 24 个智能并发线程
+        for (let i = 0; i < THREAD_COUNT; i++) {
+            createSmartThread();
+        }
+
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                abortController.abort(); // 掐断所有并发请求
+                clearInterval(speedInterval);
+                progressElement.style.width = '100%';
+                
+                // 结算最终平均速度
+                const totalSeconds = (performance.now() - startTime) / 1000;
+                const finalAvg = (totalBytesLoaded * 8 / 1024 / 1024) / totalSeconds;
+                speedElement.innerText = finalAvg.toFixed(2); // 实时速度定格在最终平均值
+                avgElem.innerText = finalAvg.toFixed(2);
+                
+                // 如果整个过程速度极稳，导致 minSpeed 没有被赋有效值，则取平均值补上
+                if (minSpeed === Infinity) minElem.innerText = finalAvg.toFixed(2);
+
+                statusElement.innerText = '测速完成';
+                resolve();
+            }, TEST_DURATION);
+        });
+    }
+</script>
+
+</body>
+</html>
