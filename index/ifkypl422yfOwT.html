@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>VLESS链接转换器 · 服务器地址替换工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background: #f1f5f9;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 24px 16px;
+            color: #0f172a;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+            padding: 24px 28px;
+            margin-bottom: 28px;
+            transition: all 0.2s ease;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 0.25rem;
+            background: linear-gradient(135deg, #1e3c72, #2b4c7c);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+        .sub {
+            color: #475569;
+            border-left: 3px solid #3b82f6;
+            padding-left: 14px;
+            margin: 12px 0 20px 0;
+            font-size: 0.9rem;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 8px;
+            color: #1e293b;
+            font-size: 0.9rem;
+        }
+        textarea, .file-label {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            padding: 12px 16px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            background: #fefefe;
+            transition: 0.2s;
+        }
+        textarea {
+            resize: vertical;
+            background: #fafcff;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
+        }
+        .file-upload-area {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .file-input {
+            display: none;
+        }
+        .file-label {
+            background: #eef2ff;
+            border: 1px dashed #3b82f6;
+            cursor: pointer;
+            display: inline-block;
+            width: auto;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            color: #2563eb;
+            transition: 0.2s;
+            font-family: inherit;
+        }
+        .file-label:hover {
+            background: #e0e7ff;
+            border-color: #2563eb;
+        }
+        button {
+            background: #1e293b;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        button.primary {
+            background: #2563eb;
+            box-shadow: 0 2px 6px rgba(37,99,235,0.2);
+        }
+        button.primary:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+        button.secondary {
+            background: #475569;
+        }
+        button.secondary:hover {
+            background: #334155;
+        }
+        .info-panel {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 16px 20px;
+            margin: 16px 0 12px;
+            font-size: 0.85rem;
+            border: 1px solid #e2e8f0;
+        }
+        .stats {
+            font-weight: 500;
+            color: #0f3b5e;
+        }
+        .result-area {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 24px;
+            padding: 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .copy-btn {
+            background: #2d3a5e;
+            margin-top: 12px;
+            margin-right: 12px;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .badge {
+            background: #e2e8f0;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #e2e8f0;
+        }
+        footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-top: 24px;
+        }
+        @media (max-width: 640px) {
+            .card {
+                padding: 18px;
+            }
+            .flex-between {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>✈️ VLESS 批量转换工坊</h1>
+        <div class="sub">基于模板替换服务器地址 · 自动生成「国家+IP」命名节点</div>
+
+        <!-- 模板编辑区 -->
+        <label>📌 模板链接 (VLESS标准格式)</label>
+        <textarea id="templateLink" rows="2" style="font-family: monospace;">vless://90991f39-0cdf-4436-852a-1be6164b4021@youxuan.cf.090227.xyz:443?path=%2F&security=tls&encryption=none&insecure=0&host=kv-c64.pages.dev&fp=chrome&type=ws&allowInsecure=0&sni=kv-c64.pages.dev#%E4%BC%98%E9%80%89CF</textarea>
+        <p style="font-size: 0.75rem; margin-top: 6px; color: #475569;">✅ 仅替换 <code>@后的服务器地址:端口</code> 以及节点名称 (#后面的部分)，其余参数完全保留。</p>
+
+        <!-- 文件上传区域 -->
+        <div style="margin-top: 20px;">
+            <label>📂 上传地址列表 (.txt)</label>
+            <div class="file-upload-area">
+                <input type="file" id="fileInput" accept=".txt, .csv, .text/plain" class="file-input">
+                <label for="fileInput" class="file-label">📁 选择 TXT 文件</label>
+                <button id="clearBtn" class="secondary" type="button">🗑️ 清空结果</button>
+            </div>
+            <div class="info-panel">
+                <span>📖 每行格式要求：</span><br>
+                ➤ <strong>国家,服务器地址[:端口]</strong> &nbsp; 例: <code>美国,123.45.67.89:4433</code><br>
+                ➤ <strong>国家 服务器地址[:端口]</strong> &nbsp; 例: <code>日本 1.2.3.4</code> (端口默认443)<br>
+                ➤ 支持域名/IP，端口可选，若未提供端口则沿用模板端口(或443)。<br>
+                ➤ 节点名称 = 国家 + "_" + IP(不含端口) &nbsp; 自动URL编码。<br>
+                ⚡ 如果行内无法识别国家，则默认国家为 <code>Node</code>
+            </div>
+        </div>
+
+        <!-- 控制栏 -->
+        <div class="flex-between">
+            <div><span class="badge" id="lineCountBadge">📄 未解析</span></div>
+            <div style="display: flex; gap: 12px;">
+                <button id="convertBtn" class="primary">⚡ 开始转换</button>
+                <button id="downloadBtn" class="secondary">💾 下载全部链接</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结果显示区 -->
+    <div class="card">
+        <div class="flex-between" style="margin-bottom: 10px;">
+            <span><strong>📡 生成结果</strong> (VLESS链接)</span>
+            <button id="copyAllBtn" class="secondary" style="background:#334155;">📋 复制全部</button>
+        </div>
+        <div id="resultContainer" class="result-area">
+            <span style="color:#94a3b8;">等待上传并转换……</span>
+        </div>
+    </div>
+    <footer>
+        ⚠️ 仅替换服务器地址和节点名称，不动 host/sni/加密等。生成链接请自行校验可用性。
+    </footer>
+</div>
+
+<script>
+    (function() {
+        // DOM 元素
+        const templateTextarea = document.getElementById('templateLink');
+        const fileInput = document.getElementById('fileInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyAllBtn = document.getElementById('copyAllBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const lineCountBadge = document.getElementById('lineCountBadge');
+
+        let currentGeneratedLinks = [];   // 存储最新生成的链接字符串数组
+        let rawFileLines = [];             // 最近一次解析的原始行(用于展示计数)
+
+        // ---------- 辅助函数 ----------
+        function showMessage(text, isError = false) {
+            // 简单在result区显示临时状态消息（但不覆盖主要结果）
+            const tempDiv = document.createElement('div');
+            tempDiv.style.background = isError ? '#7f1a1a' : '#1e4620';
+            tempDiv.style.color = '#fff';
+            tempDiv.style.padding = '8px 12px';
+            tempDiv.style.borderRadius = '20px';
+            tempDiv.style.marginBottom = '12px';
+            tempDiv.style.fontSize = '0.75rem';
+            tempDiv.innerText = text;
+            resultContainer.prepend(tempDiv);
+            setTimeout(() => tempDiv.remove(), 3500);
+        }
+
+        // 解析一行文本 => { country, host, port (number) }  失败返回null
+        function parseServerLine(line) {
+            if (!line || line.trim() === '') return null;
+            let trimmed = line.trim();
+            // 跳过注释行(以# // 开头)
+            if (trimmed.startsWith('#') || trimmed.startsWith('//')) return null;
+
+            let country = '';
+            let addressPart = '';
+
+            // 尝试按逗号分割 (国家,地址端口)
+            if (trimmed.includes(',')) {
+                let parts = trimmed.split(',');
+                if (parts.length >= 2) {
+                    country = parts[0].trim();
+                    addressPart = parts.slice(1).join(',').trim(); // 避免地址中意外逗号
+                } else {
+                    addressPart = trimmed;
+                }
+            } 
+            // 否则按空格分割：国家 地址端口
+            else if (trimmed.includes(' ')) {
+                let firstSpaceIdx = trimmed.indexOf(' ');
+                country = trimmed.substring(0, firstSpaceIdx).trim();
+                addressPart = trimmed.substring(firstSpaceIdx + 1).trim();
+            } 
+            // 纯地址（无国家）
+            else {
+                country = '';
+                addressPart = trimmed;
+            }
+
+            // 如果国家为空或者地址部分为空，尝试兜底: 直接将整行当地址，国家设为 'Node'
+            if (addressPart === '' && country !== '') {
+                addressPart = country;
+                country = 'Node';
+            }
+            if (addressPart === '') return null;
+            if (country === '') country = 'Node';
+
+            // 提取主机和端口 (支持 IPv4, 域名, 以及 IPv6 简易处理)
+            let host = '';
+            let port = null;
+
+            // 匹配最后一部分 :端口 (注意IPv6地址包含冒号，但通常IPv6地址会带[]，我们简单处理: 如果最后冒号后是数字且前面不是'[')
+            // 先判断是否为 [ipv6]:port 样式
+            let bracketMatch = addressPart.match(/^\[(.*)\]:(\d+)$/);
+            if (bracketMatch) {
+                host = bracketMatch[1];
+                port = parseInt(bracketMatch[2], 10);
+            } else {
+                // 常规 IPv4 / 域名:端口
+                let lastColon = addressPart.lastIndexOf(':');
+                if (lastColon !== -1) {
+                    let possiblePort = addressPart.substring(lastColon + 1);
+                    if (/^\d+$/.test(possiblePort)) {
+                        host = addressPart.substring(0, lastColon);
+                        port = parseInt(possiblePort, 10);
+                    } else {
+                        host = addressPart;
+                        port = null;
+                    }
+                } else {
+                    host = addressPart;
+                    port = null;
+                }
+            }
+
+            if (!host || host === '') return null;
+            // 默认端口: 若未检测到端口，使用443 (大多数安全节点常用)
+            if (port === null || isNaN(port)) port = 443;
+            // 端口范围限制
+            if (port < 1 || port > 65535) port = 443;
+
+            return { country: country.trim(), host: host.trim(), port: port };
+        }
+
+        // 从模板字符串解析UUID和参数部分 (使用URL API)
+        // 返回 { uuid, serverHost, serverPort, searchParams, hashPrefix, fullUrlObj } 或者 null
+        function parseTemplate(templateStr) {
+            try {
+                // 确保协议为vless: 浏览器URL API可以理解
+                let url = new URL(templateStr);
+                if (url.protocol !== 'vless:') {
+                    throw new Error('模板必须是 vless:// 开头的链接');
+                }
+                const uuid = url.username;
+                if (!uuid || uuid.length < 10) throw new Error('无效的UUID');
+                const oldHost = url.hostname;
+                const oldPort = url.port || (url.protocol === 'vless:' ? '443' : '');
+                // 保留search参数 (完整query)
+                const searchParams = url.searchParams;
+                // 原始的hash部分 (#之后的名称)
+                const hashRaw = url.hash;  // 包含# 
+                return {
+                    uuid: uuid,
+                    oldHost: oldHost,
+                    oldPort: oldPort,
+                    urlObj: url,
+                    searchParams: searchParams,
+                    hashRaw: hashRaw,
+                };
+            } catch (err) {
+                console.error(err);
+                return null;
+            }
+        }
+
+        // 根据模板解析结果 + 新的主机+端口 + 新名称 => 生成完整vless链接
+        function buildVlessFromTemplate(templateParseResult, newHost, newPort, newNodeName) {
+            if (!templateParseResult) return null;
+            const { uuid, urlObj } = templateParseResult;
+            // 克隆一个新的URL对象来避免污染原模板
+            const newUrl = new URL(urlObj.toString());
+            // 修改主机和端口
+            newUrl.hostname = newHost;
+            newUrl.port = String(newPort);
+            // 修改 hash (节点名称)
+            // newNodeName 应当为原始字符串 (未编码)，需要编码后放入hash
+            const encodedName = encodeURIComponent(newNodeName);
+            newUrl.hash = '#' + encodedName;
+            // 注意：原模板中的其他参数(search)保留不变, 包括path, security, host, sni等完全不变
+            // 返回完整的vless链接 (URL对象toString会重新构造)
+            let finalLink = newUrl.toString();
+            // 修复一个小细节: URL API 可能会把vless:// 后的默认端口443显示出来？不影响使用
+            return finalLink;
+        }
+
+        // 主转换逻辑：根据模板+文件行列表 => 生成新链接列表
+        function convertAll(templateStr, linesArray) {
+            const templateParsed = parseTemplate(templateStr);
+            if (!templateParsed) {
+                showMessage('❌ 模板链接无效！请检查vless格式，确保包含UUID和必要参数', true);
+                return [];
+            }
+
+            const results = [];
+            let skippedCount = 0;
+
+            for (let idx = 0; idx < linesArray.length; idx++) {
+                const line = linesArray[idx];
+                const parsed = parseServerLine(line);
+                if (!parsed) {
+                    skippedCount++;
+                    continue;
+                }
+                const { country, host, port } = parsed;
+                // 节点名称格式: 国家_IP (IP不包含端口)
+                let nodeIpForName = host;
+                // 若host是域名，也是直接用域名作为标识，符合 “国家+IP/域名” 语义
+                const nodeName = `${country}_${nodeIpForName}`;
+                // 生成新链接
+                const newLink = buildVlessFromTemplate(templateParsed, host, port, nodeName);
+                if (newLink) {
+                    results.push(newLink);
+                } else {
+                    skippedCount++;
+                }
+            }
+
+            if (skippedCount > 0) {
+                showMessage(`⚠️ 跳过 ${skippedCount} 行 (格式错误/空行/注释)`, false);
+            }
+            return results;
+        }
+
+        // 读取文件内容并转为行数组（过滤掉空行前的保留，但解析器会自己处理）
+        function readFileAsLines(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    const lines = content.split(/\r?\n/);
+                    // 不过滤空行，parseServerLine会处理
+                    resolve(lines);
+                };
+                reader.onerror = () => reject(new Error('文件读取失败'));
+                reader.readAsText(file, 'UTF-8');
+            });
+        }
+
+        // 渲染结果到界面
+        function renderResults(links) {
+            if (!links || links.length === 0) {
+                resultContainer.innerHTML = '<span style="color:#94a3b8;">📭 无有效转换结果。请检查模板/文件格式是否正确。</span>';
+                lineCountBadge.innerText = `📄 0 个节点`;
+                return;
+            }
+            // 显示每个链接一行，便于复制
+            const html = links.map(link => `<div style="padding: 6px 0; border-bottom: 1px solid #334155; font-family: monospace; word-break: break-all;">${escapeHtml(link)}</div>`).join('');
+            resultContainer.innerHTML = `<div style="font-weight:500; margin-bottom:8px;">✅ 成功生成 ${links.length} 条VLESS链接</div>${html}`;
+            lineCountBadge.innerText = `📄 ${links.length} 个节点`;
+        }
+
+        // 简单的防XSS
+        function escapeHtml(str) {
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+                return c;
+            });
+        }
+
+        // 下载为txt
+        function downloadLinks(links, filename = 'vless_converted.txt') {
+            if (!links.length) {
+                showMessage('没有可下载的链接，请先转换', true);
+                return;
+            }
+            const content = links.join('\n');
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage(`📥 已下载 ${links.length} 条链接`, false);
+        }
+
+        async function copyAllToClipboard() {
+            if (!currentGeneratedLinks.length) {
+                showMessage('无链接可复制，请先转换', true);
+                return;
+            }
+            const text = currentGeneratedLinks.join('\n');
+            try {
+                await navigator.clipboard.writeText(text);
+                showMessage(`📋 已复制 ${currentGeneratedLinks.length} 条链接到剪贴板`, false);
+            } catch (err) {
+                showMessage('复制失败，可手动选择', true);
+            }
+        }
+
+        // 核心按钮: 转换
+        async function onConvert() {
+            // 获取模板
+            const template = templateTextarea.value.trim();
+            if (!template) {
+                showMessage('请填写模板链接', true);
+                return;
+            }
+            if (!template.startsWith('vless://')) {
+                showMessage('模板链接必须以 vless:// 开头', true);
+                return;
+            }
+            // 检查文件是否已选
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showMessage('请先上传 .txt 地址文件', true);
+                return;
+            }
+            const file = fileInput.files[0];
+            try {
+                const lines = await readFileAsLines(file);
+                if (lines.length === 0) {
+                    showMessage('文件为空，无数据转换', true);
+                    return;
+                }
+                rawFileLines = lines.filter(l => l.trim().length > 0); // 保存非空行用于计数
+                const results = convertAll(template, lines);
+                if (results.length === 0) {
+                    resultContainer.innerHTML = '<span style="color:#ef4444;">⚠️ 转换失败: 没有成功解析任何服务器地址。请检查格式示例 (国家,IP 或 国家 IP:端口)。</span>';
+                    currentGeneratedLinks = [];
+                    lineCountBadge.innerText = `📄 0 个节点`;
+                } else {
+                    currentGeneratedLinks = results;
+                    renderResults(results);
+                }
+            } catch (err) {
+                console.error(err);
+                showMessage('处理文件出错: ' + err.message, true);
+            }
+        }
+
+        // 清空结果
+        function onClear() {
+            currentGeneratedLinks = [];
+            resultContainer.innerHTML = '<span style="color:#94a3b8;">✨ 已清空，等待转换……</span>';
+            lineCountBadge.innerText = `📄 未解析`;
+            fileInput.value = '';   // 清空已选文件
+            rawFileLines = [];
+        }
+
+        // 下载
+        function onDownload() {
+            downloadLinks(currentGeneratedLinks);
+        }
+
+        // 辅助：文本区域默认模板示例重置（提供可选但不强制）
+        function setDefaultTemplate() {
+            const defaultTmpl = "vless://90991f39-0cdf-4436-852a-1be6164b4021@youxuan.cf.090227.xyz:443?path=%2F&security=tls&encryption=none&insecure=0&host=kv-c64.pages.dev&fp=chrome&type=ws&allowInsecure=0&sni=kv-c64.pages.dev#%E4%BC%98%E9%80%89CF";
+            if (!templateTextarea.value.trim()) {
+                templateTextarea.value = defaultTmpl;
+            }
+        }
+
+        // 事件绑定
+        convertBtn.addEventListener('click', onConvert);
+        clearBtn.addEventListener('click', onClear);
+        downloadBtn.addEventListener('click', onDownload);
+        copyAllBtn.addEventListener('click', copyAllToClipboard);
+
+        // 若模板为空初始化默认模板
+        setDefaultTemplate();
+
+        // 可选: 如果用户选择了新的文件，自动转换？更符合直觉但为了避免频繁，手动转换更可靠
+        // 提供一个友好提示，当选择文件后改变badge提醒
+        fileInput.addEventListener('change', (e) => {
+            if (fileInput.files.length) {
+                const fname = fileInput.files[0].name;
+                lineCountBadge.innerText = `📄 已选: ${fname} (点击转换)`;
+                showMessage(`已选择文件: ${fname}，点击【开始转换】`, false);
+            } else {
+                lineCountBadge.innerText = `📄 未解析`;
+            }
+        });
+    })();
+</script>
+</body>
+</html>
