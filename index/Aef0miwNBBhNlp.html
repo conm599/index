@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero Impact - UI 复刻</title>
+    <!-- 引入 Google Fonts 以还原原图的优雅字体质感 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基础设置与重置 --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f6f5f1; /* 原图的米色背景 */
+            color: #333;
+            overflow-x: hidden;
+        }
+        a { text-decoration: none; color: inherit; }
+
+        /* --- 全局滚动条风格 --- */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+        /* --- 顶部 Hero 区域 (重点) --- */
+        .hero-section {
+            position: relative;
+            height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #fcf9f2 0%, #efe5da 100%);
+            overflow: hidden;
+        }
+
+        /* 背景纹理层 - 模拟原图背景的纹理感 */
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(#dcd5cc 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* --- 顶部核心 Title (Zero Impact) --- */
+        .hero-title-container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            width: 100%;
+            /* 为视觉差准备 */
+            transition: transform 0.1s ease-out;
+        }
+
+        .hero-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 14vw;
+            font-weight: 700;
+            font-style: italic;
+            letter-spacing: -0.02em;
+            line-height: 0.9;
+        }
+
+        /* "Zero" - 白色，清晰 */
+        .text-zero {
+            color: #ffffff;
+            position: relative;
+            z-index: 20;
+            text-shadow: 0px 10px 40px rgba(0,0,0,0.05);
+        }
+
+        /* "Impact" - 模糊，与Zero重叠 */
+        .text-impact {
+            position: absolute;
+            top: 10%;
+            left: 0; right: 0;
+            color: #b0bab6; /* 原图的绿灰色系 */
+            opacity: 0.7;
+            filter: blur(4px);
+            z-index: 10;
+            transform: translateY(-10px) scale(1.02);
+        }
+
+        /* --- Hero 装饰元素 (树叶/水滴) --- */
+        .floating-element {
+            position: absolute;
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        /* 利用CSS绘制简单的叶子形状 */
+        .leaf {
+            width: 30px;
+            height: 15px;
+            background: #87a59c; /* 绿色系 */
+            border-radius: 50% 0 50% 50%;
+            transform: rotate(-45deg);
+            filter: blur(1px);
+            animation: floatLeaf 6s infinite alternate ease-in-out;
+        }
+        .leaf.l2 { width: 20px; height: 10px; background: #6e8a81; animation-duration: 8s; animation-delay: 1s; }
+        .leaf.l3 { width: 40px; height: 20px; background: #aabfb6; animation-duration: 5s; animation-delay: 2s; }
+
+        /* 动画：漂浮 + 旋转 */
+        @keyframes floatLeaf {
+            0% { transform: rotate(-45deg) translateY(0px) scale(1); }
+            100% { transform: rotate(45deg) translateY(-60px) scale(1.1); }
+        }
+
+        /* --- Discover 圆形按钮 --- */
+        .discover-btn {
+            margin-top: 5vh;
+            width: 80px;
+            height: 80px;
+            border: 1px solid #6a736e;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            color: #4b5450;
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 20;
+        }
+        .discover-btn:hover {
+            transform: scale(1.1);
+            background: #4b5450;
+            color: #fff;
+            border-color: #4b5450;
+        }
+        .discover-btn:active { transform: scale(0.95); }
+
+        /* 顶部右上角的菜单模拟 */
+        .top-nav {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            font-size: 0.8rem;
+            color: #8b918b;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            letter-spacing: 1px;
+        }
+
+        /* --- 第二部分：Oxygen Barrier --- */
+        .section-two {
+            min-height: 100vh;
+            background: #fcfbf9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .title-barrier {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        /* 镂空字体效果 */
+        .text-outline {
+            font-family: 'Playfair Display', serif;
+            font-size: 18vw;
+            font-weight: 400;
+            letter-spacing: -5px;
+            -webkit-text-stroke: 1px #9ba29d; /* 描边 */
+            color: transparent; /* 透明色实现镂空 */
+        }
+
+        .text-solid {
+            font-family: 'Playfair Display', serif;
+            font-size: 18vw;
+            font-weight: 700;
+            color: #8ba99b; /* 实心绿色 */
+            letter-spacing: -5px;
+            margin-top: -20px; /* 文字叠压 */
+            position: relative;
+            z-index: 2;
+        }
+
+        /* CSS 绘制的 3D 桶状线框 (模拟) */
+        .cup-svg-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60vw;
+            height: 60vw;
+            opacity: 0.5;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* 模拟原图下半部分的高亮条 */
+        .footer-elements {
+            width: 100%;
+            padding: 20px;
+            background: rgba(0,0,0,0.03);
+            margin-top: 10vh;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #6a736e;
+            font-size: 0.8rem;
+        }
+
+        /* 响应式微调 */
+        @media (max-width: 768px) {
+            .hero-title { font-size: 20vw; }
+            .text-outline, .text-solid { font-size: 25vw; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- === 顶部 Hero (包含全部顶级动效) === -->
+    <section class="hero-section" id="heroSection">
+        <!-- 导航模拟 -->
+        <div class="top-nav">
+            <span>Menu</span>
+        </div>
+        
+        <!-- 绝对定位的浮动树叶 (三个) -->
+        <div class="floating-element leaf" style="top: 20%; left: 10%;"></div>
+        <div class="floating-element leaf l2" style="bottom: 20%; right: 15%;"></div>
+        <div class="floating-element leaf l3" style="top: 30%; right: 25%;"></div>
+
+        <!-- 核心 Title -->
+        <div class="hero-title-container" id="heroTitleContainer">
+            <h1 class="hero-title text-zero">Zero</h1>
+            <!-- Impact 重叠在 Zero 下面 -->
+            <h1 class="hero-title text-impact">Impact</h1>
+        </div>
+
+        <!-- 下方 Discover 按钮 -->
+        <div class="discover-btn">DISCOVER</div>
+    </section>
+
+    <!-- === 第二部分：Oxygen Barrier === -->
+    <section class="section-two">
+        <div class="title-barrier">
+            <!-- 模拟原图那个杯子/管子画法 -->
+            <div class="cup-svg-container">
+                <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="250" cy="380" rx="80" ry="30" stroke="#9ba29d" stroke-width="2"/>
+                    <path d="M170 380 L170 220 C170 200 200 180 250 180 C300 180 330 200 330 220 L330 380" stroke="#9ba29d" stroke-width="2" fill="none"/>
+                    <ellipse cx="250" cy="220" rx="80" ry="30" stroke="#9ba29d" stroke-width="2"/>
+                    <circle cx="200" cy="210" r="10" stroke="#9ba29d" stroke-width="1"/>
+                    <circle cx="300" cy="240" r="8" stroke="#9ba29d" stroke-width="1"/>
+                    <circle cx="260" cy="190" r="6" stroke="#9ba29d" stroke-width="1"/>
+                </svg>
+            </div>
+            
+            <!-- 文字 -->
+            <h1 class="text-outline">Oxygen</h1>
+            <h1 class="text-solid">Barrier</h1>
+        </div>
+
+        <!-- 底部的一些UI模拟 -->
+        <div class="footer-elements">
+            <div>Elements</div>
+            <div style="display: flex; gap: 20px;">
+                <span>🌱</span> <span>🖌️</span> <span>🎨</span>
+            </div>
+            <div>See the highlights</div>
+        </div>
+    </section>
+
+    <!-- === JS 脚本：添加鼠标交互视差动效 (让顶部活起来) === -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const heroTitle = document.getElementById('heroTitleContainer');
+            const heroSection = document.getElementById('heroSection');
+            const leaves = document.querySelectorAll('.leaf');
+
+            // 1. 鼠标跟随视差效果 (让 Zero/Impact 和树叶跟随鼠标微微移动)
+            heroSection.addEventListener('mousemove', (e) => {
+                const xAxis = (window.innerWidth / 2 - e.pageX) / 50;
+                const yAxis = (window.innerHeight / 2 - e.pageY) / 50;
+                
+                // 标题跟随鼠标
+                heroTitle.style.transform = `translate(${xAxis}px, ${yAxis}px)`;
+
+                // 树叶反向跟随，增加景深感
+                leaves.forEach((leaf, index) => {
+                    const speed = (index + 1) * 0.5;
+                    leaf.style.transform = `translate(${-xAxis * speed}px, ${-yAxis * speed}px) rotate(${xAxis * 0.1}deg)`;
+                });
+            });
+
+            // 2. 鼠标移出页面时复位
+            heroSection.addEventListener('mouseleave', () => {
+                heroTitle.style.transform = 'translate(0px, 0px)';
+                leaves.forEach((leaf) => {
+                    leaf.style.transform = 'translate(0px, 0px)';
+                });
+            });
+
+            // 3. 滚动时的交互
+            window.addEventListener('scroll', () => {
+                const scrollPos = window.scrollY;
+                // 滚动时 Title 淡出
+                if (scrollPos < window.innerHeight) {
+                    const opacity = 1 - scrollPos / window.innerHeight;
+                    heroTitle.style.opacity = opacity;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
