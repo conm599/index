@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>反应速度测试器 | 随机延迟防预判</title>
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(145deg, #0a0f1e 0%, #0c1222 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Poppins', 'Inter', system-ui, -apple-system, 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* 主卡片容器 */
+        .test-container {
+            background: rgba(18, 25, 45, 0.75);
+            backdrop-filter: blur(12px);
+            border-radius: 64px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            padding: 30px 24px 40px;
+            width: 100%;
+            max-width: 600px;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        h1 {
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.9rem;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #E0F2FE, #A5F3FC);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-top: 0;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 3px rgba(0,0,0,0.1);
+        }
+
+        .sub {
+            text-align: center;
+            color: #8ca3cf;
+            font-size: 0.85rem;
+            margin-bottom: 28px;
+            border-bottom: 1px dashed rgba(100, 150, 200, 0.3);
+            display: inline-block;
+            width: auto;
+            margin-left: auto;
+            margin-right: auto;
+            padding-bottom: 8px;
+            font-weight: 400;
+        }
+
+        /* 中央反应区域 */
+        .reaction-pad {
+            background: #11161f;
+            border-radius: 48px;
+            margin: 20px 0 30px;
+            padding: 2rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+            text-align: center;
+            min-height: 320px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid rgba(70, 130, 200, 0.2);
+        }
+
+        /* 状态文字与倒计时数字 */
+        .display-text {
+            font-size: 5rem;
+            font-weight: 800;
+            color: #f0f3fa;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            letter-spacing: 4px;
+            transition: 0.1s linear;
+            margin-bottom: 16px;
+        }
+
+        .status-hint {
+            font-size: 1.1rem;
+            font-weight: 500;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 18px;
+            border-radius: 60px;
+            backdrop-filter: blur(4px);
+            color: #bbd1ff;
+        }
+
+        /* 背景状态变化 (视觉反馈) */
+        .reaction-pad.idle {
+            background: #1e2a3a;
+            border-color: #3e5a77;
+        }
+        .reaction-pad.countdown {
+            background: #1f2937;
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4);
+        }
+        .reaction-pad.waiting {
+            background: #2d1f2c;
+            border-color: #f97316;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.6);
+        }
+        .reaction-pad.ready {
+            background: #0f3b2c;
+            border-color: #10b981;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.7), 0 0 20px rgba(16,185,129,0.3);
+            cursor: pointer;
+            transform: scale(1.01);
+        }
+        .reaction-pad.finished {
+            background: #1a2a33;
+            border-color: #6c8db0;
+            opacity: 0.9;
+        }
+        .reaction-pad.foul {
+            background: #3b1e1e;
+            border-color: #ef4444;
+            box-shadow: 0 0 0 2px #ef4444;
+        }
+
+        /* 按钮样式 */
+        .btn-start {
+            background: linear-gradient(95deg, #2d3e6e, #1c2c4c);
+            border: none;
+            width: 80%;
+            padding: 16px 0;
+            font-size: 1.3rem;
+            font-weight: 700;
+            border-radius: 60px;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.4);
+            letter-spacing: 1px;
+            margin-top: 15px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .btn-start:active {
+            transform: scale(0.97);
+            background: linear-gradient(95deg, #1f2f55, #15233f);
+        }
+
+        /* 结果面板 */
+        .result-panel {
+            margin-top: 30px;
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 48px;
+            padding: 16px 20px;
+            text-align: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .reaction-time {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(120deg, #E0F2FE, #A7F3D0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            line-height: 1.2;
+        }
+
+        .time-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #94a3d8;
+        }
+
+        .info-note {
+            font-size: 0.75rem;
+            color: #7e95c0;
+            margin-top: 12px;
+            background: rgba(0,0,0,0.3);
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 40px;
+        }
+
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #5c6f94;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 550px) {
+            .test-container {
+                padding: 20px 18px 30px;
+            }
+            .display-text {
+                font-size: 3.8rem;
+            }
+            .reaction-pad {
+                min-height: 260px;
+                padding: 1rem;
+            }
+            .reaction-time {
+                font-size: 1.9rem;
+            }
+            .btn-start {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="test-container">
+    <h1>⚡ 反应速度挑战 ⚡</h1>
+    <div style="text-align: center">
+        <div class="sub">倒数3秒 · 末段随机延迟1~2秒 · 防预判</div>
+    </div>
+
+    <!-- 主要反应区域 -->
+    <div id="reactionPad" class="reaction-pad idle">
+        <div id="mainDisplay" class="display-text">✨</div>
+        <div id="statusHint" class="status-hint">点击「开始测试」</div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <button id="startBtn" class="btn-start">▶ 开始测试</button>
+
+    <!-- 成绩面板 -->
+    <div class="result-panel">
+        <div class="time-label">最新反应时间</div>
+        <div id="resultTime" class="reaction-time">— ms</div>
+        <div id="extraMsg" class="info-note">✨ 随机等待出现在数字1之后，集中注意力！</div>
+    </div>
+    <footer>信号亮起(绿色)后立即点击 ➕ 过早点击会犯规重置</footer>
+</div>
+
+<script>
+    // ----- DOM 元素 -----
+    const reactionPad = document.getElementById('reactionPad');
+    const mainDisplay = document.getElementById('mainDisplay');
+    const statusHint = document.getElementById('statusHint');
+    const startBtn = document.getElementById('startBtn');
+    const resultTimeSpan = document.getElementById('resultTime');
+    const extraMsg = document.getElementById('extraMsg');
+
+    // ----- 状态机变量 -----
+    let currentState = 'idle';      // idle, countdown, waiting, ready, finished, foul (犯规展示用)
+    let countdownInterval = null;
+    let randomDelayTimeout = null;
+    let readyTimestamp = 0;           // 信号出现(绿灯)的精确时间戳 ms
+    let reactionRecorded = false;     // 防止重复记录反应时间
+
+    // ---- 辅助函数: 清除所有计时器 ----
+    function clearAllTimers() {
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        if (randomDelayTimeout) {
+            clearTimeout(randomDelayTimeout);
+            randomDelayTimeout = null;
+        }
+    }
+
+    // ---- 重置UI状态到空闲 (保留显示风格，不清除计时器由外部调用) ----
+    function resetUItoIdle(resetDisplayText = true) {
+        // 移除所有特殊样式class
+        reactionPad.classList.remove('countdown', 'waiting', 'ready', 'finished', 'foul');
+        reactionPad.classList.add('idle');
+        if (resetDisplayText) {
+            mainDisplay.textContent = '⚡';
+            statusHint.textContent = '点击「开始测试」';
+        } else {
+            // 仅重置样式，保留文本可能用于犯规提示时的覆盖
+            if (currentState !== 'foul') {
+                statusHint.textContent = '准备就绪';
+            }
+        }
+        // 确保背景不残留绿色闪烁影子
+    }
+
+    // 犯规处理 (提前点击或倒计时中点击)
+    function foulReset(reasonMsg = '⚠️ 犯规！提前点击，重新开始') {
+        if (currentState === 'finished') return; // 已完成测试后不再犯规干扰
+        
+        // 清除计时器链
+        clearAllTimers();
+        
+        // 记录犯规状态避免额外触发
+        if (currentState === 'ready' || currentState === 'waiting' || currentState === 'countdown') {
+            // 视觉犯规反馈
+            reactionPad.classList.remove('countdown', 'waiting', 'ready', 'finished');
+            reactionPad.classList.add('foul');
+            mainDisplay.textContent = '❌';
+            statusHint.textContent = reasonMsg;
+            extraMsg.textContent = '😵 抢跑啦！点击「开始测试」重新挑战';
+            resultTimeSpan.textContent = '— ms';
+            currentState = 'foul';
+            
+            // 0.6秒后自动回归空闲（但不清除开始按钮的可用性）
+            setTimeout(() => {
+                if (currentState === 'foul') {
+                    reactionPad.classList.remove('foul');
+                    reactionPad.classList.add('idle');
+                    mainDisplay.textContent = '⚡';
+                    statusHint.textContent = '点击「开始测试」';
+                    currentState = 'idle';
+                    extraMsg.textContent = '✨ 随机等待出现在数字1之后，集中注意力！';
+                }
+            }, 700);
+        } else {
+            // 安全回落
+            resetUItoIdle(true);
+            currentState = 'idle';
+            statusHint.textContent = '点击「开始测试」';
+            extraMsg.textContent = '🔄 测试已重置，点击开始';
+        }
+        reactionRecorded = false;
+        readyTimestamp = 0;
+    }
+    
+    // ---- 核心：信号出现（绿灯，可点击） ----
+    function activateReadySignal() {
+        // 确保状态仍然是 waiting 状态 (随机等待结束)
+        if (currentState !== 'waiting') return;
+        
+        // 清除可能残留的随机延迟定时器标记
+        if (randomDelayTimeout) {
+            clearTimeout(randomDelayTimeout);
+            randomDelayTimeout = null;
+        }
+        
+        // 记录信号出现的精确时间 (毫秒级)
+        readyTimestamp = performance.now();
+        
+        // 切换到 ready 状态
+        currentState = 'ready';
+        reactionRecorded = false;   // 新信号未记录
+        
+        // UI 更新为绿色可点击样式
+        reactionPad.classList.remove('waiting');
+        reactionPad.classList.add('ready');
+        mainDisplay.textContent = '🔥 点击！ 🔥';
+        statusHint.textContent = '立刻点击！';
+        extraMsg.innerHTML = '⚡ 绿色信号已亮起，极速点击！';
+    }
+    
+    // ---- 随机等待阶段 (在倒计时显示1之后) ----
+    function startRandomWait() {
+        if (currentState !== 'countdown') {
+            // 防止意外调用
+            return;
+        }
+        
+        // 切换到 waiting 状态
+        currentState = 'waiting';
+        reactionPad.classList.remove('countdown');
+        reactionPad.classList.add('waiting');
+        
+        // 显示 “等待随机延迟...” 提示
+        mainDisplay.textContent = '🌀 随机延迟';
+        statusHint.textContent = '等待信号... 不要点击！';
+        extraMsg.textContent = '⏳ 延迟 1~2 秒随机生成，请勿提前点击';
+        
+        // 生成随机延迟 1000ms ~ 2000ms (1~2秒, 浮点毫秒精度)
+        const randomDelayMs = 1000 + Math.random() * 1000;   // 1000.00 ~ 1999.999 ms
+        // 为了体验更好，保留一位整数显示延迟大概 (不用精确显示给用户)
+        
+        // 设定定时器，等待随机时间后激活信号
+        randomDelayTimeout = setTimeout(() => {
+            // 再次确认还在等待状态，避免由于开始重置导致误触发
+            if (currentState === 'waiting') {
+                activateReadySignal();
+            }
+            randomDelayTimeout = null;
+        }, randomDelayMs);
+        
+        // 可存储延迟值用于调试(不需要显示给用户但可以增加测试兴趣，但只是内部)
+        // 也可在控制台，不过无伤大雅
+    }
+    
+    // ---- 倒计时推进器 (递归setTimeout风格，防止interval冲突) ----
+    let countdownStep = 3;     // 当前倒计时数字 3,2,1
+    
+    function runCountdown() {
+        if (currentState !== 'countdown') return;
+        
+        // 显示当前倒计时数字
+        mainDisplay.textContent = countdownStep;
+        statusHint.textContent = `倒计时 ${countdownStep} 秒，请勿点击`;
+        
+        if (countdownStep === 1) {
+            // 倒计时到达1，不再继续递减，而是进入随机等待阶段
+            // 注意：不继续调用下一个计时器，直接进入随机等待
+            // 先清除倒计时interval (因为是setInterval方式，需要清理)
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            // 此时倒计时显示停留在1，接着启动随机等待（最后一秒的随机延迟）
+            startRandomWait();
+            return;
+        }
+        
+        // 还未到1，减少数字并继续
+        countdownStep--;
+    }
+    
+    // 开始倒计时 (重置一切现有状态)
+    function startCountdownPhase() {
+        // 清理所有之前的计时器，避免干扰
+        clearAllTimers();
+        
+        // 重置反应记录标志
+        reactionRecorded = false;
+        readyTimestamp = 0;
+        
+        // 设定状态为倒计时
+        currentState = 'countdown';
+        countdownStep = 3;
+        
+        // 重置样式：移除所有动态样式class,添加countdown样式
+        reactionPad.classList.remove('idle', 'waiting', 'ready', 'finished', 'foul');
+        reactionPad.classList.add('countdown');
+        
+        // 初始显示3
+        mainDisplay.textContent = '3';
+        statusHint.textContent = '倒计时 3 秒，请勿点击';
+        extraMsg.textContent = '⏰ 倒数阶段，保持专注，等待绿色信号';
+        
+        // 清除旧的结果显示
+        resultTimeSpan.textContent = '— ms';
+        
+        // 使用 setInterval 进行倒计时 (精确每秒)
+        countdownInterval = setInterval(() => {
+            // 确保当前依然是 countdown 状态，避免开始新测试后旧计时器捣乱
+            if (currentState !== 'countdown') {
+                // 如果状态不是倒计时，清除自己
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+                return;
+            }
+            // 执行倒计步骤
+            // 注意由于runCountdown里会修改数字，而且当数字到1时内部会清理interval并启动随机等待
+            runCountdown();
+        }, 1000);
+    }
+    
+    // ---- 开始全新测试 (由用户点击开始按钮调用) ----
+    function startNewTest() {
+        // 如果当前处于 finished(已记录结果) 或 idle, foul, 甚至任何状态: 强制重置并开始新测试
+        // 清除所有正在运行的计时器
+        clearAllTimers();
+        
+        // 重置所有展示状态与标志
+        reactionRecorded = false;
+        readyTimestamp = 0;
+        
+        // 移除所有特殊class，添加idle然后快速切换到倒计时，避免闪动
+        reactionPad.classList.remove('countdown', 'waiting', 'ready', 'finished', 'foul');
+        
+        // 重要: 开始倒计时前把额外犯规恢复默认提示
+        extraMsg.textContent = '✨ 随机等待出现在数字1之后，集中注意力！';
+        
+        // 启动倒计时阶段 (内部会设置状态为countdown并启动倒计时数字)
+        startCountdownPhase();
+    }
+    
+    // ---- 处理点击反应区 (核心交互) ----
+    function onReactionAreaClick() {
+        // 根据不同状态决定行为
+        if (currentState === 'ready') {
+            // 正确反应阶段：点击记录反应时间
+            if (reactionRecorded) {
+                // 避免重复记录
+                return;
+            }
+            if (readyTimestamp === 0) return; // 安全防护
+            
+            const clickTime = performance.now();
+            const reactionMs = clickTime - readyTimestamp;
+            // 保留整数毫秒
+            const roundedMs = Math.round(reactionMs);
+            
+            // 显示反应时间
+            resultTimeSpan.textContent = `${roundedMs} ms`;
+            extraMsg.innerHTML = `🎉 反应速度 ${roundedMs} 毫秒！ 🎉 点击「开始测试」再次挑战`;
+            
+            // 更新完成状态，不再可点击记录
+            currentState = 'finished';
+            reactionRecorded = true;
+            
+            // 改变UI为已完成样式
+            reactionPad.classList.remove('ready');
+            reactionPad.classList.add('finished');
+            mainDisplay.textContent = '✓ 完成 ✓';
+            statusHint.textContent = `反应时间 ${roundedMs} ms`;
+            
+            // 清除随机延迟可能残留的超时(防止重复激活)
+            if (randomDelayTimeout) {
+                clearTimeout(randomDelayTimeout);
+                randomDelayTimeout = null;
+            }
+            // 如果还有倒计时计时器(不应该有，但保险)
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            
+        } 
+        else if (currentState === 'countdown') {
+            // 倒计时期间点击 = 犯规重置
+            foulReset('⛔ 倒计时中点击！犯规，重新开始');
+        } 
+        else if (currentState === 'waiting') {
+            // 随机等待期间点击 = 提前点击犯规
+            foulReset('⚠️ 信号未亮！提前点击，请重新开始');
+        }
+        else if (currentState === 'finished') {
+            // 已完成点击不再额外干扰，只是提示用户按开始按钮
+            extraMsg.textContent = '✅ 已经测试完毕，点「开始测试」进行新挑战';
+            statusHint.textContent = '按按钮进行新测试';
+            // 轻提醒但不重置
+        }
+        else if (currentState === 'foul') {
+            // 犯规状态额外提醒
+            extraMsg.textContent = '🚫 请点击「开始测试」重新挑战';
+        }
+        else if (currentState === 'idle') {
+            // 空闲状态点击响应区，提示用户点开始按钮而不是直接开始倒计时（保持逻辑清晰）
+            extraMsg.textContent = '👆 请点击下方「开始测试」按钮开始';
+            statusHint.textContent = '按按钮启动挑战';
+            // 增加一个小闪动反馈
+            reactionPad.style.transform = 'scale(0.99)';
+            setTimeout(() => { if(reactionPad) reactionPad.style.transform = ''; }, 150);
+        }
+    }
+    
+    // ---- 开始按钮事件 (完全重启新测试) ----
+    function onStartClick() {
+        // 完全重置任何现有的等待/倒计时等并开始新测试
+        // 清除任何正在进行的计时器
+        clearAllTimers();
+        
+        // 如果当前有犯规后的0.6秒重置定时器残留（可能的setTimeout不影响，但要保持干净）
+        // 重置所有ui为初始，但避免冲突
+        // 移除任何额外transition或临时样式
+        reactionPad.classList.remove('countdown', 'waiting', 'ready', 'finished', 'foul');
+        reactionPad.classList.add('idle');  // 先回到idle过渡
+        
+        // 重置显示变量
+        currentState = 'idle';
+        reactionRecorded = false;
+        readyTimestamp = 0;
+        
+        // 重置显示文字
+        mainDisplay.textContent = '⚡';
+        statusHint.textContent = '启动中...';
+        resultTimeSpan.textContent = '— ms';
+        extraMsg.textContent = '✨ 倒数3秒后随机延迟1~2秒，请紧盯屏幕！';
+        
+        // 强制重启倒计时 (立刻清除中途任何异常)
+        // 微小延迟确保样式完全重置 (为了更好的平滑过渡)
+        setTimeout(() => {
+            // 再次确保无计时器残留
+            if (randomDelayTimeout) {
+                clearTimeout(randomDelayTimeout);
+                randomDelayTimeout = null;
+            }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            // 开始全新的倒计时序列
+            startCountdownPhase();
+        }, 20);
+    }
+    
+    // ---- 绑定事件 ----
+    reactionPad.addEventListener('click', onReactionAreaClick);
+    startBtn.addEventListener('click', onStartClick);
+    
+    // 额外优化: 防止移动端双击缩放影响体验（不影响核心）
+    reactionPad.addEventListener('touchstart', (e) => {
+        // 只是为了兼容移动端，无需额外preventDefault，click会触发
+        // 保证touch不导致页面缩放（无碍）
+    }, { passive: false });
+    
+    // 初始空闲状态显示
+    currentState = 'idle';
+    reactionPad.classList.add('idle');
+    mainDisplay.textContent = '⚡';
+    statusHint.textContent = '点击「开始测试」';
+    resultTimeSpan.textContent = '— ms';
+    extraMsg.innerHTML = '✨ 随机等待出现在数字1之后，集中注意力！';
+    
+    // 预置说明控制台友好
+    console.log('反应测试已启动 | 倒计时结束最后一段随机延迟1000~2000ms后变绿');
+</script>
+</body>
+</html>
