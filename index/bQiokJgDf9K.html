@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>科拉兹猜想可视化工具 | 3n+1 序列生成器</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: linear-gradient(145deg, #0b2b2f 0%, #0a1f22 100%);
+            font-family: 'Segoe UI', 'Roboto', 'Fira Code', 'Monaco', 'Cascadia Code', monospace;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+
+        /* 主卡片 */
+        .collatz-card {
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(22, 34, 38, 0.85);
+            backdrop-filter: blur(2px);
+            border-radius: 2.5rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            border: 1px solid rgba(90, 180, 140, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        /* 头部区域 */
+        .header {
+            background: #071c1f;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #2c584f;
+        }
+
+        .header h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #c0ffe0, #6dd5b2);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header h1::before {
+            content: "🌀";
+            font-size: 2rem;
+            background: none;
+            color: #6dd5b2;
+        }
+
+        .sub {
+            color: #87b9ae;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            border-left: 3px solid #4cae8c;
+            padding-left: 1rem;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        /* 控制区 */
+        .controls {
+            padding: 1.8rem 2rem 1.2rem 2rem;
+            background: #10292e;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            align-items: flex-end;
+            border-bottom: 1px solid #234e45;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: #9ed9ca;
+            margin-bottom: 0.4rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: #031316;
+            border: 1px solid #2e6b5e;
+            padding: 0.8rem 1rem;
+            border-radius: 1.8rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #daf4ec;
+            font-family: 'Fira Code', monospace;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: #6fe3c2;
+            box-shadow: 0 0 0 3px rgba(111, 227, 194, 0.2);
+            background: #04181c;
+        }
+
+        .input-group input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .input-group input[type="number"]::-webkit-inner-spin-button,
+        .input-group input[type="number"]::-webkit-outer-spin-button {
+            opacity: 0.6;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #1d4f48;
+            border: none;
+            padding: 0.8rem 1.6rem;
+            border-radius: 2.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: #eefcf7;
+            cursor: pointer;
+            transition: 0.15s linear;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        button i {
+            font-style: normal;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #2e7568;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            background: #179c82;
+            color: white;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary:hover {
+            background: #1ebf9e;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #4b8c7c;
+            box-shadow: none;
+        }
+
+        .btn-outline:hover {
+            background: #1f4e45;
+            border-color: #7bd6bc;
+        }
+
+        /* 统计看板 */
+        .stats-panel {
+            padding: 0.8rem 2rem;
+            background: #082226;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px solid #1b453e;
+            font-family: monospace;
+        }
+
+        .stat-item {
+            background: #0c2c2a;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            color: #bbf0e4;
+        }
+
+        .stat-item span:first-child {
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #f5e7a7;
+            font-size: 1rem;
+            margin-left: 8px;
+            word-break: break-all;
+        }
+
+        .warning-msg {
+            background: #8b5a2b30;
+            border-left: 4px solid #f4b942;
+            color: #f7e2b4;
+            font-size: 0.75rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        /* 结果显示区 */
+        .result-area {
+            padding: 1.8rem 2rem 2rem 2rem;
+            background: #0b2024;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .result-header h3 {
+            color: #c7f0e4;
+            font-weight: 500;
+            font-size: 1.2rem;
+            letter-spacing: -0.3px;
+        }
+
+        .badge {
+            background: #1f574e;
+            padding: 4px 12px;
+            border-radius: 24px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #c7ffe8;
+        }
+
+        .sequence-container {
+            background: #021115;
+            border-radius: 1.6rem;
+            border: 1px solid #2b6659;
+            overflow: auto;
+            max-height: 55vh;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .sequence-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            font-family: 'Fira Code', 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .grid-header {
+            display: contents;
+        }
+
+        .grid-header > div {
+            background: #08282c;
+            position: sticky;
+            top: 0;
+            padding: 10px 16px;
+            font-weight: 700;
+            color: #a3e9d6;
+            border-bottom: 1px solid #2f786a;
+            letter-spacing: 0.3px;
+        }
+
+        .step-item {
+            display: contents;
+        }
+
+        .step-index, .step-value {
+            padding: 8px 16px;
+            border-bottom: 1px solid #1c493f;
+            transition: background 0.1s;
+        }
+
+        .step-index {
+            text-align: right;
+            font-weight: 500;
+            color: #b1dfd1;
+            background: #052127;
+            border-right: 1px solid #215b4e;
+        }
+
+        .step-value {
+            font-weight: 500;
+            color: #f2e8cf;
+            word-break: break-word;
+            background: #031f23;
+        }
+
+        .step-item:hover .step-index,
+        .step-item:hover .step-value {
+            background: #10453e;
+            color: white;
+        }
+
+        /* 空状态或错误 */
+        .empty-message {
+            padding: 2rem;
+            text-align: center;
+            color: #78b7aa;
+            font-style: italic;
+        }
+
+        footer {
+            padding: 1rem 2rem;
+            font-size: 0.7rem;
+            text-align: center;
+            color: #4b887b;
+            border-top: 1px solid #1f4a40;
+            background: #071e21;
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 0.8rem;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .button-group {
+                justify-content: flex-end;
+            }
+            .step-index, .step-value {
+                padding: 6px 10px;
+                font-size: 0.75rem;
+            }
+            .stats-panel {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="collatz-card">
+    <div class="header">
+        <h1>科拉兹猜想 · 3n+1 轨迹</h1>
+        <div class="sub">任意正整数反复迭代：偶数➗2，奇数×3+1，最终都会落入 4→2→1 循环。自定义步数，观察深渊蝶变。</div>
+    </div>
+
+    <div class="controls">
+        <div class="input-group">
+            <label>🔢 起始数字 (正整数)</label>
+            <input type="number" id="startNum" value="27" step="1" min="1">
+        </div>
+        <div class="input-group">
+            <label>⚙️ 最大迭代次数 (自定义计算多少次)</label>
+            <input type="number" id="maxSteps" value="120" step="1" min="0" max="2500">
+        </div>
+        <div class="button-group">
+            <button id="runBtn" class="btn-primary">🚀 生成序列</button>
+            <button id="resetExample" class="btn-outline">✨ 经典示例 (27, 120步)</button>
+        </div>
+    </div>
+
+    <!-- 动态统计栏 -->
+    <div class="stats-panel" id="statsPanel">
+        <div class="stat-item"><span>📌 实际迭代次数</span><span class="stat-value" id="actualSteps">—</span></div>
+        <div class="stat-item"><span>🏁 最终数值</span><span class="stat-value" id="finalValue">—</span></div>
+        <div class="stat-item"><span>📈 序列峰值</span><span class="stat-value" id="peakValue">—</span></div>
+        <div class="stat-item"><span>⚡ 终止原因</span><span class="stat-value" id="stopReason">—</span></div>
+    </div>
+
+    <div class="result-area">
+        <div class="result-header">
+            <h3>📜 迭代步骤详情 (步数 : 当前数值) </h3>
+            <div class="badge" id="infoBadge">支持 BigInt · 无溢出风险</div>
+        </div>
+        <div class="sequence-container" id="sequenceContainer">
+            <div class="empty-message">✨ 输入起始数字和步数，点击「生成序列」开始探索 ✨</div>
+        </div>
+    </div>
+    <footer>
+        💡 科拉兹猜想 (3n+1) 规则：若 n 为偶数 → n/2；若 n 为奇数 → 3n+1。 到达 1 后停止迭代。 
+        使用高精度 BigInt 计算，可安全处理超大整数。
+    </footer>
+</div>
+
+<script>
+    (function() {
+        // DOM 元素
+        const startInput = document.getElementById('startNum');
+        const maxStepsInput = document.getElementById('maxSteps');
+        const runBtn = document.getElementById('runBtn');
+        const resetBtn = document.getElementById('resetExample');
+        
+        const actualStepsSpan = document.getElementById('actualSteps');
+        const finalValueSpan = document.getElementById('finalValue');
+        const peakValueSpan = document.getElementById('peakValue');
+        const stopReasonSpan = document.getElementById('stopReason');
+        const sequenceContainer = document.getElementById('sequenceContainer');
+        const infoBadge = document.getElementById('infoBadge');
+
+        // 辅助函数：显示错误或警告样式 (短暂提示)
+        function showBadgeMessage(msg, isError = false) {
+            infoBadge.style.background = isError ? '#a1422f' : '#1f574e';
+            infoBadge.textContent = msg;
+            setTimeout(() => {
+                if (infoBadge.textContent === msg) {
+                    infoBadge.style.background = '#1f574e';
+                    infoBadge.textContent = '支持 BigInt · 无溢出风险';
+                }
+            }, 2800);
+        }
+
+        // 核心: 生成科拉兹序列 (使用 BigInt, 安全)
+        // 参数: start (bigint 或 number), maxSteps (number, 非负整数)
+        // 返回: { sequence: [{step: number, value: bigint}], terminatedEarly: boolean, stopReason: string, maxValue: bigint, actualStepsCount: number }
+        function generateCollatzSequence(start, maxSteps) {
+            // 统一转换为 BigInt
+            let current = BigInt(start);
+            const sequence = [{ step: 0, value: current }];
+            let maxValue = current;
+            let actualSteps = 0;
+            let stopReason = '';
+            let terminatedEarly = false;
+            
+            // 如果起始就是1，且maxSteps可能大于0，但不再迭代
+            if (current === 1n) {
+                stopReason = '✅ 已经到达 1 (猜想终点)';
+                return {
+                    sequence,
+                    terminatedEarly: true,
+                    stopReason,
+                    maxValue,
+                    actualStepsCount: 0
+                };
+            }
+            
+            // 迭代计算，上限 maxSteps 步
+            for (let i = 1; i <= maxSteps; i++) {
+                // 应用科拉兹变换
+                if (current % 2n === 0n) {
+                    current = current / 2n;
+                } else {
+                    current = current * 3n + 1n;
+                }
+                
+                actualSteps = i;
+                sequence.push({ step: i, value: current });
+                
+                // 更新最大值
+                if (current > maxValue) maxValue = current;
+                
+                // 终止条件: 如果当前数值为 1，则序列终结（猜想终点，不再继续）
+                if (current === 1n) {
+                    stopReason = `🎯 第 ${i} 步到达 1，猜想成立 ✨`;
+                    terminatedEarly = true;
+                    break;
+                }
+            }
+            
+            // 循环结束未到1的情况
+            if (!terminatedEarly) {
+                if (actualSteps === maxSteps && current !== 1n) {
+                    stopReason = `⏱️ 达到设定的最大步数 (${maxSteps})，未收敛至 1`;
+                } else {
+                    // 正常情况下如果maxSteps=0 或提前退出都会有reason，兜底
+                    if(stopReason === '') stopReason = '迭代结束';
+                }
+            }
+            
+            return {
+                sequence,
+                terminatedEarly,
+                stopReason,
+                maxValue,
+                actualStepsCount: actualSteps
+            };
+        }
+        
+        // 渲染序列到 DOM (列表样式 grid)
+        function renderSequence(sequence, maxRequestedSteps) {
+            if (!sequence || sequence.length === 0) {
+                sequenceContainer.innerHTML = `<div class="empty-message">⚠️ 无有效序列数据，请重新输入</div>`;
+                return;
+            }
+            
+            const totalStepsDisplay = sequence.length - 1;  // 除去起始步骤0
+            const seqLen = sequence.length;
+            
+            // 性能提示: 当渲染项大于 1500 时显示轻提醒（但浏览器仍然可承受，仅提示）
+            if (seqLen > 1200) {
+                const warnDiv = document.createElement('div');
+                warnDiv.className = 'warning-msg';
+                warnDiv.style.margin = '0 0 12px 0';
+                warnDiv.style.padding = '8px 14px';
+                warnDiv.innerHTML = '⚠️ 序列较长 (' + seqLen + ' 项)，渲染可能稍慢，请稍候。建议步数在 1500 以内保持流畅。';
+                sequenceContainer.innerHTML = '';
+                sequenceContainer.appendChild(warnDiv);
+            } else {
+                sequenceContainer.innerHTML = '';
+            }
+            
+            // 创建网格容器
+            const gridWrapper = document.createElement('div');
+            gridWrapper.className = 'sequence-grid';
+            
+            // 添加表头 (步骤 / 数值)
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'grid-header';
+            headerDiv.style.display = 'contents';
+            const stepHead = document.createElement('div');
+            stepHead.textContent = '📍 步数';
+            stepHead.style.cssText = 'position:sticky; top:0; background:#08282c; padding:10px 16px; font-weight:700;';
+            const valHead = document.createElement('div');
+            valHead.textContent = '🔢 数值 (Collatz 值)';
+            valHead.style.cssText = 'position:sticky; top:0; background:#08282c; padding:10px 16px; font-weight:700;';
+            headerDiv.appendChild(stepHead);
+            headerDiv.appendChild(valHead);
+            gridWrapper.appendChild(headerDiv);
+            
+            // 渲染每一步 (使用 DocumentFragment 提升性能)
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < sequence.length; i++) {
+                const stepItem = document.createElement('div');
+                stepItem.className = 'step-item';
+                stepItem.style.display = 'contents';
+                
+                const stepIdxDiv = document.createElement('div');
+                stepIdxDiv.className = 'step-index';
+                stepIdxDiv.textContent = `${sequence[i].step}`;
+                
+                const stepValDiv = document.createElement('div');
+                stepValDiv.className = 'step-value';
+                // 将 BigInt 以十进制字符串显示，无科学计数法
+                stepValDiv.textContent = sequence[i].value.toString();
+                // 可选: 对特别巨大的数字增加换行优化
+                if (sequence[i].value.toString().length > 50) {
+                    stepValDiv.style.wordBreak = 'break-all';
+                    stepValDiv.style.fontSize = '0.75rem';
+                }
+                
+                stepItem.appendChild(stepIdxDiv);
+                stepItem.appendChild(stepValDiv);
+                fragment.appendChild(stepItem);
+            }
+            gridWrapper.appendChild(fragment);
+            sequenceContainer.appendChild(gridWrapper);
+            
+            // 滚动到顶部方便查看
+            const containerScroll = document.querySelector('.sequence-container');
+            if (containerScroll) containerScroll.scrollTop = 0;
+        }
+        
+        // 刷新统计面板
+        function updateStats(sequence, maxValue, stopReason, actualStepsCount, maxRequestedSteps, finalValBigInt) {
+            if (!sequence || sequence.length === 0) {
+                actualStepsSpan.textContent = '0';
+                finalValueSpan.textContent = '—';
+                peakValueSpan.textContent = '—';
+                stopReasonSpan.textContent = '无数据';
+                return;
+            }
+            const finalValue = finalValBigInt !== undefined ? finalValBigInt : sequence[sequence.length-1].value;
+            actualStepsSpan.textContent = actualStepsCount;
+            finalValueSpan.textContent = finalValue.toString();
+            peakValueSpan.textContent = maxValue.toString();
+            stopReasonSpan.textContent = stopReason;
+            // 如果最终值等于1，添加视觉特效
+            if (finalValue === 1n) {
+                finalValueSpan.style.color = "#ffe5a3";
+                stopReasonSpan.style.color = "#c0eec0";
+            } else {
+                finalValueSpan.style.color = "#f5e7a7";
+                stopReasonSpan.style.color = "#bbf0e4";
+            }
+        }
+        
+        // 主计算流程
+        function computeAndDisplay() {
+            // 获取并验证输入
+            let startRaw = startInput.value.trim();
+            let maxStepsRaw = maxStepsInput.value.trim();
+            
+            let startNum;
+            let maxStepsNum;
+            
+            // 起始数字校验
+            if (startRaw === "") {
+                showBadgeMessage("❌ 请输入起始数字", true);
+                return;
+            }
+            startNum = Number(startRaw);
+            if (isNaN(startNum) || !Number.isInteger(startNum) || startNum < 1) {
+                showBadgeMessage("❌ 起始数字必须是正整数 (≥1)", true);
+                return;
+            }
+            
+            // 最大步数校验
+            if (maxStepsRaw === "") {
+                showBadgeMessage("⚠️ 请输入最大迭代次数", true);
+                return;
+            }
+            maxStepsNum = Number(maxStepsRaw);
+            if (isNaN(maxStepsNum) || !Number.isInteger(maxStepsNum) || maxStepsNum < 0) {
+                showBadgeMessage("❌ 迭代次数必须是非负整数 (≥0)", true);
+                return;
+            }
+            // 限制最大步数避免过度渲染/内存 (但允许最高2500，体验友好)
+            const MAX_LIMIT_STEPS = 2800;
+            if (maxStepsNum > MAX_LIMIT_STEPS) {
+                if (!confirm(`您设置的步数为 ${maxStepsNum}，超过推荐上限 ${MAX_LIMIT_STEPS}。\n较大的步数可能导致渲染较慢或页面卡顿，是否继续？`)) {
+                    return;
+                }
+            }
+            
+            // 额外提示: 若起始数值非常大（超过 1e8）可能会产生巨大的中间值，但 BigInt 可处理，只做文字提示
+            if (startNum > 1e8) {
+                showBadgeMessage("⚠️ 起始数极大，中间值可能非常巨大，但 BigInt 安全支持", false);
+            }
+            
+            // 开始生成序列
+            try {
+                // 转为BigInt进行精确计算
+                const startBig = BigInt(startNum);
+                const result = generateCollatzSequence(startBig, maxStepsNum);
+                const { sequence, stopReason, maxValue, actualStepsCount } = result;
+                
+                if (!sequence || sequence.length === 0) {
+                    throw new Error("序列生成失败");
+                }
+                
+                const finalVal = sequence[sequence.length-1].value;
+                
+                // 更新统计面板
+                updateStats(sequence, maxValue, stopReason, actualStepsCount, maxStepsNum, finalVal);
+                // 渲染序列表格
+                renderSequence(sequence, maxStepsNum);
+                
+                // 额外显示一些友好信息: 若实际步数小于请求步数，在infoBadge提醒
+                if (actualStepsCount < maxStepsNum && finalVal === 1n) {
+                    showBadgeMessage(`✅ 在第 ${actualStepsCount} 步抵达 1，提前终止`, false);
+                } else if (actualStepsCount === maxStepsNum && finalVal !== 1n) {
+                    showBadgeMessage(`📌 已完成 ${maxStepsNum} 次迭代，未到达 1`, false);
+                } else if (maxStepsNum === 0) {
+                    showBadgeMessage(`🔍 未进行任何迭代，仅展示起始值`, false);
+                } else {
+                    showBadgeMessage(`✨ 序列生成完毕，共 ${sequence.length} 个状态`, false);
+                }
+                
+                // 若峰值超过 1e12 加一个小标志
+                if (maxValue > 1e12) {
+                    const peakMsg = document.createElement('div');
+                    // 非阻塞提醒，可以忽略，但改badge不覆盖主消息
+                    infoBadge.style.background = "#3d7163";
+                    infoBadge.textContent = `📈 峰值极大 (${maxValue.toString().length} 位) · BigInt 安全显示`;
+                    setTimeout(() => {
+                        if(infoBadge.textContent.includes("峰值极大")) {
+                            infoBadge.style.background = "#1f574e";
+                            infoBadge.textContent = '支持 BigInt · 无溢出风险';
+                        }
+                    }, 4000);
+                }
+                
+            } catch (err) {
+                console.error(err);
+                sequenceContainer.innerHTML = `<div class="empty-message">⚠️ 计算出错: ${err.message || "无效的输入或数值溢出"}</div>`;
+                showBadgeMessage("❌ 序列生成失败，请检查输入", true);
+                actualStepsSpan.textContent = "—";
+                finalValueSpan.textContent = "—";
+                peakValueSpan.textContent = "—";
+                stopReasonSpan.textContent = "错误";
+            }
+        }
+        
+        // 重置经典示例: 27, 120步 (科拉兹经典长序列)
+        function setClassicExample() {
+            startInput.value = "27";
+            maxStepsInput.value = "120";
+            computeAndDisplay();
+            showBadgeMessage("🎓 经典示例: 起始 27，迭代 120 步 (实际到达1约111步)", false);
+        }
+        
+        // 事件绑定
+        runBtn.addEventListener('click', computeAndDisplay);
+        resetBtn.addEventListener('click', setClassicExample);
+        
+        // 回车支持: 在输入框按回车触发计算
+        startInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') computeAndDisplay(); });
+        maxStepsInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') computeAndDisplay(); });
+        
+        // 初始化默认展示: 显示27的序列，让页面立刻有内容
+        window.addEventListener('DOMContentLoaded', () => {
+            // 初始默认显示27 120步
+            computeAndDisplay();
+        });
+    })();
+</script>
+</body>
+</html>
