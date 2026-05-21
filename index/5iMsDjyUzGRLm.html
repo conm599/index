@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gemini Clone</title>
+    <style>
+        :root {
+            --bg-top: #ffffff;
+            --bg-bottom: #c9e4fb;
+            --text-main: #1f1f1f;
+            --text-secondary: #444746;
+            --primary-blue: #0b57d0;
+            --surface-color: #ffffff;
+            --border-color: #e0e2e0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(180deg, var(--bg-top) 50%, var(--bg-bottom) 100%);
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        /* 主容器 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* 顶部导航 */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            z-index: 10;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .model-selector {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        
+        .model-selector:hover { background: rgba(0,0,0,0.05); }
+
+        /* 模型下拉菜单 */
+        .dropdown-menu {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface-color);
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            width: 240px;
+            padding: 8px 0;
+            display: none;
+            z-index: 100;
+        }
+
+        .dropdown-menu.active { display: block; }
+
+        .dropdown-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .dropdown-item:hover { background: #f5f5f5; }
+        
+        .item-text-group { display: flex; flex-direction: column; }
+        .item-title { font-size: 15px; font-weight: 500; }
+        .item-subtitle { font-size: 12px; color: #757575; margin-top: 2px; }
+        .item-check { color: var(--text-main); display: none; }
+        .dropdown-item.selected .item-check { display: block; }
+        .dropdown-divider { height: 1px; background: var(--border-color); margin: 8px 0; }
+        .dropdown-footer { padding: 12px 20px; font-size: 14px; color: var(--text-secondary); display: flex; justify-content: space-between; cursor: pointer; }
+
+        /* 主屏幕欢迎区域 */
+        .hero-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: translateY(-40px);
+            transition: opacity 0.3s ease;
+        }
+
+        .star-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 20px;
+        }
+
+        .greeting-text {
+            font-size: 32px;
+            font-weight: 400;
+            font-family: "Kaiti", "STKaiti", cursive, sans-serif; /* 模拟手写/艺术字体 */
+            letter-spacing: 1px;
+        }
+
+        /* 聊天区域 (默认隐藏) */
+        .chat-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            padding-bottom: 100px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #f0f4f9;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai {
+            background: transparent;
+            align-self: flex-start;
+        }
+
+        /* 底部输入框 */
+        .bottom-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: var(--surface-color);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            z-index: 10;
+        }
+
+        .bottom-bar input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            padding: 8px 12px;
+            background: transparent;
+        }
+        
+        .bottom-bar input::placeholder { color: #8e8e8e; }
+
+        .input-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* 侧边栏 (抽屉) */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 999;
+        }
+        .sidebar-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .sidebar {
+            position: fixed;
+            top: 0; left: -300px;
+            width: 280px;
+            height: 100%;
+            background: var(--surface-color);
+            z-index: 1000;
+            transition: left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.active { left: 0; }
+
+        .sidebar-header {
+            padding: 20px;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 10px;
+        }
+
+        .history-label {
+            font-size: 12px;
+            color: #757575;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .history-list { list-style: none; }
+        .history-item {
+            padding: 12px 10px;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item:hover { background: #f5f5f5; }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .avatar {
+            width: 32px; height: 32px;
+            background: #4a90e2; color: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+        }
+        .user-info { display: flex; flex-direction: column; }
+        .user-name { font-size: 14px; font-weight: 500; }
+        .user-badge { font-size: 10px; color: #757575; }
+
+        /* API设置弹窗 */
+        .modal {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            width: 90%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 2000;
+            display: none;
+        }
+        .modal.active { display: block; }
+        .modal h3 { margin-bottom: 16px; }
+        .modal input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .modal-btns { display: flex; justify-content: flex-end; gap: 10px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; }
+        .btn-primary { background: var(--primary-blue); color: white; }
+        .btn-secondary { background: #f0f0f0; }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <header class="top-nav">
+            <button class="icon-btn" onclick="toggleSidebar()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h16M4 16h16"/></svg>
+            </button>
+
+            <div class="model-selector" onclick="toggleDropdown(event)">
+                <span id="current-model-display">Pro 扩展</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+
+            <button class="icon-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            </button>
+        </header>
+
+        <div class="dropdown-menu" id="model-dropdown">
+            <div class="dropdown-item" onclick="selectModel('3.1 Flash-Lite', '极速回答')">
+                <div class="item-text-group">
+                    <span class="item-title">3.1 Flash-Lite</span>
+                    <span class="item-subtitle">极速回答</span>
+                </div>
+                <svg class="item-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div class="dropdown-item" onclick="selectModel('3.5 Flash', '全方位帮助')">
+                <div class="item-text-group">
+                    <span class="item-title">3.5 Flash</span>
+                    <span class="item-subtitle">全方位帮助</span>
+                </div>
+                <svg class="item-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div class="dropdown-item selected" onclick="selectModel('3.1 Pro', '高等数学与代码')">
+                <div class="item-text-group">
+                    <span class="item-title">3.1 Pro</span>
+                    <span class="item-subtitle">高等数学与代码</span>
+                </div>
+                <svg class="item-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-footer">
+                <span>思考等级</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+        </div>
+
+        <main class="hero-section" id="hero-section">
+            <svg class="star-icon" viewBox="0 0 24 24">
+                <defs>
+                    <linearGradient id="geminiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#4285F4" />
+                        <stop offset="33%" stop-color="#EA4335" />
+                        <stop offset="66%" stop-color="#FBBC05" />
+                        <stop offset="100%" stop-color="#34A853" />
+                    </linearGradient>
+                </defs>
+                <path d="M12 0C12 6.627 17.373 12 24 12C17.373 12 12 17.373 12 24C12 17.373 6.627 12 0 12C6.627 12 12 6.627 12 0Z" fill="url(#geminiGrad)"/>
+            </svg>
+            <h1 class="greeting-text">wjk，今天有什么安排？</h1>
+        </main>
+
+        <main class="chat-section" id="chat-section"></main>
+
+        <div class="bottom-bar">
+            <button class="icon-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <input type="text" id="chat-input" placeholder="问问 Gemini" onkeypress="handleEnter(event)">
+            <div class="input-actions">
+                <button class="icon-btn" onclick="sendMessage()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                </button>
+                <button class="icon-btn">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l3-9 5 18 3-9h5"/></svg>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">Gemini</div>
+        <div class="sidebar-content">
+            <div class="history-label">最近</div>
+            <ul class="history-list" id="history-list">
+                </ul>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="avatar">W</div>
+                <div class="user-info">
+                    <span class="user-name">wjk w</span>
+                    <span class="user-badge">PRO</span>
+                </div>
+            </div>
+            <button class="icon-btn" onclick="openSettings()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="modal" id="settings-modal">
+        <h3>API 设置</h3>
+        <input type="text" id="api-url" placeholder="Base URL (例如: https://api.openai.com/v1)">
+        <input type="password" id="api-key" placeholder="API Key (sk-...)">
+        <input type="text" id="api-model" placeholder="实际请求的模型名 (例如: gpt-3.5-turbo)">
+        <div class="modal-btns">
+            <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
+            <button class="btn btn-primary" onclick="saveSettings()">保存</button>
+        </div>
+    </div>
+
+    <script>
+        // 状态管理
+        let chatHistory = JSON.parse(localStorage.getItem('gemini_history')) || [];
+        let config = JSON.parse(localStorage.getItem('gemini_config')) || {
+            baseUrl: '',
+            apiKey: '',
+            modelName: 'gpt-3.5-turbo'
+        };
+        let currentVisualModel = '3.1 Pro';
+
+        // 初始化
+        window.onload = () => {
+            renderHistory();
+            document.getElementById('api-url').value = config.baseUrl;
+            document.getElementById('api-key').value = config.apiKey;
+            document.getElementById('api-model').value = config.modelName;
+
+            // 点击空白处关闭下拉菜单
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.model-selector') && !e.target.closest('.dropdown-menu')) {
+                    document.getElementById('model-dropdown').classList.remove('active');
+                }
+            });
+        };
+
+        // UI 切换控制
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
+
+        function toggleDropdown(e) {
+            e.stopPropagation();
+            document.getElementById('model-dropdown').classList.toggle('active');
+        }
+
+        function selectModel(model, subtitle) {
+            currentVisualModel = model;
+            document.getElementById('current-model-display').innerText = 'Pro 扩展'; // 保持截图中的文本
+            
+            // 更新勾选状态
+            document.querySelectorAll('.dropdown-item').forEach(item => {
+                item.classList.remove('selected');
+                if(item.querySelector('.item-title').innerText === model) {
+                    item.classList.add('selected');
+                }
+            });
+            document.getElementById('model-dropdown').classList.remove('active');
+        }
+
+        function openSettings() {
+            document.getElementById('settings-modal').classList.add('active');
+            toggleSidebar();
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').classList.remove('active');
+        }
+
+        function saveSettings() {
+            config.baseUrl = document.getElementById('api-url').value.trim();
+            config.apiKey = document.getElementById('api-key').value.trim();
+            config.modelName = document.getElementById('api-model').value.trim();
+            localStorage.setItem('gemini_config', JSON.stringify(config));
+            closeSettings();
+            alert('设置已保存');
+        }
+
+        // 聊天核心逻辑
+        function handleEnter(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        async function sendMessage() {
+            const inputEl = document.getElementById('chat-input');
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            // 切换 UI 状态
+            document.getElementById('hero-section').style.display = 'none';
+            document.getElementById('chat-section').style.display = 'flex';
+            document.body.style.background = '#ffffff'; // 聊天时背景变白
+
+            // 渲染用户消息
+            appendMessage(text, 'user');
+            inputEl.value = '';
+
+            // 保存到历史记录侧边栏 (如果是第一句话)
+            if (chatHistory.length === 0 || !chatHistory.includes(text)) {
+                chatHistory.unshift(text);
+                if (chatHistory.length > 15) chatHistory.pop();
+                localStorage.setItem('gemini_history', JSON.stringify(chatHistory));
+                renderHistory();
+            }
+
+            // 添加加载状态
+            const loadingId = appendMessage('...', 'ai');
+
+            // 检查 API 配置
+            if (!config.apiKey || !config.baseUrl) {
+                updateMessage(loadingId, '请先在左侧侧边栏底部设置您的 API Key 和 Base URL。');
+                return;
+            }
+
+            // 发起请求
+            try {
+                let formattedUrl = config.baseUrl;
+                if (!formattedUrl.endsWith('/chat/completions')) {
+                    formattedUrl = formattedUrl.replace(/\/$/, '') + '/chat/completions';
+                }
+
+                const response = await fetch(formattedUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: config.modelName,
+                        messages: [{ role: "user", content: text }]
+                    })
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                if (data.choices && data.choices.length > 0) {
+                    updateMessage(loadingId, data.choices[0].message.content);
+                } else {
+                    updateMessage(loadingId, '未能获取有效回复，请检查 API 配置。');
+                }
+            } catch (error) {
+                updateMessage(loadingId, `请求失败: ${error.message}`);
+            }
+        }
+
+        function appendMessage(text, sender) {
+            const section = document.getElementById('chat-section');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            const id = 'msg_' + Date.now();
+            msgDiv.id = id;
+            msgDiv.innerText = text;
+            section.appendChild(msgDiv);
+            section.scrollTop = section.scrollHeight;
+            return id;
+        }
+
+        function updateMessage(id, text) {
+            const msgDiv = document.getElementById(id);
+            if (msgDiv) {
+                msgDiv.innerText = text;
+            }
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '';
+            // 加入截图中的一些静态历史做装饰，如果没有本地历史记录的话
+            const defaultHistory = [
+                "小说反馈与剧情走向", "疯狂星期四的划算外卖", "给我发一份新闻摘要",
+                "每日游戏兑换码搜集定时任务", "YouTube Premium Lite 广告问题...",
+                "Cloudflare Worker 代理 Gemini...", "Gemini 用量限额变更解析"
+            ];
+            
+            const renderData = chatHistory.length > 0 ? chatHistory : defaultHistory;
+            
+            renderData.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerText = item;
+                // 点击历史记录时，直接填入输入框
+                li.onclick = () => {
+                    document.getElementById('chat-input').value = item;
+                    toggleSidebar();
+                };
+                list.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
